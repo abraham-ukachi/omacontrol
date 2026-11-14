@@ -10,10 +10,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use omacontrol_core::ir::Pattern;
-use omacontrol_core::{connect, discover, AcChange, AcFan, AcMode, AcProtocol, AcState, App, Brand, Device, IrTransmitter, Key, Remote, Store, Theme as OmaTheme, Transport};
+use omacontrol_core::{connect, discover, AcChange, AcProtocol, App, Brand, Device, IrTransmitter, Key, Remote, Store, Theme as OmaTheme, Transport};
 use slint::{Color, ModelRc, SharedString, VecModel};
 
 slint::include_modules!();
@@ -54,17 +54,15 @@ enum Job {
     Ac(Vec<Pattern>),
 }
 
-/// The state setup sends to see whether a protocol works: on, cool, 22 °C, low fan.
-const AC_TEST: AcState = AcState { power: true, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false };
-
 /// Shows an air conditioner on the AC page.
 fn show_ac(ui: &AppWindow, d: &Device) {
     let s = d.ac_state;
     ui.set_current_is_ac(true);
     ui.set_ac_name(d.name.clone().into());
-    ui.set_ac_status(match d.ac_protocol {
-        Some(p) => format!("{} · IR", p.label()).into(),
-        None => "not set up yet".into(),
+    ui.set_ac_status(match (&d.ac_protocol, d.ac_code.is_some()) {
+        (_, true) => "code · IR".into(),
+        (Some(p), false) => format!("{} · IR", p.label()).into(),
+        (None, false) => "not set up yet".into(),
     });
     ui.set_ac_power(s.power);
     ui.set_ac_temp(s.temp as i32);
@@ -110,7 +108,7 @@ fn rows(store: &Store) -> ModelRc<DeviceRow> {
         .iter()
         .map(|d| DeviceRow {
             name: d.name.clone().into(),
-            meta: if d.is_ac() { match d.ac_protocol { Some(p) => format!("{} · IR", p.label()).into(), None => "IR · tap to set up".into() } } else if d.transport == Transport::Infrared { format!("{} · IR", d.brand.label()).into() } else if d.model.is_empty() { d.brand.label().into() } else { format!("{} · {}", d.model, d.brand.label()).into() },
+            meta: if d.is_ac() { match (&d.ac_protocol, d.ac_code.is_some()) { (_, true) => "code · IR".into(), (Some(p), false) => format!("{} · IR", p.label()).into(), (None, false) => "IR · tap to set up".into() } } else if d.transport == Transport::Infrared { format!("{} · IR", d.brand.label()).into() } else if d.model.is_empty() { d.brand.label().into() } else { format!("{} · {}", d.model, d.brand.label()).into() },
             ip: if d.transport == Transport::Infrared { "IR".into() } else { d.ip.rsplit('.').next().unwrap_or_default().into() },
             current: store.current.as_deref() == Some(d.ip.as_str()),
             ac: d.is_ac(),
@@ -233,25 +231,39 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         }
     });
 
-    let (tx, st, weak, idx) = (jobs.clone(), store.clone(), ui.as_weak(), setup_index.clone());
+    let pasted = Rc::new(RefCell::new(String::new()));
+    let typed = pasted.clone();
+    ui.on_ac_code_changed(move |text| { *typed.borrow_mut() = text.to_string(); });
+
+    let (tx, st, weak, idx, pasted) = (jobs.clone(), store.clone(), ui.as_weak(), setup_index.clone(), pasted);
     ui.on_ac_setup(move |step| {
         let Some(ui) = weak.upgrade() else { return };
         let protocol = AcProtocol::ALL[idx.get()];
         match step.as_str() {
             "test" => {
-                let _ = tx.send(Job::Ac(protocol.frames(&AC_TEST, AcChange::State)));
+                let _ = tx.send(Job::Ac(protocol.test_frames()));
                 show_ac_setup(&ui, idx.get(), true);
             }
             "next" => {
                 idx.set((idx.get() + 1) % AcProtocol::ALL.len());
                 show_ac_setup(&ui, idx.get(), false);
             }
+            "code" => match omacontrol_core::ac::custom_frames(&pasted.borrow().clone()) {
+                Ok(frames) => {
+                    let _ = tx.send(Job::Ac(frames));
+                    show_ac_setup(&ui, idx.get(), true);
+                }
+                Err(e) => ui.set_ac_setup_protocol(format!("{e}").into()),
+            },
             _ => {
                 let mut s = st.lock().unwrap();
                 let Some(ip) = s.current.clone() else { return };
+                let code = pasted.borrow().clone();
+                let pasted_code = (!code.is_empty() && omacontrol_core::ac::custom_frames(&code).is_ok()).then_some(code);
                 if let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip) {
-                    d.ac_protocol = Some(protocol);
-                    d.ac_state = AC_TEST;
+                    d.ac_protocol = if pasted_code.is_some() { None } else { Some(protocol) };
+                    d.ac_code = pasted_code;
+                    d.ac_state = omacontrol_core::ac::TEST_STATE;
                     let d = d.clone();
                     let _ = s.save();
                     ui.set_devices(rows(&s));
@@ -268,6 +280,20 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         let mut s = st.lock().unwrap();
         let Some(ip) = s.current.clone() else { return };
         let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else { return };
+        if let Some(code) = d.ac_code.clone() {
+            // A pasted code is one command (usually power); the state keys have nothing to send.
+            if action.as_str() != "power" {
+                return;
+            }
+            d.ac_state.power = !d.ac_state.power;
+            let Ok(frames) = omacontrol_core::ac::custom_frames(&code) else { return };
+            let d = d.clone();
+            let _ = s.save();
+            drop(s);
+            show_ac(&ui, &d);
+            let _ = tx.send(Job::Ac(frames));
+            return;
+        }
         let Some(protocol) = d.ac_protocol else { return };
         let state = &mut d.ac_state;
         let change = match action.as_str() {
