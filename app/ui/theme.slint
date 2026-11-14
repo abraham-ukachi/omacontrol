@@ -1,0 +1,20 @@
+// The Omarchy theme, painted the Omacalc way.
+// Rust sets every color from `omacontrol_core::Theme` (background, foreground, accent and their mixes).
+
+export global Theme {
+    in property <string> name: "Tokyo Night";
+    in property <color> bg: #1a1b26;
+    in property <color> fg: #a9b1d6;
+    in property <color> accent: #7aa2f7;
+    // Mixes of the foreground into the background (see crates/omacontrol-core/src/theme.rs).
+    in property <color> key: #20212d;          // 5%
+    in property <color> key-pressed: #2f3241;  // 14%
+    in property <color> key-border: #2c2e3c;   // 13%
+    in property <color> operator: #32354a;     // 16%
+    in property <color> operator-pressed: #42465c;
+    in property <color> primary-pressed: #8a90b0;
+    in property <color> divider: #32354a;      // 16%
+    in property <color> muted: #626684;        // 50%
+    out property <length> radius: 14px;
+    out property <length> gap: 12px;
+}

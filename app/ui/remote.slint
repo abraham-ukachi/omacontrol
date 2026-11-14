@@ -1,0 +1,75 @@
+import { Theme } from "theme.slint";
+import { Key, KeyKind, Rocker, Header, Divider } from "widgets.slint";
+
+// 02 · Remote.
+export component RemotePage inherits VerticalLayout {
+    in property <string> tv-name;
+    in property <string> tv-status;
+    in property <bool> online;
+    callback menu;
+    callback press(string);
+    callback keypad;
+    callback keyboard;
+
+    spacing: Theme.gap;
+    Header { title: root.tv-name; subtitle: root.tv-status; online: root.online; menu => { root.menu(); } }
+    Divider { }
+    HorizontalLayout {
+        height: 58px;
+        spacing: Theme.gap;
+        Key { has-icon: true; icon: @image-url("icons/power.svg"); clicked => { root.press("power"); } }
+        Key { has-icon: true; icon: @image-url("icons/input.svg"); clicked => { root.press("input"); } }
+        Key { has-icon: true; icon: @image-url("icons/mute.svg"); clicked => { root.press("mute"); } }
+        Key { has-icon: true; icon: @image-url("icons/grid.svg"); kind: KeyKind.operator; clicked => { root.keypad(); } }
+    }
+    GridLayout {
+        spacing: Theme.gap;
+        padding-top: 10px;
+        min-height: 260px;
+        vertical-stretch: 1;
+        Row {
+            Rectangle { }
+            Key { has-icon: true; icon: @image-url("icons/up.svg"); icon-size: 30px; clicked => { root.press("up"); } }
+            Rectangle { }
+        }
+        Row {
+            Key { has-icon: true; icon: @image-url("icons/left.svg"); icon-size: 30px; clicked => { root.press("left"); } }
+            Key { label: "OK"; kind: KeyKind.primary; font-size: 22px; clicked => { root.press("ok"); } }
+            Key { has-icon: true; icon: @image-url("icons/right.svg"); icon-size: 30px; clicked => { root.press("right"); } }
+        }
+        Row {
+            Rectangle { }
+            Key { has-icon: true; icon: @image-url("icons/down.svg"); icon-size: 30px; clicked => { root.press("down"); } }
+            Rectangle { }
+        }
+    }
+    HorizontalLayout {
+        height: 58px;
+        spacing: Theme.gap;
+        padding-top: 0px;
+        Key { has-icon: true; icon: @image-url("icons/back.svg"); clicked => { root.press("back"); } }
+        Key { has-icon: true; icon: @image-url("icons/home.svg"); clicked => { root.press("home"); } }
+        Key { has-icon: true; icon: @image-url("icons/menu.svg"); clicked => { root.press("menu"); } }
+    }
+    HorizontalLayout {
+        spacing: Theme.gap;
+        min-height: 220px;
+        vertical-stretch: 1;
+        Rocker { horizontal-stretch: 1.4; label: "VOL"; up => { root.press("vol+"); } down => { root.press("vol-"); } }
+        GridLayout {
+            horizontal-stretch: 3;
+            spacing: Theme.gap;
+            Row {
+                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/rew.svg"); clicked => { root.press("rew"); } }
+                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/play.svg"); clicked => { root.press("play"); } }
+                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/ff.svg"); clicked => { root.press("ff"); } }
+            }
+            Row {
+                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/kbd.svg"); clicked => { root.keyboard(); } }
+                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/home.svg"); clicked => { root.press("home"); } }
+                Key { label: "123"; clicked => { root.keypad(); } }
+            }
+        }
+        Rocker { horizontal-stretch: 1.4; label: "CH"; up => { root.press("ch+"); } down => { root.press("ch-"); } }
+    }
+}

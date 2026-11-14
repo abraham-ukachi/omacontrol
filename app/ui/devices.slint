@@ -1,0 +1,100 @@
+import { Theme } from "theme.slint";
+import { Key, KeyKind, Header, Divider } from "widgets.slint";
+
+export struct DeviceRow {
+    name: string,
+    meta: string,
+    ip: string,
+    current: bool,
+}
+
+// 01 · TVs on your network.
+export component DevicesPage inherits VerticalLayout {
+    in property <[DeviceRow]> devices;
+    in property <bool> scanning;
+    in property <string> subnet;
+    callback menu;
+    callback pick(int);
+    callback rescan;
+    callback add-ip(string);
+    callback add-ir(string);
+    in property <bool> has-ir;
+
+    property <bool> adding: false;
+
+    spacing: Theme.gap;
+    Header { title: "TVs"; menu => { root.menu(); } }
+    VerticalLayout {
+        padding: 8px;
+        padding-top: 22px;
+        spacing: 8px;
+        Text { text: root.scanning ? "scanning " + root.subnet : root.subnet; color: Theme.muted; font-size: 19px; }
+        Text {
+            text: root.scanning && root.devices.length == 0 ? "…" : root.devices.length + " found";
+            color: Theme.fg; font-size: 64px; horizontal-alignment: right;
+        }
+    }
+    Divider { }
+    Flickable {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            spacing: Theme.gap;
+            for d[i] in root.devices: Rectangle {
+                height: 72px;
+                border-radius: Theme.radius;
+                background: d.current ? Theme.operator : (row.pressed ? Theme.key-pressed : Theme.key);
+                border-width: d.current ? 0px : 1px;
+                border-color: Theme.key-border;
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 18px;
+                    spacing: 14px;
+                    VerticalLayout { alignment: center; Image { source: @image-url("icons/tv.svg"); colorize: Theme.fg; width: 28px; height: 28px; } }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 5px;
+                        Text { text: d.name; color: Theme.fg; font-size: 17px; overflow: elide; }
+                        Text { text: d.meta; color: Theme.muted; font-size: 13px; overflow: elide; }
+                    }
+                    if d.current: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
+                    if !d.current: Text { text: d.ip; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                }
+                row := TouchArea { clicked => { root.pick(i); } }
+            }
+        }
+    }
+    // With an IR blaster, any Samsung, LG or Sony TV in the room works, even without Wi-Fi.
+    if root.adding && root.has-ir: HorizontalLayout {
+        height: 52px;
+        spacing: Theme.gap;
+        for b in ["Samsung", "LG", "Sony"]: Key {
+            label: "IR · " + b;
+            kind: KeyKind.operator;
+            font-size: 15px;
+            clicked => { root.add-ir(b); root.adding = false; }
+        }
+    }
+    if root.adding: Rectangle {
+        height: 64px;
+        border-radius: Theme.radius;
+        background: Theme.key;
+        border-width: 1px;
+        border-color: Theme.key-border;
+        ip := TextInput {
+            x: 18px;
+            width: parent.width - 36px;
+            color: Theme.fg;
+            font-size: 18px;
+            vertical-alignment: center;
+                        accepted => { root.add-ip(self.text); root.adding = false; }
+        }
+        if ip.text == "": Text { x: 18px; text: "192.168.1.…"; color: Theme.muted; font-size: 18px; }
+    }
+    HorizontalLayout {
+        height: 64px;
+        spacing: Theme.gap;
+        Key { label: root.adding ? "Cancel" : "Add TV"; font-size: 17px; clicked => { root.adding = !root.adding; } }
+        Key { label: "Rescan"; kind: KeyKind.primary; font-size: 17px; clicked => { root.rescan(); } }
+    }
+}

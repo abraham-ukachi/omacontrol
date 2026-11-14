@@ -1,0 +1,106 @@
+import { Theme } from "theme.slint";
+import { Key, KeyKind, Header, Divider } from "widgets.slint";
+
+// 03 · Channels, apps & typing.
+export component KeypadPage inherits VerticalLayout {
+    in property <string> tv-name;
+    in property <[string]> apps;
+    in-out property <string> channel;
+    in property <bool> focus-text: false;
+    callback menu;
+    callback press(string);
+    callback launch(string);
+    callback send-text(string);
+
+    spacing: Theme.gap;
+    Header { title: root.tv-name; menu => { root.menu(); } }
+    VerticalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 8px;
+        Text { text: "channel"; color: Theme.muted; font-size: 19px; }
+        Text { text: root.channel == "" ? "_" : root.channel; color: Theme.fg; font-size: 76px; horizontal-alignment: right; overflow: elide; }
+    }
+    Divider { }
+    HorizontalLayout {
+        spacing: Theme.gap;
+        height: 52px;
+        Key { label: root.apps[0]; font-size: 15px; clicked => { root.launch(root.apps[0]); } }
+        Key { label: root.apps[1]; font-size: 15px; clicked => { root.launch(root.apps[1]); } }
+        Key { label: root.apps[2]; font-size: 15px; clicked => { root.launch(root.apps[2]); } }
+    }
+    HorizontalLayout {
+        spacing: Theme.gap;
+        height: 52px;
+        Key { label: root.apps[3]; font-size: 15px; clicked => { root.launch(root.apps[3]); } }
+        Key { label: root.apps[4]; font-size: 15px; clicked => { root.launch(root.apps[4]); } }
+        Key { label: root.apps[5]; font-size: 15px; clicked => { root.launch(root.apps[5]); } }
+    }
+    GridLayout {
+        spacing: Theme.gap;
+        vertical-stretch: 1;
+        Row {
+            Key { label: "1"; font-size: 26px; clicked => { root.digit("1"); } }
+            Key { label: "2"; font-size: 26px; clicked => { root.digit("2"); } }
+            Key { label: "3"; font-size: 26px; clicked => { root.digit("3"); } }
+            Key { label: "CH+"; kind: KeyKind.operator; font-size: 16px; clicked => { root.press("ch+"); } }
+        }
+        Row {
+            Key { label: "4"; font-size: 26px; clicked => { root.digit("4"); } }
+            Key { label: "5"; font-size: 26px; clicked => { root.digit("5"); } }
+            Key { label: "6"; font-size: 26px; clicked => { root.digit("6"); } }
+            Key { label: "CH−"; kind: KeyKind.operator; font-size: 16px; clicked => { root.press("ch-"); } }
+        }
+        Row {
+            Key { label: "7"; font-size: 26px; clicked => { root.digit("7"); } }
+            Key { label: "8"; font-size: 26px; clicked => { root.digit("8"); } }
+            Key { label: "9"; font-size: 26px; clicked => { root.digit("9"); } }
+            Key { label: "VOL+"; kind: KeyKind.operator; font-size: 16px; clicked => { root.press("vol+"); } }
+        }
+        Row {
+            Key { label: "—"; font-size: 26px; clicked => { root.digit("dash"); } }
+            Key { label: "0"; font-size: 26px; clicked => { root.digit("0"); } }
+            Key { has-icon: true; icon: @image-url("icons/bksp.svg"); icon-size: 28px; clicked => { root.channel = ""; } }
+            Key { label: "VOL−"; kind: KeyKind.operator; font-size: 16px; clicked => { root.press("vol-"); } }
+        }
+    }
+    HorizontalLayout {
+        height: 72px;
+        spacing: Theme.gap;
+        Rectangle {
+            horizontal-stretch: 3;
+            border-radius: Theme.radius;
+            background: Theme.key;
+            border-width: 1px;
+            border-color: Theme.key-border;
+            text := TextInput {
+                x: 18px;
+                width: parent.width - 36px;
+                color: Theme.fg;
+                font-size: 16px;
+                vertical-alignment: center;
+                accepted => { root.go(); }
+            }
+            if text.text == "": Text { x: 18px; text: "type to TV…"; color: Theme.muted; font-size: 16px; }
+        }
+        Key { horizontal-stretch: 1; label: "GO"; kind: KeyKind.primary; font-size: 22px; clicked => { root.go(); } }
+    }
+
+    // Digits go to the TV straight away; the display just echoes them.
+    function digit(d: string) {
+        root.channel = d == "dash" ? root.channel + "-" : root.channel + d;
+        root.press(d);
+    }
+    function go() {
+        if text.text != "" {
+            root.send-text(text.text);
+            text.text = "";
+        } else {
+            root.press("ok");
+            root.channel = "";
+        }
+    }
+    public function focus-keyboard() {
+        text.focus();
+    }
+}

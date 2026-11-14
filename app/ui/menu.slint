@@ -1,0 +1,40 @@
+import { Theme } from "theme.slint";
+import { Header, Divider } from "widgets.slint";
+
+// The menu: where to go, and the Omarchy theme.
+export component MenuPage inherits VerticalLayout {
+    in property <[string]> themes;
+    in property <string> version;
+    callback close;
+    callback goto(int);
+    callback pick-theme(string);
+
+    spacing: Theme.gap;
+    Header { title: "OmaControl"; subtitle: "v" + root.version; menu => { root.close(); } }
+    Divider { }
+    for item[i] in ["TVs", "Remote", "Channels & apps"]: Rectangle {
+        height: 48px;
+        Text { x: 8px; text: item; color: Theme.fg; font-size: 19px; }
+        TouchArea { clicked => { root.goto(i); } }
+    }
+    Divider { }
+    Text { x: 8px; text: "theme"; color: Theme.muted; font-size: 15px; }
+    Flickable {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            for t in root.themes: Rectangle {
+                height: 44px;
+                border-radius: Theme.radius;
+                background: t == Theme.name ? Theme.operator : transparent;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 16px;
+                    Text { text: t; color: Theme.fg; font-size: 16px; vertical-alignment: center; }
+                    if t == Theme.name: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
+                }
+                TouchArea { clicked => { root.pick-theme(t); } }
+            }
+        }
+    }
+}

@@ -1,0 +1,90 @@
+import "fonts/iAWriterMonoS-Regular.ttf";
+import { Theme } from "theme.slint";
+import { DevicesPage, DeviceRow } from "devices.slint";
+import { RemotePage } from "remote.slint";
+import { KeypadPage } from "keypad.slint";
+import { MenuPage } from "menu.slint";
+
+export { Theme, DeviceRow }
+
+// Pages: 0 TVs · 1 Remote · 2 Channels & apps · 3 Menu
+export component AppWindow inherits Window {
+    title: "OmaControl";
+    preferred-width: 400px;
+    preferred-height: 868px;
+    background: Theme.bg;
+    default-font-family: "iA Writer Mono S";
+
+    in-out property <int> page: 0;
+    property <int> back-page: 0;
+    in property <length> inset-top: 0px;
+    in property <length> inset-bottom: 0px;
+
+    in property <[DeviceRow]> devices;
+    in property <bool> scanning;
+    in property <string> subnet: "your network";
+    in property <string> tv-name: "No TV";
+    in property <string> tv-status: "pick a TV";
+    in property <bool> online;
+    in property <[string]> apps;
+    in property <[string]> themes;
+    in property <string> version;
+    in property <bool> has-ir;
+
+    callback rescan;
+    callback pick(int);
+    callback add-ip(string);
+    callback add-ir(string);
+    callback press(string);
+    callback launch(string);
+    callback send-text(string);
+    callback pick-theme(string);
+
+    function open-menu() {
+        root.back-page = root.page;
+        root.page = 3;
+    }
+
+    Rectangle {
+        x: 20px;
+        y: root.inset-top + 8px;
+        width: root.width - 40px;
+        height: root.height - root.inset-top - root.inset-bottom - 28px;
+
+        if root.page == 0: DevicesPage {
+            devices: root.devices;
+            scanning: root.scanning;
+            subnet: root.subnet;
+            menu => { root.open-menu(); }
+            pick(i) => { root.pick(i); }
+            rescan => { root.rescan(); }
+            add-ip(ip) => { root.add-ip(ip); }
+            has-ir: root.has-ir;
+            add-ir(b) => { root.add-ir(b); }
+        }
+        if root.page == 1: RemotePage {
+            tv-name: root.tv-name;
+            tv-status: root.tv-status;
+            online: root.online;
+            menu => { root.open-menu(); }
+            press(k) => { root.press(k); }
+            keypad => { root.page = 2; }
+            keyboard => { root.page = 2; }
+        }
+        if root.page == 2: KeypadPage {
+            tv-name: root.tv-name;
+            apps: root.apps;
+            menu => { root.open-menu(); }
+            press(k) => { root.press(k); }
+            launch(a) => { root.launch(a); }
+            send-text(t) => { root.send-text(t); }
+        }
+        if root.page == 3: MenuPage {
+            themes: root.themes;
+            version: root.version;
+            close => { root.page = root.back-page; }
+            goto(i) => { root.page = i; }
+            pick-theme(t) => { root.pick-theme(t); }
+        }
+    }
+}

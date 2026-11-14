@@ -1,0 +1,114 @@
+import { Theme } from "theme.slint";
+
+export enum KeyKind { number, operator, primary }
+
+// One key: numbers sit almost flush with the page, operators lift a step lighter,
+// and the primary key (OK, GO, Rescan) inverts to the ink color, like Omacalc's `=`.
+export component Key inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <KeyKind> kind: KeyKind.number;
+    in property <length> font-size: 20px;
+    in property <length> icon-size: 26px;
+    callback clicked;
+
+    border-radius: Theme.radius;
+    border-width: root.kind == KeyKind.number ? 1px : 0px;
+    border-color: Theme.key-border;
+    background: root.kind == KeyKind.primary ? (touch.pressed ? Theme.primary-pressed : Theme.fg)
+        : root.kind == KeyKind.operator ? (touch.pressed ? Theme.operator-pressed : Theme.operator)
+        : (touch.pressed ? Theme.key-pressed : Theme.key);
+    animate background { duration: 90ms; }
+
+    if !root.has-icon: Text {
+        text: root.label;
+        color: root.kind == KeyKind.primary ? Theme.bg : Theme.fg;
+        font-size: root.font-size;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.has-icon: Image {
+        source: root.icon;
+        colorize: root.kind == KeyKind.primary ? Theme.bg : Theme.fg;
+        width: root.icon-size;
+        height: root.icon-size;
+    }
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// A tall rocker (VOL, CH): + on top, its name in the middle, − at the bottom.
+export component Rocker inherits Rectangle {
+    in property <string> label;
+    callback up;
+    callback down;
+
+    border-radius: Theme.radius;
+    background: Theme.operator;
+
+    Rectangle {
+        y: 0;
+        height: parent.height / 2;
+        border-radius: Theme.radius;
+        background: top.pressed ? Theme.operator-pressed : transparent;
+        Text { y: 16px; text: "+"; color: Theme.fg; font-size: 22px; }
+        top := TouchArea { clicked => { root.up(); } }
+    }
+    Rectangle {
+        y: parent.height / 2;
+        height: parent.height / 2;
+        border-radius: Theme.radius;
+        background: bottom.pressed ? Theme.operator-pressed : transparent;
+        Text { y: parent.height - self.height - 16px; text: "−"; color: Theme.fg; font-size: 22px; }
+        bottom := TouchArea { clicked => { root.down(); } }
+    }
+    Text { text: root.label; color: Theme.muted; font-size: 13px; }
+}
+
+// Three offset lines, top right, like Omacalc's menu button.
+export component Hamburger inherits Rectangle {
+    callback clicked;
+    width: 44px;
+    height: 44px;
+    VerticalLayout {
+        alignment: center;
+        spacing: 6px;
+        for w in [30px, 22px, 30px]: HorizontalLayout {
+            alignment: end;
+            Rectangle { width: w; height: 2px; border-radius: 1px; background: Theme.fg; opacity: 0.55; }
+        }
+    }
+    TouchArea { clicked => { root.clicked(); } }
+}
+
+export component Divider inherits Rectangle {
+    height: 1px;
+    background: Theme.divider;
+}
+
+// The page title, an optional subtitle with the accent dot, and the menu button.
+export component Header inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <bool> online: false;
+    callback menu;
+
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 18px;
+    padding-bottom: 6px;
+    VerticalLayout {
+        spacing: 6px;
+        alignment: center;
+        Text { text: root.title; color: Theme.fg; font-size: 21px; }
+        if root.subtitle != "": HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            if root.online: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
+            Text { text: root.subtitle; color: Theme.muted; font-size: 14px; overflow: elide; }
+        }
+    }
+    Hamburger { clicked => { root.menu(); } }
+}
