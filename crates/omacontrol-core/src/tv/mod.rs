@@ -84,6 +84,10 @@ pub struct Device {
     /// Air conditioners: the IR protocol that made it beep (None until setup finds it).
     #[serde(default)]
     pub ac_protocol: Option<crate::ac::AcProtocol>,
+    /// Air conditioners: a pasted Pronto code, when no protocol above reaches the unit.
+    /// The power key sends it; the other keys do nothing.
+    #[serde(default)]
+    pub ac_code: Option<String>,
     /// Air conditioners: the last state we sent (IR is one way, so we remember it).
     #[serde(default)]
     pub ac_state: crate::ac::AcState,
@@ -91,14 +95,14 @@ pub struct Device {
 
 impl Device {
     pub fn new(name: &str, model: &str, brand: Brand, ip: &str) -> Device {
-        Device { name: name.into(), model: model.into(), brand, ip: ip.into(), token: None, kind: DeviceKind::Tv, transport: Transport::Network, ac_protocol: None, ac_state: Default::default() }
+        Device { name: name.into(), model: model.into(), brand, ip: ip.into(), token: None, kind: DeviceKind::Tv, transport: Transport::Network, ac_protocol: None, ac_code: None, ac_state: Default::default() }
     }
 
     /// A TV driven by the IR blaster. Its `ip` is a stable id (`ir:samsung`), not an address.
     pub fn infrared_tv(brand: Brand) -> Device {
         let id = format!("ir:{}", format!("{brand:?}").to_lowercase());
         let name = format!("{} TV", brand.label().split(' ').next().unwrap_or("IR"));
-        Device { name, model: "infrared".into(), brand, ip: id, token: None, kind: DeviceKind::Tv, transport: Transport::Infrared, ac_protocol: None, ac_state: Default::default() }
+        Device { name, model: "infrared".into(), brand, ip: id, token: None, kind: DeviceKind::Tv, transport: Transport::Infrared, ac_protocol: None, ac_code: None, ac_state: Default::default() }
     }
 
     /// An air conditioner driven by the IR blaster. `n` keeps several ACs apart (`ir:ac:2`).
@@ -113,6 +117,7 @@ impl Device {
             kind: DeviceKind::AirConditioner,
             transport: Transport::Infrared,
             ac_protocol: None,
+            ac_code: None,
             ac_state: Default::default(),
         }
     }
