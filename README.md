@@ -62,8 +62,8 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 | 2 | *`LG`* (webOS) | Wi‑Fi · SSAP `:3001` / `:3000` + pointer socket | press **Yes** on the TV once | ✅ 0.1.0 |
 | 3 | *`Roku`* / Roku TV | Wi‑Fi · ECP HTTP `:8060` | none | ✅ 0.1.0 |
 | 4 | *`Samsung`*, *`LG`*, *`Sony`* | Infrared (phone's IR blaster) | none | ✅ 0.1.0 |
-| 5 | *`Android TV`* / Google TV | Wi‑Fi · Android TV Remote v2 `:6466` | PIN shown on the TV | 🚧 0.2.0 |
-| 6 | *`Air conditioners`* (fixed & portable) | Infrared (state-based codes) | none | 🗺️ 0.3.0 |
+| 5 | *`Air conditioners`* (fixed & portable): Midea, Coolix, Gree, TCL protocols (Cecotec, Comfee, Kaysun, Toshiba, Beko, Gree, TCL...) | Infrared (state-based codes) | tap **Test** until the AC beeps | 🧪 0.2.0 |
+| 6 | *`Android TV`* / Google TV | Wi‑Fi · Android TV Remote v2 `:6466` | PIN shown on the TV | 🗺️ 0.3.0 |
 
 
 ## Tech stack & versions 🧰
@@ -111,8 +111,9 @@ Every push to `main` builds an APK in GitHub Actions (artifact `omacontrol-apk`)
 - [x] 📺 Samsung, LG & Roku over Wi‑Fi
 - [x] 🔴 Samsung, LG & Sony over IR
 - [x] 🎨 All Omarchy themes
+- [x] ❄️ Air conditioners over IR: power, mode, temperature, fan, swing, sleep (fixed & portable)
+- [ ] ⏲️ AC timer
 - [ ] 🤖 Android TV / Google TV (Remote v2 + PIN pairing)
-- [ ] ❄️ Air conditioners over IR: mode, temperature, fan, swing, timer (fixed & portable)
 - [ ] 📚 More IR code sets (Pronto import, learn from an IR database)
 - [ ] 🐧 OmaControl on Omarchy itself (follows the live theme from `~/.local/state/omarchy/current/theme/colors.toml`)
 - [ ] 🔊 Soundbars, projectors, set-top boxes...

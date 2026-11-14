@@ -12,7 +12,7 @@ export component MenuPage inherits VerticalLayout {
     spacing: Theme.gap;
     Header { title: "OmaControl"; subtitle: "v" + root.version; menu => { root.close(); } }
     Divider { }
-    for item[i] in ["TVs", "Remote", "Channels & apps"]: Rectangle {
+    for item[i] in ["Devices", "Remote", "Channels & apps"]: Rectangle {
         height: 48px;
         Text { x: 8px; text: item; color: Theme.fg; font-size: 19px; }
         TouchArea { clicked => { root.goto(i); } }

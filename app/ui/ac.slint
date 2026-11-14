@@ -1,0 +1,108 @@
+import { Theme } from "theme.slint";
+import { Key, KeyKind, Header, Divider } from "widgets.slint";
+
+// A toggle key (swing, sleep): an accent dot in the corner while it's on.
+component Toggle inherits Key {
+    in property <bool> on;
+    kind: KeyKind.operator;
+    Rectangle {
+        x: parent.width - 20px;
+        y: 12px;
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: Theme.accent;
+        visible: root.on;
+    }
+}
+
+// 04 · Air conditioner, laid out like its own panel: power, mode, fan, − 22° +, sleep, swing.
+export component AcPage inherits VerticalLayout {
+    in property <string> name;
+    in property <string> status;
+    in property <bool> power;
+    in property <int> temp;
+    in property <string> mode;
+    in property <string> fan;
+    in property <bool> swing;
+    in property <bool> sleep;
+    callback menu;
+    callback action(string);
+
+    spacing: Theme.gap;
+    Header { title: root.name; subtitle: root.status; online: root.power; menu => { root.menu(); } }
+    VerticalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 14px;
+        spacing: 4px;
+        Text { text: root.power ? root.mode + " · fan " + root.fan : "off"; color: Theme.muted; font-size: 19px; }
+        Text {
+            text: root.mode == "fan" ? "fan" : root.temp + "°";
+            color: root.power ? Theme.fg : Theme.muted;
+            font-size: 112px;
+            horizontal-alignment: right;
+        }
+    }
+    Divider { }
+    HorizontalLayout {
+        height: 72px;
+        spacing: Theme.gap;
+        Key { has-icon: true; icon: @image-url("icons/power.svg"); kind: root.power ? KeyKind.primary : KeyKind.number; clicked => { root.action("power"); } }
+        Key { label: root.mode; font-size: 18px; clicked => { root.action("mode"); } }
+        Key { has-icon: true; icon: @image-url("icons/fan.svg"); clicked => { root.action("fan"); } }
+    }
+    HorizontalLayout {
+        spacing: Theme.gap;
+        vertical-stretch: 1;
+        min-height: 150px;
+        Key { label: "−"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("cooler"); } }
+        Key { label: "+"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("warmer"); } }
+    }
+    HorizontalLayout {
+        height: 72px;
+        spacing: Theme.gap;
+        Toggle { has-icon: true; icon: @image-url("icons/sleep.svg"); on: root.sleep; clicked => { root.action("sleep"); } }
+        Toggle { has-icon: true; icon: @image-url("icons/swing.svg"); on: root.swing; clicked => { root.action("swing"); } }
+    }
+}
+
+// 05 · AC setup. The phone can't listen to IR, so we try each protocol until the AC beeps.
+export component AcSetupPage inherits VerticalLayout {
+    in property <string> protocol;
+    in property <int> index;
+    in property <int> count;
+    in property <bool> tested;
+    callback menu;
+    callback setup(string);
+
+    spacing: Theme.gap;
+    Header { title: "New air conditioner"; subtitle: "point your phone at it"; menu => { root.menu(); } }
+    VerticalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 14px;
+        spacing: 4px;
+        Text { text: "code " + (root.index + 1) + " of " + root.count; color: Theme.muted; font-size: 19px; }
+        Text { text: root.protocol; color: Theme.fg; font-size: 76px; horizontal-alignment: right; overflow: elide; }
+    }
+    Divider { }
+    Text {
+        x: 8px;
+        width: parent.width - 16px;
+        wrap: word-wrap;
+        color: Theme.muted;
+        font-size: 16px;
+        text: root.tested
+            ? "Did it beep or switch on? If so, tap \"It works\". If not, try the next code."
+            : "Turn the AC off, stand a couple of meters away, aim the top of your phone at it, and tap Test. It should switch on in cool mode at 22°.";
+    }
+    Rectangle { vertical-stretch: 1; }
+    HorizontalLayout {
+        height: 72px;
+        spacing: Theme.gap;
+        Key { label: "Test"; font-size: 19px; clicked => { root.setup("test"); } }
+        Key { label: "Next"; kind: KeyKind.operator; font-size: 19px; clicked => { root.setup("next"); } }
+    }
+    Key { height: 72px; label: "It works"; kind: KeyKind.primary; font-size: 20px; clicked => { root.setup("ok"); } }
+}

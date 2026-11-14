@@ -6,6 +6,7 @@ export struct DeviceRow {
     meta: string,
     ip: string,
     current: bool,
+    ac: bool,
 }
 
 // 01 · TVs on your network.
@@ -18,12 +19,13 @@ export component DevicesPage inherits VerticalLayout {
     callback rescan;
     callback add-ip(string);
     callback add-ir(string);
+    callback add-ac();
     in property <bool> has-ir;
 
     property <bool> adding: false;
 
     spacing: Theme.gap;
-    Header { title: "TVs"; menu => { root.menu(); } }
+    Header { title: "Devices"; menu => { root.menu(); } }
     VerticalLayout {
         padding: 8px;
         padding-top: 22px;
@@ -50,7 +52,7 @@ export component DevicesPage inherits VerticalLayout {
                     padding-left: 14px;
                     padding-right: 18px;
                     spacing: 14px;
-                    VerticalLayout { alignment: center; Image { source: @image-url("icons/tv.svg"); colorize: Theme.fg; width: 28px; height: 28px; } }
+                    VerticalLayout { alignment: center; Image { source: d.ac ? @image-url("icons/ac.svg") : @image-url("icons/tv.svg"); colorize: Theme.fg; width: 28px; height: 28px; } }
                     VerticalLayout {
                         alignment: center;
                         spacing: 5px;
@@ -64,7 +66,14 @@ export component DevicesPage inherits VerticalLayout {
             }
         }
     }
-    // With an IR blaster, any Samsung, LG or Sony TV in the room works, even without Wi-Fi.
+    // With an IR blaster, air conditioners and Samsung, LG or Sony TVs work, even without Wi-Fi.
+    if root.adding && root.has-ir: Key {
+        height: 52px;
+        label: "Air conditioner · IR";
+        kind: KeyKind.operator;
+        font-size: 15px;
+        clicked => { root.add-ac(); root.adding = false; }
+    }
     if root.adding && root.has-ir: HorizontalLayout {
         height: 52px;
         spacing: Theme.gap;
@@ -94,7 +103,7 @@ export component DevicesPage inherits VerticalLayout {
     HorizontalLayout {
         height: 64px;
         spacing: Theme.gap;
-        Key { label: root.adding ? "Cancel" : "Add TV"; font-size: 17px; clicked => { root.adding = !root.adding; } }
+        Key { label: root.adding ? "Cancel" : "Add"; font-size: 17px; clicked => { root.adding = !root.adding; } }
         Key { label: "Rescan"; kind: KeyKind.primary; font-size: 17px; clicked => { root.rescan(); } }
     }
 }

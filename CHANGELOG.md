@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
-### [0.1.0-beta.2] - 2026-11-14
+## [0.2.0-beta.1] - 2026-11-14
+
+### Added
+- :snowflake: Air conditioners over IR: Midea, Coolix, Gree and TCL protocols (most rebadged portables and splits, Cecotec included).
+- A setup that tries each protocol until the AC beeps (phones can send IR but not receive it).
+- The AC remote: power, mode, fan, − 22° +, sleep and swing, with the state saved between launches.
+- The OK key launcher icon (adaptive on Android 8+).
+
+### Changed
+- The TVs screen is now **Devices**, and **Add TV** is **Add**.
+
+## [0.1.0-beta.2] - 2026-11-14
 
 ### Added
 - A faint haptic tick on every key, rocker and menu button.

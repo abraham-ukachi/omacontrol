@@ -81,18 +81,44 @@ pub struct Device {
     pub kind: DeviceKind,
     #[serde(default)]
     pub transport: Transport,
+    /// Air conditioners: the IR protocol that made it beep (None until setup finds it).
+    #[serde(default)]
+    pub ac_protocol: Option<crate::ac::AcProtocol>,
+    /// Air conditioners: the last state we sent (IR is one way, so we remember it).
+    #[serde(default)]
+    pub ac_state: crate::ac::AcState,
 }
 
 impl Device {
     pub fn new(name: &str, model: &str, brand: Brand, ip: &str) -> Device {
-        Device { name: name.into(), model: model.into(), brand, ip: ip.into(), token: None, kind: DeviceKind::Tv, transport: Transport::Network }
+        Device { name: name.into(), model: model.into(), brand, ip: ip.into(), token: None, kind: DeviceKind::Tv, transport: Transport::Network, ac_protocol: None, ac_state: Default::default() }
     }
 
     /// A TV driven by the IR blaster. Its `ip` is a stable id (`ir:samsung`), not an address.
     pub fn infrared_tv(brand: Brand) -> Device {
         let id = format!("ir:{}", format!("{brand:?}").to_lowercase());
         let name = format!("{} TV", brand.label().split(' ').next().unwrap_or("IR"));
-        Device { name, model: "infrared".into(), brand, ip: id, token: None, kind: DeviceKind::Tv, transport: Transport::Infrared }
+        Device { name, model: "infrared".into(), brand, ip: id, token: None, kind: DeviceKind::Tv, transport: Transport::Infrared, ac_protocol: None, ac_state: Default::default() }
+    }
+
+    /// An air conditioner driven by the IR blaster. `n` keeps several ACs apart (`ir:ac:2`).
+    pub fn infrared_ac(n: usize) -> Device {
+        let name = if n <= 1 { "Air conditioner".to_string() } else { format!("Air conditioner {n}") };
+        Device {
+            name,
+            model: "air conditioner".into(),
+            brand: Brand::Unknown,
+            ip: format!("ir:ac:{n}"),
+            token: None,
+            kind: DeviceKind::AirConditioner,
+            transport: Transport::Infrared,
+            ac_protocol: None,
+            ac_state: Default::default(),
+        }
+    }
+
+    pub fn is_ac(&self) -> bool {
+        self.kind == DeviceKind::AirConditioner
     }
 }
 

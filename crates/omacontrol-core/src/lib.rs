@@ -5,10 +5,12 @@
 //! - [`discovery`]: finds TVs on the local network (SSDP), and tells their brand apart.
 //! - [`tv`]: one module per protocol (Samsung Tizen, LG webOS, Roku ECP, Android TV),
 //!   all behind the same [`tv::Remote`] trait.
+//! - [`ac`]: air conditioners over IR (Midea, Coolix, Gree, TCL) and their state.
 //! - [`ir`]: infrared patterns (NEC, Samsung32, Sony SIRC, Pronto) for the phone's IR blaster.
 //! - [`theme`]: the Omarchy themes and the Omacalc color mixing rules.
 //! - [`store`]: the paired TVs (and their pairing tokens), saved as JSON.
 
+pub mod ac;
 pub mod discovery;
 pub mod ir;
 pub mod key;
@@ -22,6 +24,7 @@ pub use key::{App, Key};
 pub use store::Store;
 pub use theme::Theme;
 pub use ir::IrTransmitter;
+pub use ac::{AcChange, AcFan, AcMode, AcProtocol, AcState};
 pub use tv::{connect, Brand, Device, DeviceKind, Remote, Transport};
 
 /// Everything that can go wrong while talking to a TV.

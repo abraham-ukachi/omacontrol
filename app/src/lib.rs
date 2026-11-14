@@ -10,7 +10,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use omacontrol_core::{connect, discover, App, Brand, Device, IrTransmitter, Key, Remote, Store, Theme as OmaTheme, Transport};
+use std::cell::Cell;
+
+use omacontrol_core::ir::Pattern;
+use omacontrol_core::{connect, discover, AcChange, AcFan, AcMode, AcProtocol, AcState, App, Brand, Device, IrTransmitter, Key, Remote, Store, Theme as OmaTheme, Transport};
 use slint::{Color, ModelRc, SharedString, VecModel};
 
 slint::include_modules!();
@@ -45,6 +48,36 @@ enum Job {
     Press(Key),
     Text(String),
     Launch(App),
+    /// IR frames for the air conditioner, sent one after another.
+    Ac(Vec<Pattern>),
+}
+
+/// The state setup sends to see whether a protocol works: on, cool, 22 °C, low fan.
+const AC_TEST: AcState = AcState { power: true, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false };
+
+/// Shows an air conditioner on the AC page.
+fn show_ac(ui: &AppWindow, d: &Device) {
+    let s = d.ac_state;
+    ui.set_current_is_ac(true);
+    ui.set_ac_name(d.name.clone().into());
+    ui.set_ac_status(match d.ac_protocol {
+        Some(p) => format!("{} · IR", p.label()).into(),
+        None => "not set up yet".into(),
+    });
+    ui.set_ac_power(s.power);
+    ui.set_ac_temp(s.temp as i32);
+    ui.set_ac_mode(s.mode.label().into());
+    ui.set_ac_fan(s.fan.label().into());
+    ui.set_ac_swing(s.swing);
+    ui.set_ac_sleep(s.sleep);
+    ui.global::<Feedback>().set_ir(true);
+}
+
+fn show_ac_setup(ui: &AppWindow, index: usize, tested: bool) {
+    ui.set_ac_setup_index(index as i32);
+    ui.set_ac_setup_count(AcProtocol::ALL.len() as i32);
+    ui.set_ac_setup_protocol(AcProtocol::ALL[index].label().into());
+    ui.set_ac_setup_tested(tested);
 }
 
 fn color(rgb: omacontrol_core::theme::Rgb) -> Color {
@@ -75,9 +108,10 @@ fn rows(store: &Store) -> ModelRc<DeviceRow> {
         .iter()
         .map(|d| DeviceRow {
             name: d.name.clone().into(),
-            meta: if d.transport == Transport::Infrared { format!("{} · IR", d.brand.label()).into() } else if d.model.is_empty() { d.brand.label().into() } else { format!("{} · {}", d.model, d.brand.label()).into() },
+            meta: if d.is_ac() { match d.ac_protocol { Some(p) => format!("{} · IR", p.label()).into(), None => "IR · tap to set up".into() } } else if d.transport == Transport::Infrared { format!("{} · IR", d.brand.label()).into() } else if d.model.is_empty() { d.brand.label().into() } else { format!("{} · {}", d.model, d.brand.label()).into() },
             ip: if d.transport == Transport::Infrared { "IR".into() } else { d.ip.rsplit('.').next().unwrap_or_default().into() },
             current: store.current.as_deref() == Some(d.ip.as_str()),
+            ac: d.is_ac(),
         })
         .collect();
     ModelRc::from(Rc::new(VecModel::from(rows)))
@@ -93,8 +127,13 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         apply_theme(&ui, &OmaTheme::named(s.theme.as_deref().unwrap_or("Tokyo Night")));
         ui.set_devices(rows(&s));
         if let Some(d) = s.current.as_deref().and_then(|ip| s.device(ip)) {
-            ui.set_tv_name(d.name.clone().into());
-            ui.set_page(1);
+            if d.is_ac() {
+                show_ac(&ui, d);
+                ui.set_page(if d.ac_protocol.is_some() { 4 } else { 0 });
+            } else {
+                ui.set_tv_name(d.name.clone().into());
+                ui.set_page(1);
+            }
         }
     }
     ui.set_inset_top(inset_top);
@@ -110,7 +149,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let jobs = spawn_worker(ui.as_weak(), store.clone(), ir);
 
     // Reconnect to the last TV, and look for others.
-    if let Some(d) = { let s = store.lock().unwrap(); s.current.as_deref().and_then(|ip| s.device(ip)).cloned() } {
+    if let Some(d) = { let s = store.lock().unwrap(); s.current.as_deref().and_then(|ip| s.device(ip)).filter(|d| !d.is_ac()).cloned() } {
         let _ = jobs.send(Job::Connect(d));
     }
     let _ = jobs.send(Job::Scan);
@@ -121,7 +160,22 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let (tx, st, weak) = (jobs.clone(), store.clone(), ui.as_weak());
     ui.on_pick(move |i| {
         let device = st.lock().unwrap().devices.get(i as usize).cloned();
-        if let (Some(d), Some(ui)) = (device, weak.upgrade()) {
+        if let (Some(d), Some(ui)) = (device.clone(), weak.upgrade()) {
+            if d.is_ac() {
+                let mut s = st.lock().unwrap();
+                s.current = Some(d.ip.clone());
+                let _ = s.save();
+                ui.set_devices(rows(&s));
+                show_ac(&ui, &d);
+                if d.ac_protocol.is_some() {
+                    ui.set_page(4);
+                } else {
+                    show_ac_setup(&ui, 0, false);
+                    ui.set_page(5);
+                }
+                return;
+            }
+            ui.set_current_is_ac(false);
             ui.set_tv_name(d.name.clone().into());
             ui.set_page(1);
             let _ = tx.send(Job::Connect(d));
@@ -142,6 +196,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         let _ = s.save();
         if let Some(ui) = weak.upgrade() {
             ui.set_devices(rows(&s));
+            ui.set_current_is_ac(false);
             ui.set_tv_name(d.name.clone().into());
             ui.set_page(1);
         }
@@ -161,10 +216,85 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         let _ = s.save();
         if let Some(ui) = weak.upgrade() {
             ui.set_devices(rows(&s));
+            ui.set_current_is_ac(false);
             ui.set_tv_name(d.name.clone().into());
             ui.set_page(1);
         }
         let _ = tx.send(Job::Connect(d));
+    });
+
+    // Air conditioners.
+    let setup_index = Rc::new(Cell::new(0usize));
+    let (st, weak, idx) = (store.clone(), ui.as_weak(), setup_index.clone());
+    ui.on_add_ac(move || {
+        let mut s = st.lock().unwrap();
+        let n = s.devices.iter().filter(|d| d.is_ac()).count() + 1;
+        let d = Device::infrared_ac(n);
+        s.upsert(d.clone());
+        s.current = Some(d.ip.clone());
+        let _ = s.save();
+        if let Some(ui) = weak.upgrade() {
+            ui.set_devices(rows(&s));
+            show_ac(&ui, &d);
+            idx.set(0);
+            show_ac_setup(&ui, 0, false);
+            ui.set_page(5);
+        }
+    });
+
+    let (tx, st, weak, idx) = (jobs.clone(), store.clone(), ui.as_weak(), setup_index.clone());
+    ui.on_ac_setup(move |step| {
+        let Some(ui) = weak.upgrade() else { return };
+        let protocol = AcProtocol::ALL[idx.get()];
+        match step.as_str() {
+            "test" => {
+                let _ = tx.send(Job::Ac(protocol.frames(&AC_TEST, AcChange::State)));
+                show_ac_setup(&ui, idx.get(), true);
+            }
+            "next" => {
+                idx.set((idx.get() + 1) % AcProtocol::ALL.len());
+                show_ac_setup(&ui, idx.get(), false);
+            }
+            _ => {
+                let mut s = st.lock().unwrap();
+                let Some(ip) = s.current.clone() else { return };
+                if let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip) {
+                    d.ac_protocol = Some(protocol);
+                    d.ac_state = AC_TEST;
+                    let d = d.clone();
+                    let _ = s.save();
+                    ui.set_devices(rows(&s));
+                    show_ac(&ui, &d);
+                    ui.set_page(4);
+                }
+            }
+        }
+    });
+
+    let (tx, st, weak) = (jobs.clone(), store.clone(), ui.as_weak());
+    ui.on_ac_action(move |action| {
+        let Some(ui) = weak.upgrade() else { return };
+        let mut s = st.lock().unwrap();
+        let Some(ip) = s.current.clone() else { return };
+        let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else { return };
+        let Some(protocol) = d.ac_protocol else { return };
+        let state = &mut d.ac_state;
+        let change = match action.as_str() {
+            "power" => { state.power = !state.power; AcChange::State }
+            "mode" => { state.mode = state.mode.next(); AcChange::State }
+            "fan" => { state.fan = state.fan.next(); AcChange::State }
+            "warmer" => { state.warmer(); AcChange::State }
+            "cooler" => { state.cooler(); AcChange::State }
+            "swing" => { state.swing = !state.swing; AcChange::Swing }
+            "sleep" => { state.sleep = !state.sleep; AcChange::Sleep }
+            _ => return,
+        };
+        let frames = protocol.frames(state, change);
+        let d = d.clone();
+        let _ = s.save();
+        drop(s);
+        show_ac(&ui, &d);
+        let _ = tx.send(Job::Ac(frames));
     });
 
     ui.global::<Feedback>().on_tap(haptic_tick);
@@ -275,6 +405,20 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                             let _ = weak.upgrade_in_event_loop(|ui| ui.global::<Feedback>().set_ir(false));
                             status(&weak, e.to_string(), false);
                         }
+                    }
+                }
+                Job::Ac(frames) => {
+                    let result = match &ir {
+                        None => Err("this phone has no IR blaster".to_string()),
+                        Some(ir) => frames.iter().enumerate().try_for_each(|(i, f)| {
+                            if i > 0 {
+                                thread::sleep(Duration::from_millis(80));
+                            }
+                            ir.transmit(f).map_err(|e| e.to_string())
+                        }),
+                    };
+                    if let Err(e) = result {
+                        let _ = weak.upgrade_in_event_loop(move |ui| ui.set_ac_status(e.into()));
                     }
                 }
                 Job::Press(_) | Job::Text(_) | Job::Launch(_) if remote.is_none() => {

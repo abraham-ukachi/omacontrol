@@ -4,10 +4,11 @@ import { DevicesPage, DeviceRow } from "devices.slint";
 import { RemotePage } from "remote.slint";
 import { KeypadPage } from "keypad.slint";
 import { MenuPage } from "menu.slint";
+import { AcPage, AcSetupPage } from "ac.slint";
 
 export { Theme, Feedback, DeviceRow }
 
-// Pages: 0 TVs · 1 Remote · 2 Channels & apps · 3 Menu
+// Pages: 0 Devices · 1 Remote · 2 Channels & apps · 3 Menu · 4 AC · 5 AC setup
 export component AppWindow inherits Window {
     title: "OmaControl";
     preferred-width: 400px;
@@ -31,6 +32,21 @@ export component AppWindow inherits Window {
     in property <string> version;
     in property <bool> has-ir;
 
+    // The air conditioner (when the current device is one).
+    in property <bool> current-is-ac;
+    in property <string> ac-name;
+    in property <string> ac-status;
+    in property <bool> ac-power;
+    in property <int> ac-temp: 22;
+    in property <string> ac-mode: "cool";
+    in property <string> ac-fan: "low";
+    in property <bool> ac-swing;
+    in property <bool> ac-sleep;
+    in property <string> ac-setup-protocol;
+    in property <int> ac-setup-index;
+    in property <int> ac-setup-count: 4;
+    in property <bool> ac-setup-tested;
+
     callback rescan;
     callback pick(int);
     callback add-ip(string);
@@ -39,6 +55,9 @@ export component AppWindow inherits Window {
     callback launch(string);
     callback send-text(string);
     callback pick-theme(string);
+    callback add-ac();
+    callback ac-action(string);
+    callback ac-setup(string);
 
     function open-menu() {
         root.back-page = root.page;
@@ -63,6 +82,7 @@ export component AppWindow inherits Window {
             add-ip(ip) => { root.add-ip(ip); }
             has-ir: root.has-ir;
             add-ir(b) => { root.add-ir(b); }
+            add-ac => { root.add-ac(); }
         }
         if root.page == 1: RemotePage {
             tv-name: root.tv-name;
@@ -83,11 +103,31 @@ export component AppWindow inherits Window {
             kb-top: root.virtual-keyboard-position.y;
             kb-height: root.virtual-keyboard-size.height;
         }
+        if root.page == 4: AcPage {
+            name: root.ac-name;
+            status: root.ac-status;
+            power: root.ac-power;
+            temp: root.ac-temp;
+            mode: root.ac-mode;
+            fan: root.ac-fan;
+            swing: root.ac-swing;
+            sleep: root.ac-sleep;
+            menu => { root.open-menu(); }
+            action(a) => { root.ac-action(a); }
+        }
+        if root.page == 5: AcSetupPage {
+            protocol: root.ac-setup-protocol;
+            index: root.ac-setup-index;
+            count: root.ac-setup-count;
+            tested: root.ac-setup-tested;
+            menu => { root.open-menu(); }
+            setup(s) => { root.ac-setup(s); }
+        }
         if root.page == 3: MenuPage {
             themes: root.themes;
             version: root.version;
             close => { root.page = root.back-page; }
-            goto(i) => { root.page = i; }
+            goto(i) => { root.page = i == 1 && root.current-is-ac ? 4 : i; }
             pick-theme(t) => { root.pick-theme(t); }
         }
     }
