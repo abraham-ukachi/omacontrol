@@ -1,0 +1,69 @@
+[package]
+name = "omacontrol"
+description = "A dead-simple remote for any smart TV, with Omarchy's look & feel"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "omacontrol"
+path = "src/main.rs"
+
+[dependencies]
+log = "0.4"
+omacontrol-core = { path = "../crates/omacontrol-core" }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+slint = "1"
+
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { version = "1", default-features = false, features = ["std", "compat-1-2", "backend-android-activity-06", "renderer-femtovg"] }
+android_logger = "0.14"
+jni = "0.21"
+ndk-context = "0.1"
+
+[build-dependencies]
+slint-build = "1"
+
+# `cargo apk build --release --lib -p omacontrol` (see .github/workflows/android.yml)
+[package.metadata.android]
+package = "io.github.abraham_ukachi.omacontrol"
+apk_name = "omacontrol"
+build_targets = ["aarch64-linux-android"]
+resources = "android/res"
+
+[package.metadata.android.sdk]
+min_sdk_version = 26
+target_sdk_version = 34
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.ACCESS_NETWORK_STATE"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.ACCESS_WIFI_STATE"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.TRANSMIT_IR"
+
+[[package.metadata.android.uses_feature]]
+name = "android.hardware.consumerir"
+required = false
+
+[package.metadata.android.application]
+label = "OmaControl"
+icon = "@mipmap/ic_launcher"
+
+[package.metadata.android.application.activity]
+orientation = "portrait"
