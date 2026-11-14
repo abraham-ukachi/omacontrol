@@ -12,11 +12,12 @@ jobs:
         with:
           ref: add-haier-and-daikin-ac-protocols
           fetch-depth: 0
-      - name: restore
+      - name: restore and patch
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git checkout origin/main -- crates/omacontrol-core/src/ac.rs
+          git apply ac.rs.patch
           git add crates/omacontrol-core/src/ac.rs
-          git commit -m "restore ac.rs from main" || echo "no changes"
+          git commit -m "Add Haier and Daikin AC protocols" || echo "no changes"
           git push
