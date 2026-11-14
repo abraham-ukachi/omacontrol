@@ -72,7 +72,7 @@ impl AcFan {
 
     pub fn label(self) -> &'static str {
         match self {
-            AcFan:Auto => "auto",
+            AcFan::Auto => "auto",
             AcFan::Low => "low",
             AcFan::Medium => "med",
             AcFan::High => "high",
@@ -88,7 +88,7 @@ impl AcFan {
 /// What the AC should be doing. Saved with the device, so the remote survives restarts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AcState {
-    publ power: bool,
+    pub power: bool,
     pub mode: AcMode,
     pub fan: AcFan,
     /// Degrees Celsius.
@@ -113,7 +113,7 @@ impl AcState {
     pub fn warmer(&mut self) {
         self.temp = (self.temp + 1).min(MAX_TEMP);
     }
-    publ fn cooler(&mut self) {
+    pub fn cooler(&mut self) {
         self.temp = self.temp.saturating_sub(1).max(MIN_TEMP);
     }
 }
@@ -146,7 +146,7 @@ pub enum AcProtocol {
 
 impl AcProtocol {
     /// Setup tries them in this order: the most common in European portables first.
-    publ const ALL: [AcProtocol; 10] = [
+    pub const ALL: [AcProtocol; 10] = [
         AcProtocol::Midea,
         AcProtocol::Coolix,
         AcProtocol::Gree,
@@ -159,7 +159,7 @@ impl AcProtocol {
         AcProtocol::Daikin,
     ];
 
-    publ fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             AcProtocol::Midea => "Midea",
             AcProtocol::Coolix => "Coolix",
@@ -212,16 +212,16 @@ pub fn custom_frames(code: &str) -> crate::Result<Vec<Pattern>> {
     crate::ir::pronto(code).map(|pattern| vec![pattern])
 }
 
-// ----------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------
 // Shared encoding
 
 struct Timing {
     hdr_mark: u32,
-     hdr_space: u32,
+    hdr_space: u32,
     bit_mark: u32,
     one: u32,
     zero: u32,
-    }
+}
 
 fn push_byte(p: &mut Vec<u32>, t: &Timing, byte: u8, msb_first: bool) {
     for i in 0..8 {
@@ -235,16 +235,16 @@ fn clamp_temp(t: u8) -> u8 {
     t.clamp(MIN_TEMP, MAX_TEMP)
 }
 
-// ----------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------
 // Midea (48 bits: header 0xA1, power/mode/fan, temperature, timers, checksum)
 
-const MIDEA = Timing { hdr_mark: 4480, hdr_space: 4480, bit_mark: 560, one: 1680, zero: 560 };
+const MIDEA: Timing = Timing { hdr_mark: 4480, hdr_space: 4480, bit_mark: 560, one: 1680, zero: 560 };
 const MIDEA_GAP: u32 = 5600;
 /// The swing toggle, a one-off "special" frame.
 const MIDEA_SWING_TOGGLE: u64 = 0xA201_FFFF_FF7C;
 
 /// The 48-bit Midea state (Celsius).
-pub fn midea_state(s &AcState) -> u64 {
+pub fn midea_state(s: &AcState) -> u64 {
     let mode: u64 = match s.mode {
         AcMode::Cool => 0,
         AcMode::Dry => 1,
@@ -266,7 +266,7 @@ pub fn midea_state(s &AcState) -> u64 {
 
 /// Two's complement of the sum of the five data bytes, each bit-reversed.
 pub fn midea_checksum(raw: u64) -> u8 {
-    let sum = (1..6).fold(0u8, |acc, i | acc.wrapping_add(((raw >> (8 * i)) as u8).reverse_bits()));
+    let sum = (1..6).fold(0u8, |acc, i| acc.wrapping_add(((raw >> (8 * i)) as u8).reverse_bits()));
     0u8.wrapping_sub(sum).reverse_bits()
 }
 
@@ -277,7 +277,7 @@ pub fn midea(raw: u64) -> Pattern {
         p.push(MIDEA.hdr_mark);
         p.push(MIDEA.hdr_space);
         for i in (0..6).rev() {
-            push_byte(&mut p, &MIDEA, data >> (8 * i)) as u8, true);
+            push_byte(&mut p, &MIDEA, (data >> (8 * i)) as u8, true);
         }
         p.push(MIDEA.bit_mark);
         p.push(MIDEA_GAP);
@@ -285,30 +285,443 @@ pub fn midea(raw: u64) -> Pattern {
     Pattern { carrier: 38_000, pulses: p }
 }
 
-/// Coolix (24 bits: 0xB2, fan + sensor, temperature + mode)
+fn midea_frames(s: &AcState, change: AcChange) -> Vec<Pattern> {
+    match change {
+        AcChange::Swing => vec![midea(MIDEA_SWING_TOGGLE)],
+        _ => vec![midea(midea_state(s))],
+    }
+}
 
-// ----------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------
+// Coolix (24 bits: 0xB2, fan + sensor, temperature + mode)
+
+const COOLIX: Timing = Timing { hdr_mark: 4692, hdr_space: 4416, bit_mark: 552, one: 1656, zero: 552 };
+const COOLIX_GAP: u32 = 5244;
+pub const COOLIX_OFF: u32 = 0xB2_7BE0;
+pub const COOLIX_SWING: u32 = 0xB2_6BE0;
+pub const COOLIX_SLEEP: u32 = 0xB2_E003;
+/// Coolix scrambles its temperatures (Gray-code-ish), 17 °C to 30 °C.
+const COOLIX_TEMPS: [u8; 14] = [0b0000, 0b0001, 0b0011, 0b0010, 0b0110, 0b0111, 0b0101, 0b0100, 0b1100, 0b1101, 0b1001, 0b1000, 0b1010, 0b1011];
+
+/// The 24-bit Coolix state (only meaningful while the power is on; off is [`COOLIX_OFF`]).
+pub fn coolix_state(s: &AcState) -> u32 {
+    if !s.power {
+        return COOLIX_OFF;
+    }
+    // Fan mode is "dry" with a special temperature code.
+    let (mode, temp) = match s.mode {
+        AcMode::Cool => (0b00, COOLIX_TEMPS[(clamp_temp(s.temp) - MIN_TEMP) as usize]),
+        AcMode::Dry => (0b01, COOLIX_TEMPS[(clamp_temp(s.temp) - MIN_TEMP) as usize]),
+        AcMode::Auto => (0b10, COOLIX_TEMPS[(clamp_temp(s.temp) - MIN_TEMP) as usize]),
+        AcMode::Heat => (0b11, COOLIX_TEMPS[(clamp_temp(s.temp) - MIN_TEMP) as usize]),
+        AcMode::Fan => (0b01, 0b1110),
+    };
+    // Dry and auto only accept "auto0"; the others take a real speed.
+    let fan: u32 = match (s.mode, s.fan) {
+        (AcMode::Dry | AcMode::Auto, _) => 0b000,
+        (_, AcFan::Auto) => 0b101,
+        (_, AcFan::Low) => 0b100,
+        (_, AcFan::Medium) => 0b010,
+        (_, AcFan::High) => 0b001,
+    };
+    let sensor_ignore = 0b11111;
+    0xB2 << 16 | (fan << 5 | sensor_ignore) << 8 | (temp as u32) << 4 | mode << 2
+}
+
+/// A Coolix message, sent twice.
+pub fn coolix(raw: u32) -> Pattern {
+    let mut frame = vec![COOLIX.hdr_mark, COOLIX.hdr_space];
+    for i in (0..3).rev() {
+        let byte = (raw >> (8 * i)) as u8;
+        push_byte(&mut frame, &COOLIX, byte, true);
+        push_byte(&mut frame, &COOLIX, !byte, true);
+    }
+    frame.push(COOLIX.bit_mark);
+    frame.push(COOLIX_GAP);
+    let pulses = frame.iter().copied().cycle().take(frame.len() * 2).collect();
+    Pattern { carrier: 38_000, pulses }
+}
+
+fn coolix_frames(s: &AcState, change: AcChange) -> Vec<Pattern> {
+    match change {
+        AcChange::Swing => vec![coolix(COOLIX_SWING)],
+        AcChange::Sleep => vec![coolix(COOLIX_SLEEP)],
+        AcChange::State => vec![coolix(coolix_state(s))],
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Gree (8 bytes in two blocks of 4, LSB first, 4-bit checksum)
 
-// ----------------------------------------------------------------------------------------------
+const GREE: Timing = Timing { hdr_mark: 9000, hdr_space: 4500, bit_mark: 620, one: 1600, zero: 540 };
+const GREE_MSG_SPACE: u32 = 19_980;
+
+/// The 8-byte Gree state (YAW1F remote, light on).
+pub fn gree_state(s: &AcState) -> [u8; 8] {
+    let mode = match s.mode {
+        AcMode::Auto => 0,
+        AcMode::Cool => 1,
+        AcMode::Dry => 2,
+        AcMode::Fan => 3,
+        AcMode::Heat => 4,
+    };
+    let fan = match (s.mode, s.fan) {
+        (AcMode::Dry, _) => 1,
+        (_, AcFan::Auto) => 0,
+        (_, AcFan::Low) => 1,
+        (_, AcFan::Medium) => 2,
+        (_, AcFan::High) => 3,
+    };
+    let temp = if s.mode == AcMode::Auto { 25 } else { s.temp.clamp(16, 30) };
+    let mut b = [0u8; 8];
+    b[0] = (s.sleep as u8) << 7 | (s.swing as u8) << 6 | fan << 4 | (s.power as u8) << 3 | mode;
+    b[1] = temp - 16;
+    // Light on, and the "model A" bit the YAW1F remote sets while on.
+    b[2] = 0x20 | (s.power as u8) << 6;
+    b[3] = 0x50;
+    b[4] = if s.swing { 0x01 } else { 0x00 };
+    b[5] = 0x20;
+    b[7] = gree_checksum(&b) << 4;
+    b
+}
+
+/// 10 + the low nibbles of bytes 0-3 + the high nibbles of bytes 4-6, mod 16.
+pub fn gree_checksum(b: &[u8; 8]) -> u8 {
+    let low: u32 = b[..4].iter().map(|x| (x & 0x0F) as u32).sum();
+    let high: u32 = b[4..7].iter().map(|x| (x >> 4) as u32).sum();
+    ((10 + low + high) & 0x0F) as u8
+}
+
+pub fn gree(state: &[u8; 8]) -> Pattern {
+    let mut p = vec![GREE.hdr_mark, GREE.hdr_space];
+    for &byte in &state[..4] {
+        push_byte(&mut p, &GREE, byte, false);
+    }
+    // Block footer: 0b010, LSB first.
+    for bit in [0, 1, 0] {
+        p.push(GREE.bit_mark);
+        p.push(if bit == 1 { GREE.one } else { GREE.zero });
+    }
+    p.push(GREE.bit_mark);
+    p.push(GREE_MSG_SPACE);
+    for &byte in &state[4..] {
+        push_byte(&mut p, &GREE, byte, false);
+    }
+    p.push(GREE.bit_mark);
+    p.push(GREE_MSG_SPACE);
+    Pattern { carrier: 38_000, pulses: p }
+}
+
+// ---------------------------------------------------------------------------------------------
 // TCL112 (14 bytes, LSB first, byte-sum checksum)
 
-// ----------------------------------------------------------------------------------------------
+const TCL: Timing = Timing { hdr_mark: 3000, hdr_space: 1650, bit_mark: 500, one: 1050, zero: 325 };
+const TCL_GAP: u32 = 100_000;
+
+pub fn tcl112_state(s: &AcState) -> [u8; 14] {
+    let mut b = [0x23, 0xCB, 0x26, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    b[5] = (s.power as u8) << 2 | 0x20 /* light */;
+    b[6] = match s.mode {
+        AcMode::Heat => 1,
+        AcMode::Dry => 2,
+        AcMode::Cool => 3,
+        AcMode::Fan => 7,
+        AcMode::Auto => 8,
+    };
+    b[7] = 31 - s.temp.clamp(16, 31);
+    let fan = match (s.mode, s.fan) {
+        (AcMode::Fan, AcFan::Auto) => 0b101,
+        (_, AcFan::Auto) => 0b000,
+        (_, AcFan::Low) => 0b010,
+        (_, AcFan::Medium) => 0b011,
+        (_, AcFan::High) => 0b101,
+    };
+    let swing = if s.swing { 0b111 } else { 0b000 };
+    b[8] = swing << 3 | fan;
+    if s.sleep {
+        // TCL calls it "quiet" / night: the lowest fan.
+        b[8] = swing << 3 | 0b001;
+    }
+    b[13] = b[..13].iter().fold(0u8, |a, &x| a.wrapping_add(x));
+    b
+}
+
+pub fn tcl112(state: &[u8; 14]) -> Pattern {
+    let mut p = vec![TCL.hdr_mark, TCL.hdr_space];
+    for &byte in state {
+        push_byte(&mut p, &TCL, byte, false);
+    }
+    p.push(TCL.bit_mark);
+    p.push(TCL_GAP);
+    Pattern { carrier: 38_000, pulses: p }
+}
+
+// ---------------------------------------------------------------------------------------------
 // LG (28 bits: signature 0x88, power, mode, temperature, fan, 4-bit checksum)
 
-// ----------------------------------------------------------------------------------------------
+const LG: Timing = Timing { hdr_mark: 8500, hdr_space: 4250, bit_mark: 550, one: 1600, zero: 550 };
+const LG_GAP: u32 = 39_750;
+
+/// The 28-bit LG state. "Off" is its own code (`0x88C0051`), with the temperature cleared.
+pub fn lg_state(s: &AcState) -> u32 {
+    let mode: u32 = match s.mode {
+        AcMode::Cool => 0,
+        AcMode::Dry => 1,
+        AcMode::Fan => 2,
+        AcMode::Auto => 3,
+        AcMode::Heat => 4,
+    };
+    let fan: u32 = match s.fan {
+        AcFan::Auto => 5,
+        AcFan::Low => 1,
+        AcFan::Medium => 2,
+        AcFan::High => 4,
+    };
+    // The temperature field counts up from 16 °C as 1, and "off" clears it.
+    let (power, temp) = if s.power { (0u32, (s.temp.clamp(16, 30) - 15) as u32) } else { (3u32, 0) };
+    let raw = 0x88u32 << 20 | power << 18 | mode << 12 | temp << 8 | fan << 4;
+    raw | lg_checksum(raw) as u32
+}
+
+/// Sum of the six nibbles above the checksum, mod 16.
+pub fn lg_checksum(raw: u32) -> u8 {
+    (1..=6).fold(0u8, |acc, i| acc.wrapping_add(((raw >> (4 * i)) & 0xF) as u8)) & 0x0F
+}
+
+pub fn lg(raw: u32) -> Pattern {
+    let mut p = vec![LG.hdr_mark, LG.hdr_space];
+    for i in (0..28).rev() {
+        p.push(LG.bit_mark);
+        p.push(if raw >> i & 1 == 1 { LG.one } else { LG.zero });
+    }
+    p.push(LG.bit_mark);
+    p.push(LG_GAP);
+    Pattern { carrier: 38_000, pulses: p }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Electra (13 bytes: 0xC3, swing + temperature, fan, mode, power, light, a byte-sum check)
 
-// ----------------------------------------------------------------------------------------------
+const ELECTRA: Timing = Timing { hdr_mark: 9166, hdr_space: 4470, bit_mark: 646, one: 1647, zero: 547 };
+const ELECTRA_GAP: u32 = 100_000;
+/// Electra stores the temperature 8 °C below its real value.
+const ELECTRA_TEMP_DELTA: u8 = 8;
+
+pub fn electra_state(s: &AcState) -> [u8; 13] {
+    let mode = match s.mode {
+        AcMode::Auto => 0b000,
+        AcMode::Cool => 0b001,
+        AcMode::Dry => 0b010,
+        AcMode::Heat => 0b100,
+        AcMode::Fan => 0b110,
+    };
+    let fan = match s.fan {
+        AcFan::Auto => 0b101,
+        AcFan::Low => 0b011,
+        AcFan::Medium => 0b010,
+        AcFan::High => 0b001,
+    };
+    let mut b = [0u8; 13];
+    b[0] = 0xC3;
+    // Vertical swing sits in the low bits: "000" swings, "111" parks the vane.
+    b[1] = ((s.temp.clamp(16, 32) - ELECTRA_TEMP_DELTA) << 3) | if s.swing { 0b000 } else { 0b111 };
+    b[4] = fan << 5;
+    b[5] = (s.sleep as u8) << 7; // quiet
+    b[6] = mode << 5;
+    b[9] = (s.power as u8) << 5;
+    // The remote only toggles the display light, so we keep it off.
+    b[11] = 0x08;
+    b[12] = b[..12].iter().fold(0u8, |a, &x| a.wrapping_add(x));
+    b
+}
+
+pub fn electra(state: &[u8; 13]) -> Pattern {
+    let mut p = vec![ELECTRA.hdr_mark, ELECTRA.hdr_space];
+    for &byte in state {
+        push_byte(&mut p, &ELECTRA, byte, false);
+    }
+    p.push(ELECTRA.bit_mark);
+    p.push(ELECTRA_GAP);
+    Pattern { carrier: 38_000, pulses: p }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Samsung (14 bytes in two 7-byte sections, each with its own bit-count checksum)
 
-// -----------------------------------------------------------------------------------------------
+const SAMSUNG: Timing = Timing { hdr_mark: 690, hdr_space: 17_844, bit_mark: 586, one: 1432, zero: 436 };
+const SAMSUNG_SECTION_MARK: u32 = 3086;
+const SAMSUNG_SECTION_SPACE: u32 = 8864;
+const SAMSUNG_SECTION_GAP: u32 = 2886;
+const SAMSUNG_GAP: u32 = 100_000;
+
+pub fn samsung_state(s: &AcState) -> [u8; 14] {
+    let mode = match s.mode {
+        AcMode::Auto => 0,
+        AcMode::Cool => 1,
+        AcMode::Dry => 2,
+        AcMode::Fan => 3,
+        AcMode::Heat => 4,
+    };
+    let fan = match s.fan {
+        AcFan::Auto => 0,
+        AcFan::Low => 2,
+        AcFan::Medium => 4,
+        AcFan::High => 5,
+    };
+    let power: u8 = if s.power { 0b11 } else { 0b00 };
+    // The message Samsung's own remote starts from.
+    let mut b: [u8; 14] = [0x02, 0x92, 0x0F, 0x00, 0x00, 0x00, 0xF0, 0x01, 0x02, 0xAE, 0x71, 0x00, 0x15, 0xF0];
+    b[6] = (b[6] & 0xCF) | power << 4;
+    b[13] = (b[13] & 0xCF) | power << 4;
+    b[11] = (b[11] & 0x0F) | ((s.temp.clamp(16, 30) - 16) << 4);
+    b[12] = fan << 1 | mode << 4;
+    for start in [0usize, 7] {
+        let sum = samsung_section_checksum(&b[start..start + 7]);
+        b[start + 1] = (b[start + 1] & 0x0F) | (sum & 0x0F) << 4;
+        b[start + 2] = (b[start + 2] & 0xF0) | (sum >> 4);
+    }
+    b
+}
+
+/// The bit count of a section, inverted: the whole first byte, the low nibble of the second,
+/// the high nibble of the third, and the last four bytes.
+pub fn samsung_section_checksum(section: &[u8]) -> u8 {
+    let mut sum = section[0].count_ones() as u8;
+    sum = sum.wrapping_add((section[1] & 0x0F).count_ones() as u8);
+    sum = sum.wrapping_add((section[2] >> 4).count_ones() as u8);
+    sum = sum.wrapping_add(section[3..].iter().map(|b| b.count_ones() as u8).sum::<u8>());
+    !sum
+}
+
+pub fn samsung(state: &[u8; 14]) -> Pattern {
+    let mut p = vec![SAMSUNG.hdr_mark, SAMSUNG.hdr_space];
+    for (i, section) in state.chunks(7).enumerate() {
+        p.push(SAMSUNG_SECTION_MARK);
+        p.push(SAMSUNG_SECTION_SPACE);
+        for &byte in section {
+            push_byte(&mut p, &SAMSUNG, byte, false);
+        }
+        p.push(SAMSUNG.bit_mark);
+        p.push(if i == 0 { SAMSUNG_SECTION_GAP } else { SAMSUNG_GAP });
+    }
+    Pattern { carrier: 38_000, pulses: p }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Kelvinator (16 bytes in two blocks, 4-bit nibble checksums, a 3-bit command footer)
 
-// ----------------------------------------------------------------------------------------------
+const KELVINATOR: Timing = Timing { hdr_mark: 9010, hdr_space: 4505, bit_mark: 680, one: 1530, zero: 510 };
+const KELVINATOR_GAP: u32 = 19_975;
+const KELVINATOR_LONG_GAP: u32 = 39_950;
+
+pub fn kelvinator_state(s: &AcState) -> [u8; 16] {
+    let mode = match s.mode {
+        AcMode::Auto => 0,
+        AcMode::Cool => 1,
+        AcMode::Dry => 2,
+        AcMode::Fan => 3,
+        AcMode::Heat => 4,
+    };
+    let fan = match s.fan {
+        AcFan::Auto => 0,
+        AcFan::Low => 1,
+        AcFan::Medium => 3,
+        AcFan::High => 5,
+    };
+    // Auto and dry always run at 25 °C, and don't show it.
+    let temp = if matches!(s.mode, AcMode::Auto | AcMode::Dry) { 25 } else { s.temp.clamp(16, 30) };
+    let mut b = [0u8; 16];
+    b[0] = mode | (s.power as u8) << 3 | fan.min(3) << 4 | (s.swing as u8) << 6;
+    b[1] = temp - 16;
+    b[3] = 0x50;
+    b[4] = if s.swing { 0b0001 } else { 0 }; // swing: auto
+    b[11] = 0x70;
+    b[12] = (s.sleep as u8) << 7; // quiet
+    b[14] = fan << 4;
+    b[7] = kelvinator_checksum(&b[..8]) << 4;
+    b[15] = kelvinator_checksum(&b[8..]) << 4;
+    b
+}
+
+/// 10, plus the low nibbles of the first four bytes and the high nibbles of the next three,
+/// trimmed to four bits.
+pub fn kelvinator_checksum(block: &[u8]) -> u8 {
+    let low: u32 = block[..4].iter().map(|b| (b & 0x0F) as u32).sum();
+    let high: u32 = block[4..7].iter().map(|b| (b >> 4) as u32).sum();
+    ((10 + low + high) & 0x0F) as u8
+}
+
+pub fn kelvinator(state: &[u8; 16]) -> Pattern {
+    let mut p = Vec::new();
+    for block in [&state[..8], &state[8..]] {
+        p.push(KELVINATOR.hdr_mark);
+        p.push(KELVINATOR.hdr_space);
+        for &byte in &block[..4] {
+            push_byte(&mut p, &KELVINATOR, byte, false);
+        }
+        // Every command block ends with the three bits 0b010.
+        for bit in [0u8, 1, 0] {
+            p.push(KELVINATOR.bit_mark);
+            p.push(if bit == 1 { KELVINATOR.one } else { KELVINATOR.zero });
+        }
+        p.push(KELVINATOR.bit_mark);
+        p.push(KELVINATOR_GAP);
+        for &byte in &block[4..] {
+            push_byte(&mut p, &KELVINATOR, byte, false);
+        }
+        p.push(KELVINATOR.bit_mark);
+        p.push(KELVINATOR_LONG_GAP);
+    }
+    Pattern { carrier: 38_000, pulses: p }
+}
+
+
+// ---------------------------------------------------------------------------------------------
 // Haier (14 bytes: YRW02 layout, MSB first, one byte-sum checksum)
 
-// -----------------------------------------------------------------------------------------------
+const HAIER: Timing = Timing { hdr_mark: 3000, hdr_space: 4300, bit_mark: 520, one: 1650, zero: 650 };
+const HAIER_GAP: u32 = 150_000;
+
+/// The 14-byte Haier state (model 0xA6).
+pub fn haier_state(s: &AcState) -> [u8; 14] {
+    let mode: u8 = match s.mode {
+        AcMode::Auto => 0,
+        AcMode::Cool => 1,
+        AcMode::Dry => 2,
+        AcMode::Heat => 4,
+        AcMode::Fan => 6,
+    };
+    let fan: u8 = match s.fan {
+        AcFan::High => 1,
+        AcFan::Medium => 2,
+        AcFan::Low => 3,
+        AcFan::Auto => 5,
+    };
+    let temp = s.temp.clamp(16, 30);
+    let mut b = [0u8; 14];
+    b[0] = 0xA6;
+    b[1] = ((temp - 16) << 4) | if s.swing { 0xC } else { 0x0 };
+    b[3] = 0x02; // health on, no timers
+    b[4] = (s.power as u8) << 6;
+    b[5] = fan << 5;
+    b[7] = mode << 5;
+    b[8] = (s.sleep as u8) << 7;
+    b[12] = 0x05; // power button
+    b[13] = b[..13].iter().fold(0u8, |a, &x| a.wrapping_add(x));
+    b
+}
+
+pub fn haier(state: &[u8; 14]) -> Pattern {
+    let mut p = vec![HAIER.hdr_mark, HAIER.hdr_space];
+    for &byte in state {
+        push_byte(&mut p, &HAIER, byte, true);
+    }
+    p.push(HAIER.bit_mark);
+    p.push(HAIER_GAP);
+    Pattern { carrier: 38_000, pulses: p }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Daikin (35 bytes in three sections, LSB first, three byte-sum checksums)
 
 const DAIKIN: Timing = Timing { hdr_mark: 3650, hdr_space: 1623, bit_mark: 428, one: 1280, zero: 428 };
