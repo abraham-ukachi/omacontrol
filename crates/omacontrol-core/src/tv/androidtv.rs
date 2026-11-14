@@ -2,7 +2,7 @@
 //!
 //! Pairing happens on port `6467` (TLS with a client certificate, protobuf messages,
 //! and a 6-character PIN shown on the TV), then remote control on port `6466`.
-//! It lands in 0.2.0; until then the TV is found and listed, but not controlled.
+//! It lands in 0.3.0; until then the TV is found and listed, but not controlled.
 
 use super::Remote;
 use crate::{App, Error, Key, Result};
@@ -11,7 +11,7 @@ pub(crate) struct AndroidTv;
 
 impl AndroidTv {
     pub(crate) fn connect(_ip: &str) -> Result<AndroidTv> {
-        Err(Error::Unsupported("Android TV (coming in 0.2.0)".into()))
+        Err(Error::Unsupported("Android TV (coming in 0.3.0)".into()))
     }
 }
 

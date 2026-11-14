@@ -9,7 +9,7 @@ export struct DeviceRow {
     ac: bool,
 }
 
-// 01 · TVs on your network.
+// 01 · Devices: the TVs and air conditioners we know about.
 export component DevicesPage inherits VerticalLayout {
     in property <[DeviceRow]> devices;
     in property <bool> scanning;

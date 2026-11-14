@@ -44,6 +44,8 @@ fn blaster() -> Option<Arc<dyn IrTransmitter>> {
 /// What the worker thread is asked to do.
 enum Job {
     Scan,
+    /// A TV added by IP: find its brand, then connect.
+    Probe(String),
     Connect(Device),
     Press(Key),
     Text(String),
@@ -182,25 +184,14 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         }
     });
 
-    let (tx, st, weak) = (jobs.clone(), store.clone(), ui.as_weak());
+    let tx = jobs.clone();
     ui.on_add_ip(move |ip| {
         let ip = ip.trim().to_string();
         if ip.is_empty() {
             return;
         }
-        // A TV added by hand: try the brands one by one, Roku first (it needs no pairing).
-        let probe = probe_brand(&ip);
-        let d = Device::new(&format!("TV {ip}"), "", probe, &ip);
-        let mut s = st.lock().unwrap();
-        s.upsert(d.clone());
-        let _ = s.save();
-        if let Some(ui) = weak.upgrade() {
-            ui.set_devices(rows(&s));
-            ui.set_current_is_ac(false);
-            ui.set_tv_name(d.name.clone().into());
-            ui.set_page(1);
-        }
-        let _ = tx.send(Job::Connect(d));
+        // The worker probes the brands (a few TCP connects) and connects, so the UI never waits.
+        let _ = tx.send(Job::Probe(ip));
     });
 
     let (tx, st, weak) = (jobs.clone(), store.clone(), ui.as_weak());
@@ -379,33 +370,34 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                     });
                 }
                 Job::Connect(device) => {
-                    label = if device.transport == Transport::Infrared { format!("{} · IR", device.brand.label()) } else { device.brand.label().to_string() };
-                    status(&weak, format!("connecting · {label}"), false);
-                    if device.transport == Transport::Network && matches!(device.brand, Brand::Samsung | Brand::Lg) && device.token.is_none() {
-                        status(&weak, "say yes on the TV…".into(), false);
+                    let (r, l) = connect_device(&weak, &store, &ir, &device, &status);
+                    remote = r;
+                    label = l;
+                }
+                Job::Probe(ip) => {
+                    // A TV added by hand: try the brands one by one, Roku first (it needs no pairing).
+                    let name = format!("TV {ip}");
+                    let shown = name.clone();
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        ui.set_current_is_ac(false);
+                        ui.set_tv_name(shown.into());
+                        ui.set_tv_status("looking for the TV…".into());
+                        ui.set_online(false);
+                        ui.set_page(1);
+                    });
+                    let brand = probe_brand(&ip);
+                    let device = Device::new(&name, "", brand, &ip);
+                    {
+                        let mut s = store.lock().unwrap();
+                        s.upsert(device.clone());
+                        let _ = s.save();
+                        let snapshot = s.clone();
+                        drop(s);
+                        let _ = weak.upgrade_in_event_loop(move |ui| ui.set_devices(rows(&snapshot)));
                     }
-                    match connect(&device, ir.clone()) {
-                        Ok(r) => {
-                            let mut s = store.lock().unwrap();
-                            let mut d = device.clone();
-                            d.token = r.token().or(d.token);
-                            s.upsert(d);
-                            s.current = Some(device.ip.clone());
-                            let _ = s.save();
-                            let snapshot = s.clone();
-                            drop(s);
-                            let _ = weak.upgrade_in_event_loop(move |ui| ui.set_devices(rows(&snapshot)));
-                            remote = Some(r);
-                            status(&weak, label.clone(), true);
-                            let ir_mode = device.transport == Transport::Infrared;
-                            let _ = weak.upgrade_in_event_loop(move |ui| ui.global::<Feedback>().set_ir(ir_mode));
-                        }
-                        Err(e) => {
-                            remote = None;
-                            let _ = weak.upgrade_in_event_loop(|ui| ui.global::<Feedback>().set_ir(false));
-                            status(&weak, e.to_string(), false);
-                        }
-                    }
+                    let (r, l) = connect_device(&weak, &store, &ir, &device, &status);
+                    remote = r;
+                    label = l;
                 }
                 Job::Ac(frames) => {
                     let result = match &ir {
@@ -431,6 +423,43 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
         }
     });
     tx
+}
+
+/// Connects to a device, saves its pairing token and refreshes the list and the header.
+fn connect_device(
+    weak: &slint::Weak<AppWindow>,
+    store: &Arc<Mutex<Store>>,
+    ir: &Option<Arc<dyn IrTransmitter>>,
+    device: &Device,
+    status: &impl Fn(&slint::Weak<AppWindow>, String, bool),
+) -> (Option<Box<dyn Remote>>, String) {
+    let label = if device.transport == Transport::Infrared { format!("{} · IR", device.brand.label()) } else { device.brand.label().to_string() };
+    status(weak, format!("connecting · {label}"), false);
+    if device.transport == Transport::Network && matches!(device.brand, Brand::Samsung | Brand::Lg) && device.token.is_none() {
+        status(weak, "say yes on the TV…".into(), false);
+    }
+    match connect(device, ir.clone()) {
+        Ok(r) => {
+            let mut s = store.lock().unwrap();
+            let mut d = device.clone();
+            d.token = r.token().or(d.token);
+            s.upsert(d);
+            s.current = Some(device.ip.clone());
+            let _ = s.save();
+            let snapshot = s.clone();
+            drop(s);
+            let _ = weak.upgrade_in_event_loop(move |ui| ui.set_devices(rows(&snapshot)));
+            status(weak, label.clone(), true);
+            let ir_mode = device.transport == Transport::Infrared;
+            let _ = weak.upgrade_in_event_loop(move |ui| ui.global::<Feedback>().set_ir(ir_mode));
+            (Some(r), label)
+        }
+        Err(e) => {
+            let _ = weak.upgrade_in_event_loop(|ui| ui.global::<Feedback>().set_ir(false));
+            status(weak, e.to_string(), false);
+            (None, label)
+        }
+    }
 }
 
 fn report(

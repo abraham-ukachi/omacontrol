@@ -407,19 +407,19 @@ mod tests {
 
     #[test]
     fn midea_checksums_match_real_remotes() {
-        assert_eq!(midea_checksum(0xA1_826F_FFFF_00), 0x62);
-        assert_eq!(midea_checksum(0xA1_8177_FFFF_00), 0x70);
+        assert_eq!(midea_checksum(0xA182_6FFF_FF00), 0x62);
+        assert_eq!(midea_checksum(0xA181_77FF_FF00), 0x70);
     }
 
     #[test]
     fn midea_cool_low_17_and_30() {
-        assert_eq!(midea_state(&on(AcMode::Cool, AcFan::Low, 17)), 0xA1_8840_FFFF_56);
-        assert_eq!(midea_state(&on(AcMode::Cool, AcFan::Low, 30)), 0xA1_884D_FFFF_5D);
+        assert_eq!(midea_state(&on(AcMode::Cool, AcFan::Low, 17)), 0xA188_40FF_FF56);
+        assert_eq!(midea_state(&on(AcMode::Cool, AcFan::Low, 30)), 0xA188_4DFF_FF5D);
     }
 
     #[test]
     fn midea_sends_the_frame_then_its_inverse() {
-        let p = midea(0xA1_8840_FFFF_56);
+        let p = midea(0xA188_40FF_FF56);
         assert_eq!(p.pulses.len(), 2 * (2 + 96 + 2));
         assert_eq!(&p.pulses[..2], &[4480, 4480]);
         // First bit of 0xA1 is 1, first bit of its inverse (0x5E) is 0.

@@ -1,6 +1,6 @@
 //! # Infrared 🔴
 //!
-//! The part of OmaControl that will, one day, drive anything with an IR receiver:
+//! The part of OmaControl that drives anything with an IR receiver:
 //! TVs first, then air conditioners (fixed and portable).
 //!
 //! A remote button is a **pattern**: alternating on/off durations in microseconds,
