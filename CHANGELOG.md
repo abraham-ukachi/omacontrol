@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
-### 0.1.0 (2026-11-14)
+### [0.1.0-beta.2] - 2026-11-14
+
+### Added
+- A faint haptic tick on every key, rocker and menu button.
+- A short accent-colored pulse on each tap while an IR device is in use.
+- Six launcher icon concepts in `design/icons/`.
+
+### Fixed
+- The "type to TV" row and GO now ride just above the on-screen keyboard while typing.
+
+## 0.1.0 (2026-11-14)
 
 * :tada: First version of **OmaControl**: a Rust + Slint remote for smart TVs, with Omarchy's look & feel (Omacalc is the reference)
 * :tv: Three screens: **TVs** on your network, the **Remote** (D-pad, OK, back, home, menu, VOL / CH rockers, media keys) and **Channels & apps** (number pad, streaming shortcuts, type to the TV)
