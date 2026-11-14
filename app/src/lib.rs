@@ -17,6 +17,14 @@ slint::include_modules!();
 
 #[cfg(target_os = "android")]
 mod android_ir;
+#[cfg(target_os = "android")]
+mod haptics;
+
+/// A faint tick under the finger (Android only; desktops have nothing to vibrate).
+fn haptic_tick() {
+    #[cfg(target_os = "android")]
+    haptics::tick();
+}
 
 /// The phone's IR blaster (Android only).
 fn blaster() -> Option<Arc<dyn IrTransmitter>> {
@@ -159,6 +167,8 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         let _ = tx.send(Job::Connect(d));
     });
 
+    ui.global::<Feedback>().on_tap(haptic_tick);
+
     let tx = jobs.clone();
     ui.on_press(move |id| {
         if let Some(k) = Key::from_id(&id) {
@@ -257,9 +267,12 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                             let _ = weak.upgrade_in_event_loop(move |ui| ui.set_devices(rows(&snapshot)));
                             remote = Some(r);
                             status(&weak, label.clone(), true);
+                            let ir_mode = device.transport == Transport::Infrared;
+                            let _ = weak.upgrade_in_event_loop(move |ui| ui.global::<Feedback>().set_ir(ir_mode));
                         }
                         Err(e) => {
                             remote = None;
+                            let _ = weak.upgrade_in_event_loop(|ui| ui.global::<Feedback>().set_ir(false));
                             status(&weak, e.to_string(), false);
                         }
                     }

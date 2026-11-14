@@ -2,7 +2,7 @@ import { Theme } from "theme.slint";
 import { Key, KeyKind, Header, Divider } from "widgets.slint";
 
 // 03 · Channels, apps & typing.
-export component KeypadPage inherits VerticalLayout {
+export component KeypadPage inherits Rectangle {
     in property <string> tv-name;
     in property <[string]> apps;
     in-out property <string> channel;
@@ -11,7 +11,14 @@ export component KeypadPage inherits VerticalLayout {
     callback press(string);
     callback launch(string);
     callback send-text(string);
+    // The on-screen keyboard, in window coordinates (from the Window's virtual-keyboard-* properties).
+    in property <length> kb-top;
+    in property <length> kb-height;
+    // While typing, the "type to TV" row rides just above the keyboard.
+    property <bool> lifted: text.has-focus && root.kb-height > 0;
+    property <length> bar-y: root.lifted ? min(slot.y, root.kb-top - root.absolute-position.y - 72px - 10px) : slot.y;
 
+    VerticalLayout {
     spacing: Theme.gap;
     Header { title: root.tv-name; menu => { root.menu(); } }
     VerticalLayout {
@@ -64,8 +71,20 @@ export component KeypadPage inherits VerticalLayout {
             Key { label: "VOL−"; kind: KeyKind.operator; font-size: 16px; clicked => { root.press("vol-"); } }
         }
     }
+    slot := Rectangle { height: 72px; }
+    }
+
+    // A clean strip of page color behind the lifted row, so the keypad doesn't show through.
+    if root.lifted: Rectangle {
+        y: root.bar-y - 14px;
+        height: root.height - self.y + 40px;
+        background: Theme.bg;
+        Rectangle { y: 0; height: 1px; background: Theme.divider; }
+    }
     HorizontalLayout {
+        y: root.bar-y;
         height: 72px;
+        animate y { duration: 160ms; easing: ease-out; }
         spacing: Theme.gap;
         Rectangle {
             horizontal-stretch: 3;
@@ -85,6 +104,7 @@ export component KeypadPage inherits VerticalLayout {
         }
         Key { horizontal-stretch: 1; label: "GO"; kind: KeyKind.primary; font-size: 22px; clicked => { root.go(); } }
     }
+
 
     // Digits go to the TV straight away; the display just echoes them.
     function digit(d: string) {

@@ -1,6 +1,35 @@
-import { Theme } from "theme.slint";
+import { Theme, Feedback } from "theme.slint";
 
 export enum KeyKind { number, operator, primary }
+
+// The IR pulse: an accent ripple from the finger and a fading accent ring, ~400 ms.
+export component Pulse inherits Rectangle {
+    in property <bool> pulsing;
+    in property <duration> start;
+    in property <length> px;
+    in property <length> py;
+    in property <length> radius: Theme.radius;
+    property <float> t: root.pulsing ? clamp((animation-tick() - root.start) / 380ms, 0, 1) : 1;
+    property <float> e: 1 - (1 - root.t) * (1 - root.t);
+    property <length> d: (root.width + root.height) * 1.25 * root.e;
+
+    if root.pulsing: Rectangle {
+        x: root.px - root.d / 2;
+        y: root.py - root.d / 2;
+        width: root.d;
+        height: root.d;
+        border-radius: root.d / 2;
+        background: Theme.accent;
+        opacity: (1 - root.t) * 0.38;
+    }
+    if root.pulsing: Rectangle {
+        border-radius: root.radius;
+        border-width: 2px;
+        border-color: Theme.accent;
+        opacity: 1 - root.t;
+    }
+}
+
 
 // One key: numbers sit almost flush with the page, operators lift a step lighter,
 // and the primary key (OK, GO, Rescan) inverts to the ink color, like Omacalc's `=`.
@@ -12,7 +41,10 @@ export component Key inherits Rectangle {
     in property <length> font-size: 20px;
     in property <length> icon-size: 26px;
     callback clicked;
+    property <bool> pulsing;
+    property <duration> pulse-start;
 
+    clip: true;
     border-radius: Theme.radius;
     border-width: root.kind == KeyKind.number ? 1px : 0px;
     border-color: Theme.key-border;
@@ -21,6 +53,7 @@ export component Key inherits Rectangle {
         : (touch.pressed ? Theme.key-pressed : Theme.key);
     animate background { duration: 90ms; }
 
+    Pulse { pulsing: root.pulsing; start: root.pulse-start; px: touch.pressed-x; py: touch.pressed-y; }
     if !root.has-icon: Text {
         text: root.label;
         color: root.kind == KeyKind.primary ? Theme.bg : Theme.fg;
@@ -35,8 +68,18 @@ export component Key inherits Rectangle {
         height: root.icon-size;
     }
     touch := TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                Feedback.tap();
+                if Feedback.ir {
+                    root.pulse-start = animation-tick();
+                    root.pulsing = true;
+                }
+            }
+        }
         clicked => { root.clicked(); }
     }
+    Timer { interval: 420ms; running: root.pulsing; triggered => { root.pulsing = false; } }
 }
 
 // A tall rocker (VOL, CH): + on top, its name in the middle, − at the bottom.
@@ -45,6 +88,12 @@ export component Rocker inherits Rectangle {
     callback up;
     callback down;
 
+    property <bool> pulsing;
+    property <duration> pulse-start;
+    property <length> px;
+    property <length> py;
+
+    clip: true;
     border-radius: Theme.radius;
     background: Theme.operator;
 
@@ -54,7 +103,10 @@ export component Rocker inherits Rectangle {
         border-radius: Theme.radius;
         background: top.pressed ? Theme.operator-pressed : transparent;
         Text { y: 16px; text: "+"; color: Theme.fg; font-size: 22px; }
-        top := TouchArea { clicked => { root.up(); } }
+        top := TouchArea {
+            pointer-event(e) => { if e.kind == PointerEventKind.down { root.tapped(self.mouse-x, self.mouse-y); } }
+            clicked => { root.up(); }
+        }
     }
     Rectangle {
         y: parent.height / 2;
@@ -62,7 +114,22 @@ export component Rocker inherits Rectangle {
         border-radius: Theme.radius;
         background: bottom.pressed ? Theme.operator-pressed : transparent;
         Text { y: parent.height - self.height - 16px; text: "−"; color: Theme.fg; font-size: 22px; }
-        bottom := TouchArea { clicked => { root.down(); } }
+        bottom := TouchArea {
+            pointer-event(e) => { if e.kind == PointerEventKind.down { root.tapped(self.mouse-x, parent.height + self.mouse-y); } }
+            clicked => { root.down(); }
+        }
+    }
+    Pulse { pulsing: root.pulsing; start: root.pulse-start; px: root.px; py: root.py; }
+    Timer { interval: 420ms; running: root.pulsing; triggered => { root.pulsing = false; } }
+
+    function tapped(x: length, y: length) {
+        Feedback.tap();
+        if Feedback.ir {
+            root.px = x;
+            root.py = y;
+            root.pulse-start = animation-tick();
+            root.pulsing = true;
+        }
     }
     Text { text: root.label; color: Theme.muted; font-size: 13px; }
 }
@@ -80,7 +147,10 @@ export component Hamburger inherits Rectangle {
             Rectangle { width: w; height: 2px; border-radius: 1px; background: Theme.fg; opacity: 0.55; }
         }
     }
-    TouchArea { clicked => { root.clicked(); } }
+    TouchArea {
+        pointer-event(e) => { if e.kind == PointerEventKind.down { Feedback.tap(); } }
+        clicked => { root.clicked(); }
+    }
 }
 
 export component Divider inherits Rectangle {

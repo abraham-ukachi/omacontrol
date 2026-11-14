@@ -18,3 +18,9 @@ export global Theme {
     out property <length> radius: 14px;
     out property <length> gap: 12px;
 }
+
+// Touch feedback: a faint haptic tick on every key, and a themed pulse while an IR device is in use.
+export global Feedback {
+    in property <bool> ir: false;
+    callback tap();
+}

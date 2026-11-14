@@ -1,11 +1,11 @@
 import "fonts/iAWriterMonoS-Regular.ttf";
-import { Theme } from "theme.slint";
+import { Theme, Feedback } from "theme.slint";
 import { DevicesPage, DeviceRow } from "devices.slint";
 import { RemotePage } from "remote.slint";
 import { KeypadPage } from "keypad.slint";
 import { MenuPage } from "menu.slint";
 
-export { Theme, DeviceRow }
+export { Theme, Feedback, DeviceRow }
 
 // Pages: 0 TVs · 1 Remote · 2 Channels & apps · 3 Menu
 export component AppWindow inherits Window {
@@ -47,9 +47,11 @@ export component AppWindow inherits Window {
 
     Rectangle {
         x: 20px;
-        y: root.inset-top + 8px;
+        property <length> top: max(root.inset-top, root.safe-area-insets.top);
+        property <length> bottom: max(root.inset-bottom, root.safe-area-insets.bottom);
+        y: self.top + 8px;
         width: root.width - 40px;
-        height: root.height - root.inset-top - root.inset-bottom - 28px;
+        height: root.height - self.top - self.bottom - 28px;
 
         if root.page == 0: DevicesPage {
             devices: root.devices;
@@ -78,6 +80,8 @@ export component AppWindow inherits Window {
             press(k) => { root.press(k); }
             launch(a) => { root.launch(a); }
             send-text(t) => { root.send-text(t); }
+            kb-top: root.virtual-keyboard-position.y;
+            kb-height: root.virtual-keyboard-size.height;
         }
         if root.page == 3: MenuPage {
             themes: root.themes;
