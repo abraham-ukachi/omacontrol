@@ -48,7 +48,7 @@ impl Brand {
     }
 }
 
-/// What kind of device it is. TVs today; air conditioners are next.
+/// What kind of device it is: a TV, or an air conditioner driven over IR.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum DeviceKind {
     #[default]

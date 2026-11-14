@@ -44,10 +44,12 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 
 | No. | Screen | What it does |
 |:----|:-------|:-------------|
-| 1 | *`TVs`* | Scans your network (SSDP), lists every TV found with its brand, **Add TV** by IP or over IR, **Rescan** |
+| 1 | *`Devices`* | Scans your network (SSDP), lists every TV and air conditioner found, **Add** by IP or over IR, **Rescan** |
 | 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, keyboard & number pad shortcuts |
 | 3 | *`Channels & apps`* | A big monospace channel display, streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
 | 4 | *`Menu`* | Jump between screens, and pick your Omarchy theme |
+| 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, sleep & swing |
+| 6 | *`AC setup`* | Tries each protocol (Midea, Coolix, Gree, TCL) until the AC beeps |
 
 <img width="800" alt="The remote in Flexoki Light, Gruvbox and Rose Pine" src="./docs/design/omacontrol-remote-themes.png" />
 
@@ -88,11 +90,12 @@ Versions as built on 2026-11-14:
 | 1 | *`Discovery`* | [crates/omacontrol-core/src/discovery.rs](./crates/omacontrol-core/src/discovery.rs) | Sends SSDP `M-SEARCH` for each brand, tells them apart, reads the TV's friendly name |
 | 2 | *`Protocols`* | [crates/omacontrol-core/src/tv/](./crates/omacontrol-core/src/tv) | One module per brand behind the same `Remote` trait (`press`, `type_text`, `launch`) |
 | 3 | *`Infrared`* | [crates/omacontrol-core/src/ir.rs](./crates/omacontrol-core/src/ir.rs) | NEC, Samsung32, Sony SIRC & Pronto → pulse patterns, plus the TV code sets |
-| 4 | *`Themes`* | [crates/omacontrol-core/src/theme.rs](./crates/omacontrol-core/src/theme.rs) | The 23 Omarchy themes and Omacalc's color mixing |
-| 5 | *`Store`* | [crates/omacontrol-core/src/store.rs](./crates/omacontrol-core/src/store.rs) | Paired TVs, their tokens and your theme, in one JSON file |
-| 6 | *`UI`* | [app/ui/](./app/ui) | The four screens, in Slint |
-| 7 | *`App`* | [app/src/lib.rs](./app/src/lib.rs) | Wires the UI to the core; a worker thread does all the talking to TVs |
-| 8 | *`IR blaster`* | [app/src/android_ir.rs](./app/src/android_ir.rs) | `ConsumerIrManager.transmit()` through JNI |
+| 4 | *`Air conditioners`* | [crates/omacontrol-core/src/ac.rs](./crates/omacontrol-core/src/ac.rs) | Midea, Coolix, Gree & TCL112 state frames, and the state the remote keeps (IR is one way) |
+| 5 | *`Themes`* | [crates/omacontrol-core/src/theme.rs](./crates/omacontrol-core/src/theme.rs) | The 23 Omarchy themes and Omacalc's color mixing |
+| 6 | *`Store`* | [crates/omacontrol-core/src/store.rs](./crates/omacontrol-core/src/store.rs) | Paired TVs, their tokens and your theme, in one JSON file |
+| 7 | *`UI`* | [app/ui/](./app/ui) | The six screens (Devices, Remote, Channels & apps, Menu, AC, AC setup), in Slint |
+| 8 | *`App`* | [app/src/lib.rs](./app/src/lib.rs) | Wires the UI to the core; a worker thread does all the talking to TVs and the IR blaster |
+| 9 | *`IR blaster`* | [app/src/android_ir.rs](./app/src/android_ir.rs) | `ConsumerIrManager.transmit()` through JNI |
 
 
 ## Build & run 🛠️
