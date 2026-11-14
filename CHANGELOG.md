@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
-## [0.2.0-beta.2] - 2026-11-14
+## [0.2.1] - 2026-11-14
 
 ### Fixed
 - Adding a TV by IP no longer freezes the app: the brand probe runs on the worker thread, behind a "looking for the TV…" status.
