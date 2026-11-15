@@ -13,6 +13,7 @@
 
 pub mod ac;
 pub mod discovery;
+pub mod feedback;
 pub mod ir;
 pub mod key;
 pub mod store;
@@ -26,7 +27,7 @@ pub use store::Store;
 pub use theme::Theme;
 pub use ir::IrTransmitter;
 pub use ac::{AcChange, AcFan, AcMode, AcProtocol, AcState};
-pub use tv::{connect, Brand, Device, DeviceKind, Remote, Transport};
+pub use tv::{connect, connect_android_tv, Brand, Channel, Device, DeviceKind, Remote, Transport};
 
 /// Everything that can go wrong while talking to a TV.
 #[derive(Debug, thiserror::Error)]
@@ -41,6 +42,8 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("the TV refused the pairing (or nobody said yes on the TV)")]
     PairingRefused,
+    #[error("this TV doesn't know OmaControl yet: pair it with the code it shows")]
+    NotPaired,
     #[error("{0} is not supported by this TV yet")]
     Unsupported(String),
     #[error("{0}")]

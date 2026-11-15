@@ -1,0 +1,174 @@
+import { Theme } from "theme.slint";
+import { Key, KeyKind, Header, Divider } from "widgets.slint";
+
+// A text field the Omacalc way: a number key's surface, muted placeholder, ink text.
+component Field inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text <=> input.text;
+    in property <bool> multiline: false;
+    in property <InputType> input-type: InputType.text;
+    height: root.multiline ? 150px : 56px;
+    border-radius: Theme.radius;
+    background: Theme.key;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.key-border;
+    input := TextInput {
+        x: 16px;
+        y: root.multiline ? 14px : 0px;
+        width: parent.width - 32px;
+        height: root.multiline ? parent.height - 28px : parent.height;
+        color: Theme.fg;
+        font-size: 16px;
+        single-line: !root.multiline;
+        wrap: root.multiline ? TextWrap.word-wrap : TextWrap.no-wrap;
+        vertical-alignment: root.multiline ? TextVerticalAlignment.top : TextVerticalAlignment.center;
+        input-type: root.input-type;
+    }
+    if input.text == "": Text {
+        x: 16px;
+        y: root.multiline ? 14px : 0px;
+        height: root.multiline ? 22px : parent.height;
+        text: root.placeholder;
+        color: Theme.muted;
+        font-size: 16px;
+        vertical-alignment: root.multiline ? TextVerticalAlignment.top : TextVerticalAlignment.center;
+    }
+}
+
+// One About line: what it is on the left, the value on the right; tap opens it.
+component Link inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    callback clicked;
+    height: 50px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.key-pressed : transparent;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        Text { text: root.label; color: Theme.muted; font-size: 15px; vertical-alignment: center; }
+        Text { text: root.value; color: Theme.fg; font-size: 15px; vertical-alignment: center; horizontal-alignment: right; overflow: elide; }
+    }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+// 07 · Settings: the Omarchy theme, About, and Feedback (straight to the maintainer's inbox).
+export component SettingsPage inherits VerticalLayout {
+    in property <[string]> themes;
+    in property <string> version;
+    in-out property <int> tab: 0;
+    callback menu;
+    callback pick-theme(string);
+    callback open-url(string);
+
+    // Feedback form (two-way, so the app can clear it once it's sent).
+    in-out property <string> fb-kind: "Feedback";
+    in-out property <string> fb-email;
+    in-out property <string> fb-title;
+    in-out property <string> fb-message;
+    in property <string> fb-status;
+    in property <bool> fb-sending;
+    callback send-feedback();
+    // The on-screen keyboard's height, so the form can scroll above it.
+    in property <length> kb-height;
+
+    spacing: Theme.gap;
+    Header { title: "Settings"; subtitle: "v" + root.version; menu => { root.menu(); } }
+    HorizontalLayout {
+        height: 48px;
+        spacing: Theme.gap;
+        for t[i] in ["Theme", "About", "Feedback"]: Key {
+            label: t;
+            font-size: 15px;
+            kind: root.tab == i ? KeyKind.primary : KeyKind.operator;
+            clicked => { root.tab = i; }
+        }
+    }
+    Divider { }
+
+    if root.tab == 0: Flickable {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            for t in root.themes: Rectangle {
+                height: 44px;
+                border-radius: Theme.radius;
+                background: t == Theme.name ? Theme.operator : transparent;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 16px;
+                    Text { text: t; color: Theme.fg; font-size: 16px; vertical-alignment: center; }
+                    if t == Theme.name: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
+                }
+                TouchArea { clicked => { root.pick-theme(t); } }
+            }
+        }
+    }
+
+    if root.tab == 1: Flickable {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            spacing: 4px;
+            padding-top: 10px;
+            VerticalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: 6px;
+                Text { text: "about"; color: Theme.muted; font-size: 19px; }
+                Text { text: "OmaControl"; color: Theme.fg; font-size: 40px; horizontal-alignment: right; }
+                Text { text: "v" + root.version; color: Theme.muted; font-size: 16px; horizontal-alignment: right; }
+            }
+            Rectangle { height: 14px; }
+            Text { x: 8px; text: "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."; color: Theme.fg; font-size: 15px; wrap: word-wrap; }
+            Rectangle { height: 10px; }
+            Divider { }
+            Link { label: "made by"; value: "Abraham Ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
+            Link { label: "GitHub"; value: "@abraham-ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
+            Link { label: "X"; value: "@abrahamukachi"; clicked => { root.open-url("https://x.com/abrahamukachi"); } }
+            Link { label: "email"; value: "abrahamukachi@gmail.com"; clicked => { root.open-url("mailto:abrahamukachi@gmail.com?subject=OmaControl"); } }
+            Divider { }
+            Link { label: "source"; value: "github.com/abraham-ukachi/omacontrol"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol"); } }
+            Link { label: "license"; value: "MIT"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/blob/main/LICENSE"); } }
+            Link { label: "version"; value: root.version; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/releases"); } }
+            Rectangle { height: 16px; }
+            Text { x: 8px; text: "MOTTO: We'll always do more"; color: Theme.muted; font-size: 13px; }
+        }
+    }
+
+    if root.tab == 2: Flickable {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            spacing: Theme.gap;
+            padding-top: 6px;
+            padding-bottom: root.kb-height;
+            Text { x: 8px; text: "an idea, or something broken? it goes straight to Abraham's inbox."; color: Theme.muted; font-size: 14px; wrap: word-wrap; }
+            HorizontalLayout {
+                height: 48px;
+                spacing: Theme.gap;
+                for k in ["Feedback", "Issue"]: Key {
+                    label: k;
+                    font-size: 15px;
+                    kind: root.fb-kind == k ? KeyKind.primary : KeyKind.operator;
+                    clicked => { root.fb-kind = k; }
+                }
+            }
+            Field { placeholder: "your email (optional, for a reply)"; text <=> root.fb-email; input-type: InputType.text; }
+            Field { placeholder: root.fb-kind == "Issue" ? "what broke?" : "title"; text <=> root.fb-title; }
+            Field { placeholder: root.fb-kind == "Issue" ? "what happened, and on which TV or AC?" : "tell me more…"; text <=> root.fb-message; multiline: true; }
+            HorizontalLayout {
+                height: 60px;
+                spacing: Theme.gap;
+                Text { horizontal-stretch: 2; text: root.fb-status; color: Theme.muted; font-size: 14px; vertical-alignment: center; wrap: word-wrap; }
+                Key {
+                    horizontal-stretch: 1;
+                    label: root.fb-sending ? "…" : "Send";
+                    kind: KeyKind.primary;
+                    font-size: 18px;
+                    clicked => { if !root.fb-sending { root.send-feedback(); } }
+                }
+            }
+        }
+    }
+}
