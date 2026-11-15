@@ -14,6 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Tag matches the workspace version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          crate=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$crate" != "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match Cargo.toml ($crate). Bump [workspace.package] version, commit, then tag."
+            exit 1
+          fi
+          echo "Tag $GITHUB_REF_NAME matches Cargo.toml ($crate)."
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android

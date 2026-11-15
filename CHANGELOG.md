@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file. Versions fo
 ### Fixed
 - :bug: The APK reports the crate version again: the workspace was still on 0.2.0 while the tags had moved on, so every build since 0.2.1 identified itself as 0.2.0 to Android.
 
+### Changed
+- :construction_worker: A release tag must match the workspace version: the Android workflow stops before building when `vX.Y.Z` and `Cargo.toml` disagree.
+
 ## [0.2.3] - 2026-11-14
 
 ### Added

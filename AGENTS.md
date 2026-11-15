@@ -12,7 +12,8 @@ The long-term goal: **one app for anything with an IR receiver or a network remo
 3. 🎨 **Omacalc is the design reference** (see CONTRIBUTING.md › Design rules). Don't add colors; mix the theme's two.
 4. 🔐 TLS to TVs accepts self-signed certificates **only** for local TVs (`tv/tls.rs`). Never reuse that config for the internet.
 5. 📴 Never block the UI thread: everything that touches the network or the IR blaster goes through the worker thread (`app/src/lib.rs`).
-6. ✍️ Gitmoji commits, a CHANGELOG entry per version.
+6. 🔖 **Bump before you tag.** Set `[workspace.package] version` in `Cargo.toml` (and `Cargo.lock`), commit, then push the `vX.Y.Z` tag. The Android workflow refuses a tag that doesn't match.
+7. ✍️ Gitmoji commits, a CHANGELOG entry per version.
 
 ## Where things are
 
