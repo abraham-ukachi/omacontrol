@@ -1,11 +1,22 @@
 //! The paired TVs and the chosen theme, saved as one small JSON file.
+//!
+//! Saving is atomic: the JSON is written to a temporary file next to the real one and then
+//! renamed over it, so a crash or a full disk can never leave a half-written store behind.
+//! The previous file is kept as `omacontrol.json.bak`; loading falls back to it when the main
+//! file is unreadable, and moves an unreadable file aside instead of forgetting every device.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::tv::Device;
+
+const FILE: &str = "omacontrol.json";
+const BACKUP: &str = "omacontrol.json.bak";
+const TEMP: &str = "omacontrol.json.tmp";
+const CORRUPT: &str = "omacontrol.json.corrupt";
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Store {
@@ -21,21 +32,53 @@ pub struct Store {
 
 impl Store {
     /// Loads `omacontrol.json` from `dir` (an empty store when it isn't there yet).
+    ///
+    /// When the file can't be parsed it is moved to `omacontrol.json.corrupt` (so it can be
+    /// looked at or restored by hand) and the backup is used instead; only when there is no
+    /// usable backup does the app start with an empty store.
     pub fn load(dir: &Path) -> Store {
-        let path = dir.join("omacontrol.json");
-        let mut store: Store = fs::read_to_string(&path)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        let path = dir.join(FILE);
+        let backup = dir.join(BACKUP);
+        let read = |p: &Path| fs::read_to_string(p).ok().and_then(|s| serde_json::from_str::<Store>(&s).ok());
+
+        let mut store = match read(&path) {
+            Some(store) => store,
+            None => {
+                if path.exists() {
+                    let aside = dir.join(CORRUPT);
+                    let _ = fs::rename(&path, &aside);
+                    log::warn!("store: {FILE} was unreadable, moved it to {}", aside.display());
+                }
+                match read(&backup) {
+                    Some(store) => {
+                        log::warn!("store: recovered the saved devices from {BACKUP}");
+                        store
+                    }
+                    None => Store::default(),
+                }
+            }
+        };
         store.path = path;
         store
     }
 
+    /// Writes the store atomically: a temp file, then a rename; the old file stays as `.bak`.
     pub fn save(&self) -> crate::Result<()> {
-        if let Some(dir) = self.path.parent() {
+        let dir = self.path.parent().unwrap_or(Path::new(""));
+        if !dir.as_os_str().is_empty() {
             fs::create_dir_all(dir)?;
         }
-        fs::write(&self.path, serde_json::to_string_pretty(self)?)?;
+        let json = serde_json::to_string_pretty(self)?;
+        let temp = dir.join(TEMP);
+        {
+            let mut file = fs::File::create(&temp)?;
+            file.write_all(json.as_bytes())?;
+            file.sync_all()?;
+        }
+        if self.path.exists() {
+            fs::rename(&self.path, dir.join(BACKUP))?;
+        }
+        fs::rename(&temp, &self.path)?;
         Ok(())
     }
 
@@ -60,6 +103,21 @@ impl Store {
 mod tests {
     use super::*;
     use crate::tv::Brand;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// A fresh directory per test (tests run in parallel, so the pid alone isn't enough).
+    fn dir() -> PathBuf {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("omacontrol-store-{}-{nanos}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn store(dir: &Path, theme: &str) -> Store {
+        let mut s = Store::load(dir);
+        s.theme = Some(theme.into());
+        s
+    }
 
     #[test]
     fn upsert_keeps_the_token() {
@@ -74,11 +132,56 @@ mod tests {
 
     #[test]
     fn saves_and_loads() {
-        let dir = std::env::temp_dir().join(format!("omacontrol-test-{}", std::process::id()));
-        let mut s = Store::load(&dir);
-        s.theme = Some("Gruvbox".into());
-        s.save().unwrap();
+        let dir = dir();
+        store(&dir, "Gruvbox").save().unwrap();
         assert_eq!(Store::load(&dir).theme.as_deref(), Some("Gruvbox"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn saving_keeps_the_previous_file_as_the_backup() {
+        let dir = dir();
+        store(&dir, "Gruvbox").save().unwrap();
+        store(&dir, "Nord").save().unwrap();
+        // The main file is the new one, the backup the one before it.
+        assert_eq!(Store::load(&dir).theme.as_deref(), Some("Nord"));
+        let backup: Store = serde_json::from_str(&fs::read_to_string(dir.join(BACKUP)).unwrap()).unwrap();
+        assert_eq!(backup.theme.as_deref(), Some("Gruvbox"));
+        assert!(!dir.join(TEMP).exists(), "the temp file is renamed away");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_corrupt_file_falls_back_to_the_backup_and_is_kept() {
+        let dir = dir();
+        store(&dir, "Gruvbox").save().unwrap();
+        store(&dir, "Nord").save().unwrap();
+        fs::write(dir.join(FILE), "{\"devices\": [ truncated").unwrap();
+
+        assert_eq!(Store::load(&dir).theme.as_deref(), Some("Gruvbox"));
+        assert!(dir.join(CORRUPT).exists(), "the unreadable file is moved aside");
+        assert!(!dir.join(FILE).exists(), "the unreadable file is no longer the main one");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_missing_file_loads_the_backup() {
+        let dir = dir();
+        store(&dir, "Gruvbox").save().unwrap();
+        store(&dir, "Nord").save().unwrap();
+        fs::remove_file(dir.join(FILE)).unwrap();
+        assert_eq!(Store::load(&dir).theme.as_deref(), Some("Gruvbox"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_unreadable_file_without_a_backup_starts_empty_but_keeps_the_file() {
+        let dir = dir();
+        fs::write(dir.join(FILE), "not json at all").unwrap();
+        let s = Store::load(&dir);
+        assert!(s.devices.is_empty());
+        assert!(s.theme.is_none());
+        assert_eq!(fs::read_to_string(dir.join(CORRUPT)).unwrap(), "not json at all");
         let _ = fs::remove_dir_all(dir);
     }
 }

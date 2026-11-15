@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.2.3] - 2026-11-14
+
+### Added
+- :snowflake: Two more air conditioner protocols: **Haier** (YRW02, 14-byte frame) and **Daikin** (35-byte, three-section state frame), next to Midea, Coolix, Gree, TCL, LG, Electra, Samsung and Kelvinator.
+
+## [0.2.2] - 2026-11-14
+
+### Added
+- :snowflake: Four more air conditioner protocols: **LG**, **Electra** (Electra, AUX, AEG Chillflex, De'Longhi Pinguino, Frigidaire), **Samsung** and **Kelvinator**, next to Midea, Coolix, Gree and TCL.
+- A pasted **Pronto code** for air conditioners no protocol reaches: the setup screen tests it, and the power key sends it.
+
+### Changed
+- AC setup sends each code four frames (on, on, off, on): a weak phone blaster gets several tries, a unit that is already running beeps on the off frame, and the code leaves it on.
+
+### Fixed
+- The device store is written atomically and the previous file is kept as `omacontrol.json.bak`; an unreadable file moves to `omacontrol.json.corrupt` and the backup is loaded instead of silently starting empty.
+
 ## [0.2.1] - 2026-11-14
 
 ### Fixed

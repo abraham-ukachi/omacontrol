@@ -75,6 +75,7 @@ export component AcSetupPage inherits VerticalLayout {
     in property <bool> tested;
     callback menu;
     callback setup(string);
+    callback code-changed(string);
 
     spacing: Theme.gap;
     Header { title: "New air conditioner"; subtitle: "point your phone at it"; menu => { root.menu(); } }
@@ -95,7 +96,7 @@ export component AcSetupPage inherits VerticalLayout {
         font-size: 16px;
         text: root.tested
             ? "Did it beep or switch on? If so, tap \"It works\". If not, try the next code."
-            : "Turn the AC off, stand a couple of meters away, aim the top of your phone at it, and tap Test. It should switch on in cool mode at 22°.";
+            : "Turn the AC off, point the top of your phone at it from a couple of meters, and tap Test. It sends the code a few times and should switch on in cool mode at 22°.";
     }
     Rectangle { vertical-stretch: 1; }
     HorizontalLayout {
@@ -104,5 +105,23 @@ export component AcSetupPage inherits VerticalLayout {
         Key { label: "Test"; font-size: 19px; clicked => { root.setup("test"); } }
         Key { label: "Next"; kind: KeyKind.operator; font-size: 19px; clicked => { root.setup("next"); } }
     }
+    Rectangle {
+        height: 48px;
+        border-radius: Theme.radius;
+        background: Theme.key;
+        border-width: 1px;
+        border-color: Theme.key-border;
+        field := TextInput {
+            x: 14px;
+            width: parent.width - 28px;
+            color: Theme.fg;
+            font-size: 14px;
+            vertical-alignment: center;
+            edited => { root.code-changed(self.text); }
+            accepted => { root.setup("code"); }
+        }
+        if field.text == "": Text { x: 14px; text: "paste a Pronto code for a unit no code above reaches"; color: Theme.muted; font-size: 14px; }
+    }
+    Key { height: 52px; label: "Test code"; font-size: 16px; clicked => { root.setup("code"); } }
     Key { height: 72px; label: "It works"; kind: KeyKind.primary; font-size: 20px; clicked => { root.setup("ok"); } }
 }

@@ -44,7 +44,7 @@ export component AppWindow inherits Window {
     in property <bool> ac-sleep;
     in property <string> ac-setup-protocol;
     in property <int> ac-setup-index;
-    in property <int> ac-setup-count: 4;
+    in property <int> ac-setup-count: 10;
     in property <bool> ac-setup-tested;
 
     callback rescan;
@@ -58,6 +58,7 @@ export component AppWindow inherits Window {
     callback add-ac();
     callback ac-action(string);
     callback ac-setup(string);
+    callback ac-code-changed(string);
 
     function open-menu() {
         root.back-page = root.page;
@@ -122,6 +123,7 @@ export component AppWindow inherits Window {
             tested: root.ac-setup-tested;
             menu => { root.open-menu(); }
             setup(s) => { root.ac-setup(s); }
+            code-changed(t) => { root.ac-code-changed(t); }
         }
         if root.page == 3: MenuPage {
             themes: root.themes;

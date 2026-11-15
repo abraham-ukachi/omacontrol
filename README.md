@@ -49,7 +49,7 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 | 3 | *`Channels & apps`* | A big monospace channel display, streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
 | 4 | *`Menu`* | Jump between screens, and pick your Omarchy theme |
 | 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, sleep & swing |
-| 6 | *`AC setup`* | Tries each protocol (Midea, Coolix, Gree, TCL) until the AC beeps |
+| 6 | *`AC setup`* | Tries each protocol (Midea, Coolix, Gree, TCL, LG, Electra, Samsung, Kelvinator, Haier, Daikin) until the AC beeps, or tests a pasted IR code |
 
 <img width="800" alt="The remote in Flexoki Light, Gruvbox and Rose Pine" src="./docs/design/omacontrol-remote-themes.png" />
 
@@ -64,7 +64,7 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 | 2 | *`LG`* (webOS) | Wi‑Fi · SSAP `:3001` / `:3000` + pointer socket | press **Yes** on the TV once | ✅ 0.1.0 |
 | 3 | *`Roku`* / Roku TV | Wi‑Fi · ECP HTTP `:8060` | none | ✅ 0.1.0 |
 | 4 | *`Samsung`*, *`LG`*, *`Sony`* | Infrared (phone's IR blaster) | none | ✅ 0.1.0 |
-| 5 | *`Air conditioners`* (fixed & portable): Midea, Coolix, Gree, TCL protocols (Cecotec, Comfee, Kaysun, Toshiba, Beko, Gree, TCL...) | Infrared (state-based codes) | tap **Test** until the AC beeps | 🧪 0.2.0 |
+| 5 | *`Air conditioners`* (fixed & portable): Midea, Coolix, Gree, TCL, LG, Electra, Samsung, Kelvinator, Haier and Daikin protocols (Cecotec, Comfee, Kaysun, Toshiba, Beko, TCL, AUX, AEG, De'Longhi, LG, Haier, Daikin...) | Infrared (state-based codes) | tap **Test** until the AC beeps, or paste a Pronto code | 🧪 0.2.2 |
 | 6 | *`Android TV`* / Google TV | Wi‑Fi · Android TV Remote v2 `:6466` | PIN shown on the TV | 🗺️ 0.3.0 |
 
 
@@ -90,7 +90,7 @@ Versions as built on 2026-11-14:
 | 1 | *`Discovery`* | [crates/omacontrol-core/src/discovery.rs](./crates/omacontrol-core/src/discovery.rs) | Sends SSDP `M-SEARCH` for each brand, tells them apart, reads the TV's friendly name |
 | 2 | *`Protocols`* | [crates/omacontrol-core/src/tv/](./crates/omacontrol-core/src/tv) | One module per brand behind the same `Remote` trait (`press`, `type_text`, `launch`) |
 | 3 | *`Infrared`* | [crates/omacontrol-core/src/ir.rs](./crates/omacontrol-core/src/ir.rs) | NEC, Samsung32, Sony SIRC & Pronto → pulse patterns, plus the TV code sets |
-| 4 | *`Air conditioners`* | [crates/omacontrol-core/src/ac.rs](./crates/omacontrol-core/src/ac.rs) | Midea, Coolix, Gree & TCL112 state frames, and the state the remote keeps (IR is one way) |
+| 4 | *`Air conditioners`* | [crates/omacontrol-core/src/ac.rs](./crates/omacontrol-core/src/ac.rs) | Midea, Coolix, Gree, TCL112, LG, Electra, Samsung, Kelvinator, Haier & Daikin state frames, a pasted Pronto code, and the state the remote keeps (IR is one way) |
 | 5 | *`Themes`* | [crates/omacontrol-core/src/theme.rs](./crates/omacontrol-core/src/theme.rs) | The 23 Omarchy themes and Omacalc's color mixing |
 | 6 | *`Store`* | [crates/omacontrol-core/src/store.rs](./crates/omacontrol-core/src/store.rs) | Paired TVs, their tokens and your theme, in one JSON file |
 | 7 | *`UI`* | [app/ui/](./app/ui) | The six screens (Devices, Remote, Channels & apps, Menu, AC, AC setup), in Slint |
