@@ -47,12 +47,22 @@ impl ServerCertVerifier for AnyCertificate {
 
 /// A rustls client config that trusts the TV's self-signed certificate.
 pub(crate) fn local_tv_config() -> Arc<ClientConfig> {
+    local_tv_builder().with_no_client_auth().into()
+}
+
+/// The same, presenting our own certificate (Android TV pairs a certificate, not a token).
+pub(crate) fn local_tv_config_with_identity(cert_der: &[u8], key_der: &[u8]) -> Result<Arc<ClientConfig>, rustls::Error> {
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+    let cert = CertificateDer::from(cert_der.to_vec());
+    let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key_der.to_vec()));
+    Ok(local_tv_builder().with_client_auth_cert(vec![cert], key)?.into())
+}
+
+fn local_tv_builder() -> rustls::ConfigBuilder<ClientConfig, rustls::client::WantsClientCert> {
     let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let config = ClientConfig::builder_with_provider(provider.clone())
+    ClientConfig::builder_with_provider(provider.clone())
         .with_safe_default_protocol_versions()
         .expect("ring supports the default TLS versions")
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(AnyCertificate(provider)))
-        .with_no_client_auth();
-    Arc::new(config)
 }

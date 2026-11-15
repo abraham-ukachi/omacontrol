@@ -10,10 +10,54 @@ export component RemotePage inherits VerticalLayout {
     callback press(string);
     callback keypad;
     callback keyboard;
+    callback devices;
+    // Android TV pairing: the TV shows a 6-character code, typed here.
+    in property <bool> pairing;
+    callback pair(string);
+    callback cancel-pair;
+    in property <length> kb-height;
 
     spacing: Theme.gap;
-    Header { title: root.tv-name; subtitle: root.tv-status; online: root.online; menu => { root.menu(); } }
+    Header { title: root.tv-name; subtitle: root.tv-status; online: root.online; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
     Divider { }
+    if root.pairing: VerticalLayout {
+        spacing: Theme.gap;
+        padding-top: 18px;
+        padding-bottom: root.kb-height;
+        vertical-stretch: 1;
+        alignment: start;
+        Text { x: 8px; text: "pair"; color: Theme.muted; font-size: 19px; }
+        Text { text: "Type the code your TV shows"; color: Theme.fg; font-size: 22px; wrap: word-wrap; horizontal-alignment: right; }
+        Rectangle { height: 8px; }
+        Rectangle {
+            height: 84px;
+            border-radius: Theme.radius;
+            background: Theme.key;
+            border-width: 1px;
+            border-color: code.has-focus ? Theme.accent : Theme.key-border;
+            code := TextInput {
+                x: 18px;
+                width: parent.width - 36px;
+                color: Theme.fg;
+                font-size: 40px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                accepted => { root.pair(self.text); }
+            }
+            if code.text == "": Text { text: "_ _ _ _ _ _"; color: Theme.muted; font-size: 32px; }
+        }
+        Text { x: 8px; text: "6 characters, 0-9 and A-F. It stays on the TV for a minute."; color: Theme.muted; font-size: 13px; wrap: word-wrap; }
+        HorizontalLayout {
+            height: 64px;
+            spacing: Theme.gap;
+            Key { label: "Cancel"; font-size: 17px; clicked => { root.cancel-pair(); } }
+            Key { label: "Pair"; kind: KeyKind.primary; font-size: 17px; clicked => { root.pair(code.text); } }
+        }
+        init => { code.focus(); }
+    }
+    if !root.pairing: VerticalLayout {
+    spacing: Theme.gap;
+    vertical-stretch: 1;
     HorizontalLayout {
         height: 58px;
         spacing: Theme.gap;
@@ -71,5 +115,6 @@ export component RemotePage inherits VerticalLayout {
             }
         }
         Rocker { horizontal-stretch: 1.4; label: "CH"; up => { root.press("ch+"); } down => { root.press("ch-"); } }
+    }
     }
 }
