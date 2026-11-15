@@ -3341,7 +3341,7 @@ dependencies = [
 
 [[package]]
 name = "omacontrol"
-version = "0.2.0"
+version = "0.2.3"
 dependencies = [
  "android_logger",
  "jni 0.21.1",
@@ -3354,7 +3354,7 @@ dependencies = [
 
 [[package]]
 name = "omacontrol-core"
-version = "0.2.0"
+version = "0.2.3"
 dependencies = [
  "base64 0.22.1",
  "log",
