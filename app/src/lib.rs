@@ -12,8 +12,10 @@ use std::time::Duration;
 
 use std::cell::{Cell, RefCell};
 
+use omacontrol_core::feedback::{Feedback as FeedbackForm, Kind as FeedbackKind};
 use omacontrol_core::ir::Pattern;
-use omacontrol_core::{connect, discover, AcChange, AcProtocol, App, Brand, Device, IrTransmitter, Key, Remote, Store, Theme as OmaTheme, Transport};
+use omacontrol_core::tv::androidtv::{Identity, Pairing};
+use omacontrol_core::{connect, connect_android_tv, discover, AcChange, AcProtocol, App, Brand, Device, Error, IrTransmitter, Key, Remote, Store, Theme as OmaTheme, Transport};
 use slint::{Color, ModelRc, SharedString, VecModel};
 
 slint::include_modules!();
@@ -21,7 +23,28 @@ slint::include_modules!();
 #[cfg(target_os = "android")]
 mod android_ir;
 #[cfg(target_os = "android")]
+mod android_url;
+#[cfg(target_os = "android")]
 mod haptics;
+
+/// Opens a link (About: GitHub, X, mail) in the app that handles it.
+fn open_url(url: &str) {
+    #[cfg(target_os = "android")]
+    {
+        android_url::open(url);
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let opener = if cfg!(target_os = "macos") { "open" } else if cfg!(windows) { "explorer" } else { "xdg-open" };
+        let _ = std::process::Command::new(opener).arg(url).spawn();
+    }
+}
+
+/// "0.3.0 · Android", for the feedback email.
+fn version_line() -> String {
+    let os = if cfg!(target_os = "android") { "Android" } else { std::env::consts::OS };
+    format!("{} · {os}", env!("CARGO_PKG_VERSION"))
+}
 
 /// A faint tick under the finger (Android only; desktops have nothing to vibrate).
 fn haptic_tick() {
@@ -52,6 +75,13 @@ enum Job {
     Launch(App),
     /// IR frames for the air conditioner, sent one after another.
     Ac(Vec<Pattern>),
+    /// A saved channel: its digits, one after another.
+    Tune(String),
+    /// The code an Android TV shows while pairing.
+    Pair(String),
+    CancelPair,
+    /// Settings › Feedback, sent to the maintainer's inbox.
+    Feedback(FeedbackForm),
 }
 
 /// Shows an air conditioner on the AC page.
@@ -102,6 +132,17 @@ fn apply_theme(ui: &AppWindow, theme: &OmaTheme) {
     g.set_muted(color(theme.muted()));
 }
 
+/// The saved channels of the current TV.
+fn channel_rows(store: &Store) -> ModelRc<ChannelRow> {
+    let rows: Vec<ChannelRow> = store
+        .current
+        .as_deref()
+        .and_then(|ip| store.device(ip))
+        .map(|d| d.channels.iter().map(|c| ChannelRow { number: c.number.clone().into(), name: c.name.clone().into() }).collect())
+        .unwrap_or_default();
+    ModelRc::from(Rc::new(VecModel::from(rows)))
+}
+
 fn rows(store: &Store) -> ModelRc<DeviceRow> {
     let rows: Vec<DeviceRow> = store
         .devices
@@ -126,6 +167,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         let s = store.lock().unwrap();
         apply_theme(&ui, &OmaTheme::named(s.theme.as_deref().unwrap_or("Tokyo Night")));
         ui.set_devices(rows(&s));
+        ui.set_channels(channel_rows(&s));
         if let Some(d) = s.current.as_deref().and_then(|ip| s.device(ip)) {
             if d.is_ac() {
                 show_ac(&ui, d);
@@ -176,8 +218,17 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 return;
             }
             ui.set_current_is_ac(false);
+            ui.set_pairing(false);
             ui.set_tv_name(d.name.clone().into());
             ui.set_page(1);
+            {
+                // Show this TV's saved channels right away (the connection catches up).
+                let mut s = st.lock().unwrap();
+                s.current = Some(d.ip.clone());
+                ui.set_channels(channel_rows(&s));
+                ui.set_devices(rows(&s));
+                let _ = s.save();
+            }
             let _ = tx.send(Job::Connect(d));
         }
     });
@@ -331,6 +382,60 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let tx = jobs.clone();
     ui.on_send_text(move |t| { let _ = tx.send(Job::Text(t.to_string())); });
 
+    // Saved channels.
+    let tx = jobs.clone();
+    ui.on_tune(move |number| { let _ = tx.send(Job::Tune(number.to_string())); });
+    let (st, weak) = (store.clone(), ui.as_weak());
+    ui.on_save_channel(move |number, name| {
+        let mut s = st.lock().unwrap();
+        let Some(ip) = s.current.clone() else { return };
+        let changed = s.devices.iter_mut().find(|d| d.ip == ip).is_some_and(|d| d.save_channel(&number, &name));
+        if changed {
+            let _ = s.save();
+            if let Some(ui) = weak.upgrade() {
+                ui.set_channels(channel_rows(&s));
+            }
+        }
+    });
+    let (st, weak) = (store.clone(), ui.as_weak());
+    ui.on_remove_channel(move |number| {
+        let mut s = st.lock().unwrap();
+        let Some(ip) = s.current.clone() else { return };
+        if s.devices.iter_mut().find(|d| d.ip == ip).is_some_and(|d| d.remove_channel(&number)) {
+            let _ = s.save();
+            if let Some(ui) = weak.upgrade() {
+                ui.set_channels(channel_rows(&s));
+            }
+        }
+    });
+
+    // Android TV pairing.
+    let tx = jobs.clone();
+    ui.on_pair(move |code| { let _ = tx.send(Job::Pair(code.to_string())); });
+    let tx = jobs.clone();
+    ui.on_cancel_pair(move || { let _ = tx.send(Job::CancelPair); });
+
+    // Settings.
+    ui.on_open_url(|url| open_url(&url));
+    let (tx, weak) = (jobs.clone(), ui.as_weak());
+    ui.on_send_feedback(move || {
+        let Some(ui) = weak.upgrade() else { return };
+        let form = FeedbackForm {
+            kind: FeedbackKind::from_label(&ui.get_fb_kind()),
+            email: ui.get_fb_email().to_string(),
+            title: ui.get_fb_title().to_string(),
+            message: ui.get_fb_message().to_string(),
+            version: version_line(),
+        };
+        if let Err(why) = form.validate() {
+            ui.set_fb_status(why.into());
+            return;
+        }
+        ui.set_fb_sending(true);
+        ui.set_fb_status("sending…".into());
+        let _ = tx.send(Job::Feedback(form));
+    });
+
     let (st, weak) = (store.clone(), ui.as_weak());
     ui.on_pick_theme(move |name| {
         if let Some(ui) = weak.upgrade() {
@@ -378,6 +483,8 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
     thread::spawn(move || {
         let mut remote: Option<Box<dyn Remote>> = None;
         let mut label = String::new();
+        // An Android TV showing its pairing code, waiting for the user to type it.
+        let mut pending: Option<(Device, Pairing)> = None;
         for job in rx {
             match job {
                 Job::Scan => {
@@ -396,9 +503,75 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                     });
                 }
                 Job::Connect(device) => {
-                    let (r, l) = connect_device(&weak, &store, &ir, &device, &status);
+                    pending = None;
+                    let (r, l) = connect_device(&weak, &store, &ir, &device, &status, &mut pending);
                     remote = r;
                     label = l;
+                }
+                Job::Pair(code) => {
+                    let Some((device, pairing)) = pending.take() else { continue };
+                    // A typo is caught before anything is sent, and the TV keeps its code up.
+                    if let Err(e) = pairing.check(&code) {
+                        status(&weak, e.to_string(), false);
+                        pending = Some((device, pairing));
+                        continue;
+                    }
+                    status(&weak, "pairing…".into(), false);
+                    match pairing.finish(&code) {
+                        Ok(()) => {
+                            let mut paired = device.clone();
+                            paired.token = Some("paired".into());
+                            {
+                                let mut s = store.lock().unwrap();
+                                s.upsert(paired.clone());
+                                let _ = s.save();
+                            }
+                            let _ = weak.upgrade_in_event_loop(|ui| ui.set_pairing(false));
+                            let (r, l) = connect_device(&weak, &store, &ir, &paired, &status, &mut pending);
+                            remote = r;
+                            label = l;
+                        }
+                        Err(e) => {
+                            let _ = weak.upgrade_in_event_loop(|ui| ui.set_pairing(false));
+                            status(&weak, format!("{e} · tap the name to try again"), false);
+                        }
+                    }
+                }
+                Job::CancelPair => {
+                    pending = None;
+                    let _ = weak.upgrade_in_event_loop(|ui| ui.set_pairing(false));
+                    status(&weak, "not paired".into(), false);
+                }
+                Job::Tune(number) => {
+                    let Some(r) = remote.as_mut() else {
+                        status(&weak, "pick a TV first".into(), false);
+                        continue;
+                    };
+                    let mut result = Ok(());
+                    for c in number.chars() {
+                        let key = if c == '-' { Key::Dash } else if let Some(d) = c.to_digit(10) { Key::Digit(d as u8) } else { continue };
+                        result = r.press(key);
+                        if result.is_err() {
+                            break;
+                        }
+                        // IR receivers and set-top boxes need a beat between digits.
+                        thread::sleep(Duration::from_millis(140));
+                    }
+                    report(&weak, &label, result, &status);
+                }
+                Job::Feedback(form) => {
+                    let result = form.send();
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        ui.set_fb_sending(false);
+                        match result {
+                            Ok(()) => {
+                                ui.set_fb_status("sent. thank you!".into());
+                                ui.set_fb_title("".into());
+                                ui.set_fb_message("".into());
+                            }
+                            Err(e) => ui.set_fb_status(format!("not sent: {e}").into()),
+                        }
+                    });
                 }
                 Job::Probe(ip) => {
                     // A TV added by hand: try the brands one by one, Roku first (it needs no pairing).
@@ -421,7 +594,7 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                         drop(s);
                         let _ = weak.upgrade_in_event_loop(move |ui| ui.set_devices(rows(&snapshot)));
                     }
-                    let (r, l) = connect_device(&weak, &store, &ir, &device, &status);
+                    let (r, l) = connect_device(&weak, &store, &ir, &device, &status, &mut pending);
                     remote = r;
                     label = l;
                 }
@@ -458,13 +631,38 @@ fn connect_device(
     ir: &Option<Arc<dyn IrTransmitter>>,
     device: &Device,
     status: &impl Fn(&slint::Weak<AppWindow>, String, bool),
+    pending: &mut Option<(Device, Pairing)>,
 ) -> (Option<Box<dyn Remote>>, String) {
     let label = if device.transport == Transport::Infrared { format!("{} · IR", device.brand.label()) } else { device.brand.label().to_string() };
     status(weak, format!("connecting · {label}"), false);
     if device.transport == Transport::Network && matches!(device.brand, Brand::Samsung | Brand::Lg) && device.token.is_none() {
         status(weak, "say yes on the TV…".into(), false);
     }
-    match connect(device, ir.clone()) {
+    let android_tv = device.transport == Transport::Network && device.brand == Brand::AndroidTv;
+    let connected = if android_tv {
+        match android_identity(store) {
+            Ok(id) => match connect_android_tv(&device.ip, &id) {
+                Err(Error::NotPaired) => {
+                    // The TV doesn't know our certificate: ask it for a code.
+                    status(weak, "asking the TV for a code…".into(), false);
+                    match Pairing::start(&device.ip, &id, "OmaControl") {
+                        Ok(p) => {
+                            *pending = Some((device.clone(), p));
+                            let _ = weak.upgrade_in_event_loop(|ui| ui.set_pairing(true));
+                            status(weak, "type the code on the TV".into(), false);
+                            return (None, label);
+                        }
+                        Err(e) => Err(e),
+                    }
+                }
+                other => other,
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        connect(device, ir.clone())
+    };
+    match connected {
         Ok(r) => {
             let mut s = store.lock().unwrap();
             let mut d = device.clone();
@@ -474,7 +672,10 @@ fn connect_device(
             let _ = s.save();
             let snapshot = s.clone();
             drop(s);
-            let _ = weak.upgrade_in_event_loop(move |ui| ui.set_devices(rows(&snapshot)));
+            let _ = weak.upgrade_in_event_loop(move |ui| {
+                ui.set_devices(rows(&snapshot));
+                ui.set_channels(channel_rows(&snapshot));
+            });
             status(weak, label.clone(), true);
             let ir_mode = device.transport == Transport::Infrared;
             let _ = weak.upgrade_in_event_loop(move |ui| ui.global::<Feedback>().set_ir(ir_mode));
@@ -486,6 +687,18 @@ fn connect_device(
             (None, label)
         }
     }
+}
+
+/// Our Android TV certificate: made once (on the first pairing), then kept in the store.
+fn android_identity(store: &Arc<Mutex<Store>>) -> omacontrol_core::Result<Identity> {
+    if let Some(id) = store.lock().unwrap().android_tv_identity.clone() {
+        return Ok(id);
+    }
+    let id = Identity::generate()?;
+    let mut s = store.lock().unwrap();
+    s.android_tv_identity = Some(id.clone());
+    let _ = s.save();
+    Ok(id)
 }
 
 fn report(

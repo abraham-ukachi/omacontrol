@@ -2,13 +2,14 @@ import "fonts/iAWriterMonoS-Regular.ttf";
 import { Theme, Feedback } from "theme.slint";
 import { DevicesPage, DeviceRow } from "devices.slint";
 import { RemotePage } from "remote.slint";
-import { KeypadPage } from "keypad.slint";
+import { KeypadPage, ChannelRow } from "keypad.slint";
 import { MenuPage } from "menu.slint";
 import { AcPage, AcSetupPage } from "ac.slint";
+import { SettingsPage } from "settings.slint";
 
-export { Theme, Feedback, DeviceRow }
+export { Theme, Feedback, DeviceRow, ChannelRow }
 
-// Pages: 0 Devices · 1 Remote · 2 Channels & apps · 3 Menu · 4 AC · 5 AC setup
+// Pages: 0 Devices · 1 Remote · 2 Channels & apps · 3 Menu · 4 AC · 5 AC setup · 6 Settings
 export component AppWindow inherits Window {
     title: "OmaControl";
     preferred-width: 400px;
@@ -31,6 +32,19 @@ export component AppWindow inherits Window {
     in property <[string]> themes;
     in property <string> version;
     in property <bool> has-ir;
+
+    // Channels saved by name for the current TV, and Android TV pairing.
+    in property <[ChannelRow]> channels;
+    in property <bool> pairing;
+
+    // Settings › Feedback.
+    in-out property <int> settings-tab: 0;
+    in-out property <string> fb-kind: "Feedback";
+    in-out property <string> fb-email;
+    in-out property <string> fb-title;
+    in-out property <string> fb-message;
+    in property <string> fb-status;
+    in property <bool> fb-sending;
 
     // The air conditioner (when the current device is one).
     in property <bool> current-is-ac;
@@ -59,6 +73,13 @@ export component AppWindow inherits Window {
     callback ac-action(string);
     callback ac-setup(string);
     callback ac-code-changed(string);
+    callback tune(string);
+    callback save-channel(string, string);
+    callback remove-channel(string);
+    callback pair(string);
+    callback cancel-pair();
+    callback open-url(string);
+    callback send-feedback();
 
     function open-menu() {
         root.back-page = root.page;
@@ -93,6 +114,11 @@ export component AppWindow inherits Window {
             press(k) => { root.press(k); }
             keypad => { root.page = 2; }
             keyboard => { root.page = 2; }
+            devices => { root.page = 0; }
+            pairing: root.pairing;
+            pair(c) => { root.pair(c); }
+            cancel-pair => { root.cancel-pair(); }
+            kb-height: root.virtual-keyboard-size.height;
         }
         if root.page == 2: KeypadPage {
             tv-name: root.tv-name;
@@ -101,6 +127,11 @@ export component AppWindow inherits Window {
             press(k) => { root.press(k); }
             launch(a) => { root.launch(a); }
             send-text(t) => { root.send-text(t); }
+            devices => { root.page = 0; }
+            channels: root.channels;
+            tune(n) => { root.tune(n); }
+            save-channel(n, name) => { root.save-channel(n, name); }
+            remove-channel(n) => { root.remove-channel(n); }
             kb-top: root.virtual-keyboard-position.y;
             kb-height: root.virtual-keyboard-size.height;
         }
@@ -115,6 +146,7 @@ export component AppWindow inherits Window {
             sleep: root.ac-sleep;
             menu => { root.open-menu(); }
             action(a) => { root.ac-action(a); }
+            devices => { root.page = 0; }
         }
         if root.page == 5: AcSetupPage {
             protocol: root.ac-setup-protocol;
@@ -126,11 +158,25 @@ export component AppWindow inherits Window {
             code-changed(t) => { root.ac-code-changed(t); }
         }
         if root.page == 3: MenuPage {
-            themes: root.themes;
             version: root.version;
             close => { root.page = root.back-page; }
             goto(i) => { root.page = i == 1 && root.current-is-ac ? 4 : i; }
+        }
+        if root.page == 6: SettingsPage {
+            themes: root.themes;
+            version: root.version;
+            tab <=> root.settings-tab;
+            menu => { root.open-menu(); }
             pick-theme(t) => { root.pick-theme(t); }
+            open-url(u) => { root.open-url(u); }
+            fb-kind <=> root.fb-kind;
+            fb-email <=> root.fb-email;
+            fb-title <=> root.fb-title;
+            fb-message <=> root.fb-message;
+            fb-status: root.fb-status;
+            fb-sending: root.fb-sending;
+            send-feedback => { root.send-feedback(); }
+            kb-height: root.virtual-keyboard-size.height;
         }
     }
 }

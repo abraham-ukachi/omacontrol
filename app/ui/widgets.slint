@@ -159,11 +159,14 @@ export component Divider inherits Rectangle {
 }
 
 // The page title, an optional subtitle with the accent dot, and the menu button.
+// With `tappable`, a tap on the title (a device's name) goes back to the devices list.
 export component Header inherits HorizontalLayout {
     in property <string> title;
     in property <string> subtitle;
     in property <bool> online: false;
+    in property <bool> tappable: false;
     callback menu;
+    callback title-clicked;
 
     padding-left: 8px;
     padding-right: 8px;
@@ -172,7 +175,21 @@ export component Header inherits HorizontalLayout {
     VerticalLayout {
         spacing: 6px;
         alignment: center;
-        Text { text: root.title; color: Theme.fg; font-size: 21px; }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            title := Text {
+                text: root.title;
+                color: Theme.fg;
+                font-size: 21px;
+                overflow: elide;
+                TouchArea {
+                    enabled: root.tappable;
+                    pointer-event(e) => { if e.kind == PointerEventKind.down { Feedback.tap(); } }
+                    clicked => { root.title-clicked(); }
+                }
+            }
+        }
         if root.subtitle != "": HorizontalLayout {
             spacing: 10px;
             alignment: start;

@@ -28,9 +28,10 @@ export component AcPage inherits VerticalLayout {
     in property <bool> sleep;
     callback menu;
     callback action(string);
+    callback devices;
 
     spacing: Theme.gap;
-    Header { title: root.name; subtitle: root.status; online: root.power; menu => { root.menu(); } }
+    Header { title: root.name; subtitle: root.status; online: root.power; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
     VerticalLayout {
         padding-left: 8px;
         padding-right: 8px;
