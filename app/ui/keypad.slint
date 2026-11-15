@@ -1,9 +1,96 @@
-import { Theme } from "theme.slint";
-import { Key, KeyKind, Header, Divider } from "widgets.slint";
+import { Theme, Feedback } from "theme.slint";
+import { Key, KeyKind, Header, Divider, Confirm } from "widgets.slint";
 
 export struct ChannelRow {
     number: string,
     name: string,
+}
+
+// A saved channel: tap tunes it, long-press edits its name, swipe up deletes it.
+// The chip row scrolls sideways by dragging the chips themselves.
+component ChannelChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback tapped;
+    callback long-pressed;
+    callback swiped-up;
+    // Sideways drags scroll the row: start, then each move in absolute x.
+    callback scroll-start;
+    callback scroll-by(length);
+
+    // 0 = undecided, 1 = scrolling sideways, 2 = swiping up, 3 = long-pressed.
+    property <int> mode: 0;
+    property <length> start-x;
+    property <length> lift: root.mode == 2 ? clamp(touch.pressed-y - touch.mouse-y, 0px, 44px) : 0px;
+    property <length> threshold: 10px;
+
+    width: max(84px, label-text.preferred-width + 28px);
+    border-radius: Theme.radius;
+    background: transparent;
+
+    Rectangle {
+        y: -root.lift;
+        width: root.width;
+        height: root.height;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: root.selected ? Theme.accent : Theme.key-border;
+        background: touch.pressed && root.mode != 1 ? Theme.key-pressed : Theme.key;
+        opacity: 1 - root.lift / 88px;
+        animate background { duration: 90ms; }
+        label-text := Text {
+            text: root.label;
+            color: Theme.fg;
+            font-size: 14px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.mode = 0;
+                root.start-x = self.absolute-position.x + self.mouse-x;
+                Feedback.tap();
+            } else if e.kind == PointerEventKind.up {
+                if root.mode == 0 {
+                    root.tapped();
+                } else if root.mode == 2 && touch.pressed-y - touch.mouse-y > 36px {
+                    root.swiped-up();
+                }
+                root.mode = 0;
+            } else if e.kind == PointerEventKind.cancel {
+                root.mode = 0;
+            }
+        }
+        moved => {
+            if root.mode == 0 {
+                if abs(self.mouse-x - self.pressed-x) > root.threshold && abs(self.mouse-x - self.pressed-x) >= abs(self.mouse-y - self.pressed-y) {
+                    root.mode = 1;
+                    root.start-x = self.absolute-position.x + self.mouse-x;
+                    root.scroll-start();
+                } else if self.pressed-y - self.mouse-y > root.threshold {
+                    root.mode = 2;
+                } else if abs(self.mouse-y - self.pressed-y) > root.threshold {
+                    // A downward drag does nothing; don't treat the release as a tap.
+                    root.mode = 4;
+                }
+            }
+            if root.mode == 1 {
+                root.scroll-by(self.absolute-position.x + self.mouse-x - root.start-x);
+            }
+        }
+    }
+    Timer {
+        interval: 480ms;
+        running: touch.pressed && root.mode == 0;
+        triggered => {
+            root.mode = 3;
+            Feedback.tap();
+            root.long-pressed();
+        }
+    }
 }
 
 // 03 · Channels, apps & typing.
@@ -16,7 +103,12 @@ export component KeypadPage inherits Rectangle {
     callback remove-channel(string);
     callback devices;
     property <bool> naming: false;
-    property <bool> editing: false;
+    // The channel being renamed after a long-press ("" while saving a new one).
+    property <string> editing: "";
+    // The channel waiting on "delete?" ("" when no dialog is up).
+    property <string> deleting: "";
+    property <string> deleting-name;
+    property <length> scroll-origin;
     in property <[string]> apps;
     in-out property <string> channel;
     in property <bool> focus-text: false;
@@ -38,43 +130,54 @@ export component KeypadPage inherits Rectangle {
         padding-left: 8px;
         padding-right: 8px;
         padding-top: 4px;
-        Text { text: root.naming ? "name for " + root.channel : "channel"; color: Theme.muted; font-size: 19px; }
+        Text { text: root.editing != "" ? "rename " + root.editing : root.naming ? "name for " + root.channel : "channel"; color: Theme.muted; font-size: 19px; }
         Text { text: root.channel == "" ? "_" : root.channel; color: Theme.fg; font-size: 64px; horizontal-alignment: right; overflow: elide; }
     }
     // Saved channels, one tap away.
-    Flickable {
+    flick := Flickable {
         height: 44px;
+        // The chips handle their own drags (tap, long-press, swipe up, scroll), so the row doesn't flick by itself.
+        interactive: false;
         content-width: chips.preferred-width;
         chips := HorizontalLayout {
             spacing: 8px;
             alignment: start;
-            if root.channel != "" && !root.editing: Key {
+            if root.channel != "" && root.editing == "": Key {
                 width: 92px;
                 label: root.naming ? "cancel" : "+ save";
                 kind: root.naming ? KeyKind.primary : KeyKind.operator;
                 font-size: 14px;
                 clicked => { root.naming = !root.naming; if root.naming { text.focus(); } }
             }
-            for c in root.channels: Key {
-                width: max(84px, label-width.preferred-width + 28px);
-                label: root.editing ? "x " + c.name : c.name;
+            if root.editing != "": Key {
+                width: 92px;
+                label: "cancel";
+                kind: KeyKind.primary;
                 font-size: 14px;
-                label-width := Text { visible: false; text: (root.editing ? "x " : "") + c.name; font-size: 14px; }
-                clicked => {
-                    if root.editing {
-                        root.remove-channel(c.number);
-                    } else {
-                        root.channel = c.number;
-                        root.tune(c.number);
-                    }
-                }
+                clicked => { root.stop-naming(); }
             }
-            if root.channels.length > 0 && !root.naming: Key {
-                width: 72px;
-                label: root.editing ? "done" : "edit";
-                kind: root.editing ? KeyKind.primary : KeyKind.operator;
-                font-size: 14px;
-                clicked => { root.editing = !root.editing; }
+            for c in root.channels: ChannelChip {
+                label: c.name;
+                selected: c.number == root.editing;
+                tapped => {
+                    root.channel = c.number;
+                    root.tune(c.number);
+                }
+                long-pressed => {
+                    root.editing = c.number;
+                    root.channel = c.number;
+                    root.naming = true;
+                    text.text = c.name;
+                    text.focus();
+                }
+                swiped-up => {
+                    root.deleting = c.number;
+                    root.deleting-name = c.name;
+                }
+                scroll-start => { root.scroll-origin = flick.content-x; }
+                scroll-by(dx) => {
+                    flick.content-x = clamp(root.scroll-origin + dx, min(0px, flick.width - flick.content-width), 0px);
+                }
             }
             if root.channels.length == 0 && root.channel == "": Text {
                 text: "type a number, then + save";
@@ -156,11 +259,22 @@ export component KeypadPage inherits Rectangle {
                 vertical-alignment: center;
                 accepted => { root.go(); }
             }
-            if text.text == "": Text { x: 18px; text: root.naming ? "BFMTV, France 2…" : "type to TV…"; color: Theme.muted; font-size: 16px; }
+            if text.text == "": Text { x: 18px; width: parent.width - 36px; overflow: elide; text: root.naming ? "BFMTV, France 2…" : "type to TV…"; color: Theme.muted; font-size: 16px; vertical-alignment: center; }
         }
         Key { horizontal-stretch: 1; label: root.naming ? "SAVE" : "GO"; kind: KeyKind.primary; font-size: root.naming ? 18px : 22px; clicked => { root.go(); } }
     }
 
+
+    if root.deleting != "": Confirm {
+        title: "Delete " + root.deleting-name + "?";
+        message: "Channel " + root.deleting + " won't be saved anymore. You can always save it again.";
+        confirmed => {
+            root.remove-channel(root.deleting);
+            if root.editing == root.deleting { root.stop-naming(); }
+            root.deleting = "";
+        }
+        cancelled => { root.deleting = ""; }
+    }
 
     // Digits go to the TV straight away; the display just echoes them.
     function digit(d: string) {
@@ -170,9 +284,8 @@ export component KeypadPage inherits Rectangle {
     function go() {
         if root.naming {
             if text.text != "" {
-                root.save-channel(root.channel, text.text);
-                text.text = "";
-                root.naming = false;
+                root.save-channel(root.editing != "" ? root.editing : root.channel, text.text);
+                root.stop-naming();
             }
             return;
         }
@@ -183,6 +296,12 @@ export component KeypadPage inherits Rectangle {
             root.press("ok");
             root.channel = "";
         }
+    }
+    function stop-naming() {
+        text.text = "";
+        root.naming = false;
+        root.editing = "";
+        text.clear-focus();
     }
     public function focus-keyboard() {
         text.focus();

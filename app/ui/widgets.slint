@@ -199,3 +199,37 @@ export component Header inherits HorizontalLayout {
     }
     Hamburger { clicked => { root.menu(); } }
 }
+
+// "Are you sure?" over the whole page: a dimmed backdrop and a card with Cancel and a primary action.
+export component Confirm inherits Rectangle {
+    in property <string> title;
+    in property <string> message;
+    in property <string> action: "Delete";
+    callback confirmed;
+    callback cancelled;
+
+    background: Theme.bg.with-alpha(0.82);
+    // Swallow taps on the backdrop: tapping outside the card cancels.
+    TouchArea { clicked => { root.cancelled(); } }
+    card := Rectangle {
+        width: min(root.width - 32px, 420px);
+        height: body.preferred-height;
+        border-radius: Theme.radius;
+        background: Theme.bg;
+        border-width: 1px;
+        border-color: Theme.divider;
+        TouchArea { }
+        body := VerticalLayout {
+            padding: 20px;
+            spacing: 14px;
+            Text { text: root.title; color: Theme.fg; font-size: 22px; wrap: word-wrap; }
+            Text { text: root.message; color: Theme.muted; font-size: 15px; wrap: word-wrap; }
+            HorizontalLayout {
+                height: 56px;
+                spacing: Theme.gap;
+                Key { label: "Cancel"; kind: KeyKind.operator; font-size: 17px; clicked => { root.cancelled(); } }
+                Key { label: root.action; kind: KeyKind.primary; font-size: 17px; clicked => { root.confirmed(); } }
+            }
+        }
+    }
+}
