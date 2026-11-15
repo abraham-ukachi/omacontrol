@@ -65,6 +65,9 @@ fn blaster() -> Option<Arc<dyn IrTransmitter>> {
 }
 
 /// What the worker thread is asked to do.
+/// The pause between digits when a saved channel is tuned.
+const TUNE_DIGIT_GAP_MS: u64 = 350;
+
 enum Job {
     Scan,
     /// A TV added by IP: find its brand, then connect.
@@ -554,8 +557,9 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                         if result.is_err() {
                             break;
                         }
-                        // IR receivers and set-top boxes need a beat between digits.
-                        thread::sleep(Duration::from_millis(140));
+                        // TVs and set-top boxes drop digits sent back to back (4002 showed up as 402 or 42
+                        // on a Freebox), so give each one a beat, like a thumb on a remote would.
+                        thread::sleep(Duration::from_millis(TUNE_DIGIT_GAP_MS));
                     }
                     report(&weak, &label, result, &status);
                 }
