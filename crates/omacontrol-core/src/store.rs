@@ -26,6 +26,9 @@ pub struct Store {
     pub current: Option<String>,
     /// Name of the Omarchy theme.
     pub theme: Option<String>,
+    /// Our certificate for Android TV / Google TV (made on first pairing, shared by every such TV).
+    #[serde(default)]
+    pub android_tv_identity: Option<crate::tv::androidtv::Identity>,
     #[serde(skip)]
     path: PathBuf,
 }
@@ -88,6 +91,10 @@ impl Store {
             if device.token.is_none() {
                 device.token = old.token.take();
             }
+            // A rescan knows nothing about the channels saved on this TV: keep them.
+            if device.channels.is_empty() {
+                device.channels = std::mem::take(&mut old.channels);
+            }
             *old = device;
         } else {
             self.devices.push(device);
@@ -103,6 +110,17 @@ impl Store {
 mod tests {
     use super::*;
     use crate::tv::Brand;
+
+    #[test]
+    fn upsert_keeps_saved_channels() {
+        let mut s = Store::default();
+        let mut tv = Device::new("Freebox", "", Brand::AndroidTv, "192.168.1.20");
+        tv.save_channel("4002", "BFMTV");
+        s.upsert(tv);
+        s.upsert(Device::new("Freebox Player", "", Brand::AndroidTv, "192.168.1.20"));
+        assert_eq!(s.devices[0].name, "Freebox Player");
+        assert_eq!(s.devices[0].channels.len(), 1);
+    }
     use std::time::{SystemTime, UNIX_EPOCH};
 
     /// A fresh directory per test (tests run in parallel, so the pid alone isn't enough).

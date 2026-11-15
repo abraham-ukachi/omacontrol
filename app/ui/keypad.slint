@@ -1,9 +1,22 @@
 import { Theme } from "theme.slint";
 import { Key, KeyKind, Header, Divider } from "widgets.slint";
 
+export struct ChannelRow {
+    number: string,
+    name: string,
+}
+
 // 03 · Channels, apps & typing.
 export component KeypadPage inherits Rectangle {
     in property <string> tv-name;
+    // Channels saved by name (4002 → BFMTV): tap one to tune, "+ save" names the number typed.
+    in property <[ChannelRow]> channels;
+    callback tune(string);
+    callback save-channel(string, string);
+    callback remove-channel(string);
+    callback devices;
+    property <bool> naming: false;
+    property <bool> editing: false;
     in property <[string]> apps;
     in-out property <string> channel;
     in property <bool> focus-text: false;
@@ -20,13 +33,56 @@ export component KeypadPage inherits Rectangle {
 
     VerticalLayout {
     spacing: Theme.gap;
-    Header { title: root.tv-name; menu => { root.menu(); } }
+    Header { title: root.tv-name; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
     VerticalLayout {
         padding-left: 8px;
         padding-right: 8px;
-        padding-top: 8px;
-        Text { text: "channel"; color: Theme.muted; font-size: 19px; }
-        Text { text: root.channel == "" ? "_" : root.channel; color: Theme.fg; font-size: 76px; horizontal-alignment: right; overflow: elide; }
+        padding-top: 4px;
+        Text { text: root.naming ? "name for " + root.channel : "channel"; color: Theme.muted; font-size: 19px; }
+        Text { text: root.channel == "" ? "_" : root.channel; color: Theme.fg; font-size: 64px; horizontal-alignment: right; overflow: elide; }
+    }
+    // Saved channels, one tap away.
+    Flickable {
+        height: 44px;
+        content-width: chips.preferred-width;
+        chips := HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            if root.channel != "" && !root.editing: Key {
+                width: 92px;
+                label: root.naming ? "cancel" : "+ save";
+                kind: root.naming ? KeyKind.primary : KeyKind.operator;
+                font-size: 14px;
+                clicked => { root.naming = !root.naming; if root.naming { text.focus(); } }
+            }
+            for c in root.channels: Key {
+                width: max(84px, label-width.preferred-width + 28px);
+                label: root.editing ? "x " + c.name : c.name;
+                font-size: 14px;
+                label-width := Text { visible: false; text: (root.editing ? "x " : "") + c.name; font-size: 14px; }
+                clicked => {
+                    if root.editing {
+                        root.remove-channel(c.number);
+                    } else {
+                        root.channel = c.number;
+                        root.tune(c.number);
+                    }
+                }
+            }
+            if root.channels.length > 0 && !root.naming: Key {
+                width: 72px;
+                label: root.editing ? "done" : "edit";
+                kind: root.editing ? KeyKind.primary : KeyKind.operator;
+                font-size: 14px;
+                clicked => { root.editing = !root.editing; }
+            }
+            if root.channels.length == 0 && root.channel == "": Text {
+                text: "type a number, then + save";
+                color: Theme.muted;
+                font-size: 14px;
+                vertical-alignment: center;
+            }
+        }
     }
     Divider { }
     HorizontalLayout {
@@ -100,9 +156,9 @@ export component KeypadPage inherits Rectangle {
                 vertical-alignment: center;
                 accepted => { root.go(); }
             }
-            if text.text == "": Text { x: 18px; text: "type to TV…"; color: Theme.muted; font-size: 16px; }
+            if text.text == "": Text { x: 18px; text: root.naming ? "BFMTV, France 2…" : "type to TV…"; color: Theme.muted; font-size: 16px; }
         }
-        Key { horizontal-stretch: 1; label: "GO"; kind: KeyKind.primary; font-size: 22px; clicked => { root.go(); } }
+        Key { horizontal-stretch: 1; label: root.naming ? "SAVE" : "GO"; kind: KeyKind.primary; font-size: root.naming ? 18px : 22px; clicked => { root.go(); } }
     }
 
 
@@ -112,6 +168,14 @@ export component KeypadPage inherits Rectangle {
         root.press(d);
     }
     function go() {
+        if root.naming {
+            if text.text != "" {
+                root.save-channel(root.channel, text.text);
+                text.text = "";
+                root.naming = false;
+            }
+            return;
+        }
         if text.text != "" {
             root.send-text(text.text);
             text.text = "";
