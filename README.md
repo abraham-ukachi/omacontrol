@@ -19,7 +19,7 @@
 
 # `omacontrol`
 
-> IMPORTANT: This is a work in progress and subject to major changes until version 1.0. Android first; Linux (Omarchy) next.
+> IMPORTANT: This is a work in progress until version 1.0. Android is the first client; 1.0 adds an Omarchy/Linux desktop host and the LAN-connected device and computer controls below.
 
 
 ## What is OmaControl? 📺
@@ -112,22 +112,42 @@ cargo run -p omacontrol                # the UI on your desktop
 cargo apk run --lib -p omacontrol      # on your Android phone (NDK + cargo-apk)
 ```
 
-Every push to `main` builds an APK in GitHub Actions (artifact `omacontrol-apk`), and every `v*` tag attaches it to the release.
+Every push to `main` builds an APK in GitHub Actions (artifact `omacontrol-apk`). Tagged releases require the permanent Android signing key to be configured as GitHub Actions secrets before the workflow will publish an APK.
+
+After backing up the keystore and password in your vault, configure the repository secrets without printing either value:
+
+```sh
+base64 -w0 /path/to/omacontrol-release.p12 | gh secret set ANDROID_KEYSTORE_BASE64 --repo abraham-ukachi/omacontrol
+gh secret set ANDROID_KEYSTORE_PASSWORD --repo abraham-ukachi/omacontrol < /path/to/omacontrol-release.pass
+```
 
 
 ## Roadmap 🗺️
 
-- [x] 📺 Samsung, LG & Roku over Wi‑Fi
-- [x] 🔴 Samsung, LG & Sony over IR
-- [x] 🎨 All Omarchy themes
-- [x] ❄️ Air conditioners over IR: power, mode, temperature, fan, swing, sleep (fixed & portable)
-- [ ] ⏲️ AC timer
-- [x] 🤖 Android TV / Google TV (Remote v2 + code pairing)
+The [GitHub 1.0 milestone](https://github.com/abraham-ukachi/omacontrol/milestone/1) tracks delivery. The 1.0 host target is **Omarchy/Linux**; Windows and macOS hosts are out of scope for this release.
+
+### Shipped Android foundation
+
+- [x] 📺 Samsung, LG, Roku and Android TV / Google TV over Wi‑Fi
+- [x] 🔴 Samsung, LG and Sony TVs over IR
+- [x] 🎨 All 23 built-in Omarchy themes
+- [x] ❄️ Air conditioners over IR: power, mode, temperature, fan, swing and sleep
 - [x] 📺 Channels saved by name
-- [x] ⚙️ Settings: theme, About, Feedback
-- [ ] 📚 More IR code sets (Pronto import, learn from an IR database)
-- [ ] 🐧 OmaControl on Omarchy itself (follows the live theme from `~/.local/state/omarchy/current/theme/colors.toml`)
-- [ ] 🔊 Soundbars, projectors, set-top boxes...
+- [x] ⚙️ Settings: theme, About and Feedback
+
+### Required for 1.0
+
+- [ ] 🐧 **Omarchy/Linux desktop app**: install and run on Omarchy; follow changes to `~/.local/state/omarchy/current/theme/colors.toml` without restarting.
+- [ ] 🔐 **Paired Linux host**: a discoverable host component for phone-to-computer features. LAN-only for 1.0, with authenticated/encrypted sessions and explicit pairing and host approval; no cloud relay.
+- [ ] 🖥️ **Remote desktop and display controls**: view and control the Omarchy desktop from the phone, including useful display controls such as brightness and monitor selection.
+- [ ] 🖐️ **Phone as computer input**: keyboard, one-to-five-finger trackpad gestures, and gyroscope-driven air-mouse cursor control.
+- [ ] 🎧 **Phone as computer audio device**: listen to Omarchy audio on the phone; send the phone microphone to the Linux host and, where supported, Android TV and other compatible TVs.
+- [ ] 🔊 **More AV devices**: soundbars, projectors and set-top boxes, with a documented baseline command set and at least one tested representative device per supported family.
+- [ ] 🎮 **Xbox and PlayStation 5**: provide supported control integrations; validate each console's available interfaces and document model- and capability-specific limits.
+- [ ] ⏲️ **AC timers** and 📚 **broader IR code support**: timer controls plus practical Pronto import and IR database code lookup/import.
+- [ ] ✅ **1.0 release gates**: document supported devices and limitations; validate pairing, recovery, responsiveness and core flows on real hardware; publish repeatable desktop and Android builds signed with the permanent release key.
+
+The phone/host connection is deliberately local and user-approved in 1.0. Console and media-device integrations must use supported interfaces or documented IR codes; any device-specific limitations must be visible rather than implied to work universally.
 
 
 ## More

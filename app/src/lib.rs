@@ -135,6 +135,66 @@ fn apply_theme(ui: &AppWindow, theme: &OmaTheme) {
     g.set_muted(color(theme.muted()));
 }
 
+#[cfg(target_os = "linux")]
+const OMARCHY_THEME_NAME: &str = "Omarchy (live)";
+
+#[cfg(target_os = "linux")]
+fn omarchy_colors_path() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state/omarchy/current/theme/colors.toml"))
+}
+
+#[cfg(target_os = "linux")]
+fn load_omarchy_theme() -> Result<(OmaTheme, String), String> {
+    let path = omarchy_colors_path().ok_or_else(|| "HOME is not set".to_string())?;
+    let source = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let theme = OmaTheme::from_omarchy_colors(OMARCHY_THEME_NAME, &source).map_err(|e| e.to_string())?;
+    Ok((theme, source))
+}
+
+#[cfg(target_os = "linux")]
+fn selected_theme(name: &str) -> Result<OmaTheme, String> {
+    if name == OMARCHY_THEME_NAME {
+        load_omarchy_theme().map(|(theme, _)| theme)
+    } else {
+        Ok(OmaTheme::named(name))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn selected_theme(name: &str) -> Result<OmaTheme, String> {
+    Ok(OmaTheme::named(name))
+}
+
+#[cfg(target_os = "linux")]
+fn watch_omarchy_theme(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, initial_source: String) -> slint::Timer {
+    let timer = slint::Timer::default();
+    let mut last_observed = Some(initial_source);
+    timer.start(slint::TimerMode::Repeated, Duration::from_secs(1), move || {
+        let selected = store.lock().unwrap().theme.clone();
+        if selected.as_deref().is_some_and(|name| name != OMARCHY_THEME_NAME) {
+            return;
+        }
+
+        match load_omarchy_theme() {
+            Ok((theme, source)) if last_observed.as_deref() != Some(source.as_str()) => {
+                last_observed = Some(source);
+                if let Some(ui) = weak.upgrade() {
+                    apply_theme(&ui, &theme);
+                }
+            }
+            Ok(_) => {}
+            Err(error) => {
+                let marker = format!("\0{error}");
+                if last_observed.as_deref() != Some(marker.as_str()) {
+                    log::warn!("could not read Omarchy theme: {error}");
+                    last_observed = Some(marker);
+                }
+            }
+        }
+    });
+    timer
+}
+
 /// The saved channels of the current TV.
 fn channel_rows(store: &Store) -> ModelRc<ChannelRow> {
     let rows: Vec<ChannelRow> = store
@@ -166,9 +226,28 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let ui = AppWindow::new().expect("the window opens");
     let store = Arc::new(Mutex::new(Store::load(&data_dir)));
 
+    #[cfg(target_os = "linux")]
+    let live_theme = omarchy_colors_path()
+        .filter(|path| path.is_file())
+        .and_then(|_| match load_omarchy_theme() {
+            Ok(theme) => Some(theme),
+            Err(error) => {
+                log::warn!("could not load Omarchy theme: {error}");
+                None
+            }
+        });
+
     {
         let s = store.lock().unwrap();
-        apply_theme(&ui, &OmaTheme::named(s.theme.as_deref().unwrap_or("Tokyo Night")));
+        #[cfg(target_os = "linux")]
+        let theme = if s.theme.as_deref() == Some(OMARCHY_THEME_NAME) || (s.theme.is_none() && live_theme.is_some()) {
+            live_theme.as_ref().map(|(theme, _)| theme.clone()).unwrap_or_else(|| OmaTheme::named("Tokyo Night"))
+        } else {
+            OmaTheme::named(s.theme.as_deref().unwrap_or("Tokyo Night"))
+        };
+        #[cfg(not(target_os = "linux"))]
+        let theme = OmaTheme::named(s.theme.as_deref().unwrap_or("Tokyo Night"));
+        apply_theme(&ui, &theme);
         ui.set_devices(rows(&s));
         ui.set_channels(channel_rows(&s));
         if let Some(d) = s.current.as_deref().and_then(|ip| s.device(ip)) {
@@ -187,6 +266,14 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let apps: Vec<SharedString> = App::ALL.iter().map(|a| a.label().into()).collect();
     ui.set_apps(ModelRc::from(Rc::new(VecModel::from(apps))));
     let themes: Vec<SharedString> = OmaTheme::all().into_iter().map(|t| t.name.into()).collect();
+    #[cfg(target_os = "linux")]
+    let themes = if live_theme.is_some() {
+        let mut themes = themes;
+        themes.insert(0, OMARCHY_THEME_NAME.into());
+        themes
+    } else {
+        themes
+    };
     ui.set_themes(ModelRc::from(Rc::new(VecModel::from(themes))));
 
     let ir = blaster();
@@ -441,13 +528,25 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
 
     let (st, weak) = (store.clone(), ui.as_weak());
     ui.on_pick_theme(move |name| {
+        let theme = match selected_theme(&name) {
+            Ok(theme) => theme,
+            Err(error) => {
+                log::warn!("could not select theme {name}: {error}");
+                return;
+            }
+        };
         if let Some(ui) = weak.upgrade() {
-            apply_theme(&ui, &OmaTheme::named(&name));
+            apply_theme(&ui, &theme);
         }
         let mut s = st.lock().unwrap();
         s.theme = Some(name.to_string());
         let _ = s.save();
     });
+
+    #[cfg(target_os = "linux")]
+    let _omarchy_theme_timer = live_theme
+        .as_ref()
+        .map(|(_, source)| watch_omarchy_theme(ui.as_weak(), store.clone(), source.clone()));
 
     ui.run().expect("the event loop runs");
 }

@@ -40,17 +40,27 @@ jobs:
       - name: Install cargo-apk
         run: cargo install cargo-apk --locked
       - name: Signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-            echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] || [ -n "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+              echo "::error::Set both ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD."
+              exit 1
+            fi
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.keystore
+            echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "::error::Tagged releases require the permanent Android signing key. Configure ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD."
+            exit 1
           else
-            # No secret yet: a throwaway key, so every build still installs (uninstall before switching keys).
+            # Main-branch artifacts use a throwaway key; they are not release upgrades.
             keytool -genkeypair -v -keystore release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 \
               -validity 10000 -storepass android -keypass android -dname "CN=OmaControl"
             echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=android" >> $GITHUB_ENV
           fi
-          echo "CARGO_APK_RELEASE_KEYSTORE=$PWD/release.keystore" >> $GITHUB_ENV
+          echo "CARGO_APK_RELEASE_KEYSTORE=$PWD/release.keystore" >> "$GITHUB_ENV"
       - name: Build the APK
         env:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}

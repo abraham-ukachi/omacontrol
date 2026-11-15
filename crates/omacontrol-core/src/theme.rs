@@ -12,6 +12,7 @@
 //! | 5 | primary key (`OK`, `=`) | inverted: foreground fill, background text |
 
 use crate::themes_gen::BUILT_IN;
+use serde::Deserialize;
 
 /// An RGB color.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,6 +76,38 @@ impl Theme {
             .expect("Tokyo Night is built in")
     }
 
+    /// Parses the three colors and mode from Omarchy's active `colors.toml`.
+    pub fn from_omarchy_colors(name: impl Into<String>, source: &str) -> crate::Result<Theme> {
+        #[derive(Deserialize)]
+        struct Colors {
+            mode: Option<String>,
+            background: String,
+            foreground: String,
+            accent: Option<String>,
+            blue: Option<String>,
+        }
+
+        let colors: Colors = toml::from_str(source)
+            .map_err(|e| crate::Error::Protocol(format!("invalid Omarchy colors.toml: {e}")))?;
+        let mode = colors.mode.as_deref().unwrap_or("dark");
+        let dark = match mode {
+            "dark" => true,
+            "light" => false,
+            _ => return Err(crate::Error::Protocol(format!("unknown Omarchy theme mode: {mode}"))),
+        };
+        let parse_color = |label: &str, value: &str| {
+            Rgb::hex(value).ok_or_else(|| crate::Error::Protocol(format!("invalid Omarchy {label} color")))
+        };
+
+        Ok(Theme {
+            name: name.into(),
+            background: parse_color("background", &colors.background)?,
+            foreground: parse_color("foreground", &colors.foreground)?,
+            accent: parse_color("accent", colors.accent.as_deref().or(colors.blue.as_deref()).unwrap_or("#7aa2f7"))?,
+            dark,
+        })
+    }
+
     pub fn key(&self) -> Rgb {
         self.background.mix(self.foreground, 0.05)
     }
@@ -115,5 +148,56 @@ mod tests {
     #[test]
     fn every_theme_parses() {
         assert!(Theme::all().len() >= 20);
+    }
+
+    #[test]
+    fn parses_omarchy_colors() {
+        let theme = Theme::from_omarchy_colors(
+            "Omarchy (live)",
+            r##"
+                mode = "light"
+                background = "#2c2525"
+                foreground = "#e6d9db"
+                accent = "#f38d70"
+                selection = "#403e41"
+            "##,
+        )
+        .unwrap();
+
+        assert_eq!(theme.name, "Omarchy (live)");
+        assert_eq!(theme.background, Rgb(0x2c, 0x25, 0x25));
+        assert_eq!(theme.foreground, Rgb(0xe6, 0xd9, 0xdb));
+        assert_eq!(theme.accent, Rgb(0xf3, 0x8d, 0x70));
+        assert!(!theme.dark);
+    }
+
+    #[test]
+    fn omarchy_colors_fall_back_to_blue_for_accent() {
+        let theme = Theme::from_omarchy_colors(
+            "Omarchy (live)",
+            r##"
+                background = "#000000"
+                foreground = "#ffffff"
+                blue = "#123456"
+            "##,
+        )
+        .unwrap();
+
+        assert_eq!(theme.accent, Rgb(0x12, 0x34, 0x56));
+        assert!(theme.dark);
+    }
+
+    #[test]
+    fn rejects_invalid_omarchy_colors() {
+        let result = Theme::from_omarchy_colors(
+            "Omarchy (live)",
+            r##"
+                background = "#000000"
+                foreground = "#ffffff"
+                accent = "blue"
+            "##,
+        );
+
+        assert!(result.is_err());
     }
 }

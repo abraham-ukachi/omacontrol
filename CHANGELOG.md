@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.2] - 2026-11-15
+
+### Added
+- :art: Linux can follow Omarchy's active `colors.toml` theme live, with built-in themes still selectable.
+- :dart: A tracked 1.0 roadmap for Omarchy/Linux, LAN-connected computer controls, AV devices, and release gates.
+
+### Changed
+- :lock: Tagged Android releases now require the permanent signing key instead of silently publishing an APK with a throwaway key.
+- :memo: Documented Android release-key setup and the 1.0 scope.
+
 ## [0.3.1] - 2026-11-15
 
 ### Changed
