@@ -69,7 +69,7 @@ export component AcPage inherits VerticalLayout {
 }
 
 // 05 · AC setup. The phone can't listen to IR, so we try each protocol until the AC beeps.
-export component AcSetupPage inherits VerticalLayout {
+export component AcSetupPage inherits Rectangle {
     in property <string> protocol;
     in property <int> index;
     in property <int> count;
@@ -77,52 +77,85 @@ export component AcSetupPage inherits VerticalLayout {
     callback menu;
     callback setup(string);
     callback code-changed(string);
+    // The on-screen keyboard, in window coordinates; while pasting a code, its row rides just above it.
+    in property <length> kb-top;
+    in property <length> kb-height;
+    property <bool> lifted: field.has-focus && root.kb-height > 0;
+    property <length> bar-y: root.lifted ? min(slot.y, root.kb-top - root.absolute-position.y - 56px - 10px) : slot.y;
 
-    spacing: Theme.gap;
-    Header { title: "New air conditioner"; subtitle: "point your phone at it"; menu => { root.menu(); } }
     VerticalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-top: 14px;
-        spacing: 4px;
-        Text { text: "code " + (root.index + 1) + " of " + root.count; color: Theme.muted; font-size: 19px; }
-        Text { text: root.protocol; color: Theme.fg; font-size: 76px; horizontal-alignment: right; overflow: elide; }
-    }
-    Divider { }
-    Text {
-        x: 8px;
-        width: parent.width - 16px;
-        wrap: word-wrap;
-        color: Theme.muted;
-        font-size: 16px;
-        text: root.tested
-            ? "Did it beep or switch on? If so, tap \"It works\". If not, try the next code."
-            : "Turn the AC off, point the top of your phone at it from a couple of meters, and tap Test. It sends the code a few times and should switch on in cool mode at 22°.";
-    }
-    Rectangle { vertical-stretch: 1; }
-    HorizontalLayout {
-        height: 72px;
         spacing: Theme.gap;
-        Key { label: "Test"; font-size: 19px; clicked => { root.setup("test"); } }
-        Key { label: "Next"; kind: KeyKind.operator; font-size: 19px; clicked => { root.setup("next"); } }
-    }
-    Rectangle {
-        height: 48px;
-        border-radius: Theme.radius;
-        background: Theme.key;
-        border-width: 1px;
-        border-color: Theme.key-border;
-        field := TextInput {
-            x: 14px;
-            width: parent.width - 28px;
-            color: Theme.fg;
-            font-size: 14px;
-            vertical-alignment: center;
-            edited => { root.code-changed(self.text); }
-            accepted => { root.setup("code"); }
+        Header { title: "New air conditioner"; subtitle: "point your phone at it"; menu => { root.menu(); } }
+        VerticalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            padding-top: 14px;
+            spacing: 4px;
+            Text { text: "code " + (root.index + 1) + " of " + root.count; color: Theme.muted; font-size: 19px; }
+            Text { text: root.protocol; color: Theme.fg; font-size: 76px; horizontal-alignment: right; overflow: elide; }
         }
-        if field.text == "": Text { x: 14px; text: "paste a Pronto code for a unit no code above reaches"; color: Theme.muted; font-size: 14px; }
+        Divider { }
+        Text {
+            x: 8px;
+            width: parent.width - 16px;
+            wrap: word-wrap;
+            color: Theme.muted;
+            font-size: 16px;
+            text: root.tested
+                ? "Did it beep or switch on? If so, tap \"It works\". If not, try the next code."
+                : "Turn the AC off, point the top of your phone at it from a couple of meters, and tap Test. It sends the code a few times and should switch on in cool mode at 22°.";
+        }
+        Rectangle { vertical-stretch: 1; }
+        HorizontalLayout {
+            height: 72px;
+            spacing: Theme.gap;
+            Key { label: "Test"; font-size: 19px; clicked => { root.setup("test"); } }
+            Key { label: "Next"; kind: KeyKind.operator; font-size: 19px; clicked => { root.setup("next"); } }
+        }
+        // Where the pasted-code row sits until the keyboard lifts it.
+        slot := Rectangle { height: 56px; }
+        Key { height: 72px; label: "It works"; kind: KeyKind.primary; font-size: 20px; clicked => { root.setup("ok"); } }
     }
-    Key { height: 52px; label: "Test code"; font-size: 16px; clicked => { root.setup("code"); } }
-    Key { height: 72px; label: "It works"; kind: KeyKind.primary; font-size: 20px; clicked => { root.setup("ok"); } }
+
+    // A clean strip of page color behind the lifted row, so the page doesn't show through.
+    if root.lifted: Rectangle {
+        y: root.bar-y - 14px;
+        height: root.height - self.y + 40px;
+        background: Theme.bg;
+        Rectangle { y: 0; height: 1px; background: Theme.divider; }
+    }
+    HorizontalLayout {
+        y: root.bar-y;
+        height: 56px;
+        animate y { duration: 160ms; easing: ease-out; }
+        spacing: Theme.gap;
+        Rectangle {
+            horizontal-stretch: 3;
+            border-radius: Theme.radius;
+            background: Theme.key;
+            border-width: 1px;
+            border-color: Theme.key-border;
+            clip: true;
+            field := TextInput {
+                x: 14px;
+                width: parent.width - 28px;
+                color: Theme.fg;
+                font-size: 14px;
+                vertical-alignment: center;
+                single-line: true;
+                edited => { root.code-changed(self.text); }
+                accepted => { root.setup("code"); }
+            }
+            if field.text == "": Text {
+                x: 14px;
+                width: parent.width - 28px;
+                text: "paste a Pronto code for a unit no code above reaches";
+                color: Theme.muted;
+                font-size: 14px;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+        Key { horizontal-stretch: 1; label: "Test code"; font-size: 15px; clicked => { root.setup("code"); } }
+    }
 }

@@ -156,6 +156,8 @@ export component AppWindow inherits Window {
             menu => { root.open-menu(); }
             setup(s) => { root.ac-setup(s); }
             code-changed(t) => { root.ac-code-changed(t); }
+            kb-top: root.virtual-keyboard-position.y;
+            kb-height: root.virtual-keyboard-size.height;
         }
         if root.page == 3: MenuPage {
             version: root.version;
