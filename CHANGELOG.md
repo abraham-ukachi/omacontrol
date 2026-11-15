@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.0-beta.1] - 2026-11-15
+
+### Added
+- :robot: **Android TV / Google TV** over the Android TV Remote protocol v2 (the Freebox Player TV Free 4K included): the app makes its own RSA certificate once, pairs with the 6-character code the TV shows (typos are caught before anything is sent), then drives keys, typing and app shortcuts on port 6466, answering the TV's pings to stay connected. Tested end to end against a fake TV.
+- :mag: Android TVs are found with mDNS (`_androidtvremote2._tcp`) next to SSDP.
+- :tv: **Saved channels**: type a number, **+ save**, name it (`4002` → `BFMTV`); one tap tunes it. Kept per TV, and kept through rescans.
+- :gear: **Settings** with three tabs: **Theme** (moved out of the menu), **About** (version, Abraham Ukachi, GitHub, X, email, source, license) and **Feedback** (feedback or issue, optional reply email, title, message), sent straight to the maintainer's inbox through Web3Forms.
+- :sparkles: An **ASCII radar** (with a bouncing bar and a blinking cursor) plays while scanning for devices.
+- :point_up_2: Tap a device's name at the top of the Remote, Channels or AC screen to go back to the devices list.
+
 ## [0.2.4] - 2026-11-15
 
 ### Fixed
