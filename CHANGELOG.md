@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.2.4] - 2026-11-15
+
+### Fixed
+- :bug: The APK reports the crate version again: the workspace was still on 0.2.0 while the tags had moved on, so every build since 0.2.1 identified itself as 0.2.0 to Android.
+
 ## [0.2.3] - 2026-11-14
 
 ### Added
