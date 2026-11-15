@@ -1,0 +1,40 @@
+import { Theme } from "theme.slint";
+
+// The scanner: an ASCII radar sweeping while we look for devices, Omarchy-terminal style,
+// with a bouncing bar and a blinking cursor under it. Pure text, so every theme paints it.
+export component AsciiScan inherits VerticalLayout {
+    in property <string> label: "scanning";
+    in property <bool> running: true;
+    in property <length> size: 15px;
+    property <int> tick: root.running ? Math.floor(animation-tick() / 110ms) : 0;
+    property <[string]> radar: [
+        "  .-\"\"\"-.  \n /  .|   \\ \n|    +    |\n \\       / \n  '-...-'  ",
+        "  .-\"\"\"-.  \n /   ./  \\ \n|    +    |\n \\       / \n  '-...-'  ",
+        "  .-\"\"\"-.  \n /    .  \\ \n|    +--  |\n \\       / \n  '-...-'  ",
+        "  .-\"\"\"-.  \n /       \\ \n|    +..  |\n \\    \\  / \n  '-...-'  ",
+        "  .-\"\"\"-.  \n /       \\ \n|    +    |\n \\   |.  / \n  '-...-'  ",
+        "  .-\"\"\"-.  \n /       \\ \n|    +    |\n \\  /.   / \n  '-...-'  ",
+        "  .-\"\"\"-.  \n /       \\ \n|  --+    |\n \\  .    / \n  '-...-'  ",
+        "  .-\"\"\"-.  \n /  \\    \\ \n|  ..+    |\n \\       / \n  '-...-'  "
+    ];
+    property <[string]> bar: ["[===       ]", "[ ===      ]", "[  ===     ]", "[   ===    ]", "[    ===   ]", "[     ===  ]", "[      === ]", "[       ===]", "[      === ]", "[     ===  ]", "[    ===   ]", "[   ===    ]", "[  ===     ]", "[ ===      ]"];
+
+    spacing: 6px;
+    alignment: center;
+    Text {
+        text: root.radar[Math.mod(root.tick, root.radar.length)];
+        color: Theme.accent;
+        font-size: root.size;
+        horizontal-alignment: left;
+    }
+    Text {
+        text: root.bar[Math.mod(root.tick, root.bar.length)];
+        color: Theme.muted;
+        font-size: root.size;
+    }
+    Text {
+        text: root.label + (Math.mod(Math.floor(root.tick / 4), 2) == 0 ? "_" : " ");
+        color: Theme.muted;
+        font-size: root.size - 2px;
+    }
+}
