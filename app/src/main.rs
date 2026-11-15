@@ -1,4 +1,4 @@
-// Desktop entry point (handy while designing; the real target is Android).
+// Desktop entry point for Omarchy/Linux and development.
 fn main() {
     let dir = std::env::var_os("XDG_CONFIG_HOME")
         .map(std::path::PathBuf::from)

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=OmaControl
+GenericName=Remote Control
+Comment=Remote control for TVs and other devices
+Exec=omacontrol
+Icon=omacontrol
+Terminal=false
+Categories=Utility;
+StartupNotify=true

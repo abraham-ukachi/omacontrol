@@ -106,13 +106,35 @@ Versions as built on 2026-11-15:
 ## Build & run 🛠️
 
 ```sh
-cargo test -p omacontrol-core          # 60 tests, no TV needed
+cargo test -p omacontrol-core          # Core tests, no TV needed
 cargo test -p omacontrol-core --release -- --ignored   # + Android TV pairing against a fake TV
 cargo run -p omacontrol                # the UI on your desktop
 cargo apk run --lib -p omacontrol      # on your Android phone (NDK + cargo-apk)
 ```
 
-Every push to `main` builds an APK in GitHub Actions (artifact `omacontrol-apk`). Tagged releases require the permanent Android signing key to be configured as GitHub Actions secrets before the workflow will publish an APK.
+Every push to `main` builds an APK (`omacontrol-apk`) and an x86_64 Linux bundle (`omacontrol-linux-x86_64`) in GitHub Actions. Tagged releases publish both assets; Android release builds require the permanent signing key to be configured as GitHub Actions secrets.
+
+### Omarchy/Linux desktop
+
+The x86_64 Linux release bundle includes the app, a desktop launcher and its icon. On Omarchy, download `omacontrol-linux-x86_64.tar.gz` from the [latest release](https://github.com/abraham-ukachi/omacontrol/releases/latest), then install it:
+
+```sh
+tar -xzf omacontrol-linux-x86_64.tar.gz
+install -Dm755 omacontrol ~/.local/bin/omacontrol
+install -Dm644 io.github.abraham_ukachi.omacontrol.desktop ~/.local/share/applications/io.github.abraham_ukachi.omacontrol.desktop
+install -Dm644 omacontrol.png ~/.local/share/icons/hicolor/512x512/apps/omacontrol.png
+```
+
+The desktop entry makes OmaControl available in the app launcher. You can also launch it from a terminal with `omacontrol`. The bundle targets x86_64 Omarchy/Arch Linux and uses the system Wayland, Fontconfig and xkbcommon libraries.
+
+To build and install from source, use a stable Rust toolchain and these Arch packages:
+
+```sh
+sudo pacman -S --needed base-devel pkgconf fontconfig libxkbcommon wayland
+cargo install --locked --path app
+```
+
+Without an active Omarchy `colors.toml`, the desktop app keeps its built-in theme picker and uses Tokyo Night by default. When the file is available, **Omarchy (live)** follows its colors without a restart.
 
 After backing up the keystore and password in your vault, configure the repository secrets without printing either value:
 

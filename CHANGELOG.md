@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.3] - 2026-11-15
+
+### Added
+- :computer: An x86_64 Linux release bundle with an app-launcher entry and icon.
+
+### Changed
+- :memo: Documented Omarchy/Linux install requirements and live-theme fallback behavior.
+- :construction_worker: Android workflow now builds and publishes the Linux desktop bundle alongside the APK.
+
 ## [0.3.2] - 2026-11-15
 
 ### Added

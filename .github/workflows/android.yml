@@ -1,4 +1,4 @@
-name: Android
+name: Android and Linux
 
 on:
   push:
@@ -55,7 +55,7 @@ jobs:
             echo "::error::Tagged releases require the permanent Android signing key. Configure ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD."
             exit 1
           else
-            # Main-branch artifacts use a throwaway key; they are not release upgrades.
+            # Untagged builds without the permanent key use a throwaway key.
             keytool -genkeypair -v -keystore release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 \
               -validity 10000 -storepass android -keypass android -dname "CN=OmaControl"
             echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=android" >> $GITHUB_ENV
@@ -78,4 +78,36 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: dist/*.apk
+          prerelease: ${{ contains(github.ref_name, '-') }}
+
+  linux:
+    needs: apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System libraries (Slint desktop backend)
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
+      - name: Build Linux desktop app
+        run: cargo build --locked --release -p omacontrol
+      - name: Package
+        run: |
+          mkdir -p dist/linux
+          install -m755 target/release/omacontrol dist/linux/omacontrol
+          install -m644 packaging/io.github.abraham_ukachi.omacontrol.desktop dist/linux/io.github.abraham_ukachi.omacontrol.desktop
+          install -m644 .github/omacontrol-icon.png dist/linux/omacontrol.png
+          tar -C dist/linux -czf dist/omacontrol-linux-x86_64.tar.gz \
+            omacontrol \
+            io.github.abraham_ukachi.omacontrol.desktop \
+            omacontrol.png
+      - uses: actions/upload-artifact@v7
+        with:
+          name: omacontrol-linux-x86_64
+          path: dist/omacontrol-linux-x86_64.tar.gz
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/omacontrol-linux-x86_64.tar.gz
           prerelease: ${{ contains(github.ref_name, '-') }}
