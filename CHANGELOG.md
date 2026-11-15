@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.1] - 2026-11-15
+
+### Changed
+- :point_up_2: Saved channels lose their **edit** button: **long-press** a channel to rename it (the name field opens with the keyboard), **swipe it up** to delete it, after an "Are you sure?" dialog. Drag the chips sideways to scroll them.
+- :keyboard: The **Pronto code** field and its **Test code** key now ride just above the keyboard while you type, like the Channels screen, and a long placeholder is cut with an ellipsis instead of overflowing.
+- :arrow_up: GitHub Actions bumped (checkout v7, setup-java v6, upload-artifact v7, action-gh-release v3), clearing the Node 20 warnings.
+
+### Fixed
+- :bug: Tuning a saved channel sent its digits too fast, so the Freebox showed `402` or `42` instead of `4002`. Digits now go out 350 ms apart.
+- :zap: Images optimized (Imgbot, #1).
+
 ## [0.3.0-beta.1] - 2026-11-15
 
 ### Added

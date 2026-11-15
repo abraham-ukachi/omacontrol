@@ -46,7 +46,7 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 |:----|:-------|:-------------|
 | 1 | *`Devices`* | Scans your network (SSDP + mDNS) behind an ASCII radar, lists every TV and air conditioner found, **Add** by IP or over IR, **Rescan** |
 | 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, keyboard & number pad shortcuts. Android TVs ask for their **pairing code** here, once |
-| 3 | *`Channels & apps`* | A big monospace channel display, **saved channels** (`4002` → **BFMTV**: type the number, **+ save**, name it; one tap tunes it), streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
+| 3 | *`Channels & apps`* | A big monospace channel display, **saved channels** (`4002` → **BFMTV**: type the number, **+ save**, name it; tap to tune, **long-press** to rename, **swipe up** to delete), streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
 | 4 | *`Menu`* | Devices, Remote, Channels & apps, Settings |
 | 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, sleep & swing |
 | 6 | *`AC setup`* | Tries each protocol (Midea, Coolix, Gree, TCL, LG, Electra, Samsung, Kelvinator, Haier, Daikin) until the AC beeps, or tests a pasted IR code |
