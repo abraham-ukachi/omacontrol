@@ -110,7 +110,9 @@ fn record(stop: &AtomicBool, tx: &Sender<Job>) -> Result<(), String> {
         let buffer = env.new_byte_array(8192).map_err(jerr)?;
         let mut samples = vec![0i8; 8192];
         let mut capture_result = Ok(());
-        while !stop.load(Ordering::Relaxed) {
+        // Voice queries are short: stop by itself after 12 s if nobody taps again.
+        let started = std::time::Instant::now();
+        while !stop.load(Ordering::Relaxed) && started.elapsed() < std::time::Duration::from_secs(12) {
             let count = match env
                 .call_method(
                     &recorder,

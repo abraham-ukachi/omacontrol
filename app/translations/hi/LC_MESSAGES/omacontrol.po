@@ -318,8 +318,8 @@ msgstr "{} · पंखा {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · फिर से कोशिश करने के लिए नाम पर टैप करें"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "माइक्रोफ़ोन की अनुमति दें, फिर दोबारा दबाकर रखें"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "माइक्रोफ़ोन की अनुमति दें, फिर माइक पर दोबारा टैप करें"
 
 msgid "Archive"
 msgstr "संग्रहित करें"
@@ -336,8 +336,8 @@ msgstr "वॉइस असिस्टेंट से कनेक्ट ह�
 msgid "Language"
 msgstr "भाषा"
 
-msgid "Listening · release to send"
-msgstr "सुन रहा है · भेजने के लिए छोड़ें"
+msgid "Listening · tap the mic to send"
+msgstr "सुन रहा है · भेजने के लिए माइक पर टैप करें"
 
 msgid "Move"
 msgstr "स्थानांतरित करें"
@@ -428,3 +428,6 @@ msgstr "मैजिक कुंजी खोजें"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "TV देखें और जैसे ही वह वही करे जो आप इस कुंजी से चाहते हैं, मिल गया दबाएँ।"
+
+msgid "Google Assistant is open on the TV"
+msgstr "Google Assistant टीवी पर खुला है"

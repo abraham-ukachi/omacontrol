@@ -318,8 +318,8 @@ msgstr "{} · ventilateur {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · touchez le nom pour réessayer"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "Autorisez l’accès au micro, puis maintenez à nouveau"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "Autorisez le micro, puis touchez à nouveau le micro"
 
 msgid "Archive"
 msgstr "Archiver"
@@ -336,8 +336,8 @@ msgstr "Connexion à l’assistant vocal…"
 msgid "Language"
 msgstr "Langue"
 
-msgid "Listening · release to send"
-msgstr "Écoute · relâchez pour envoyer"
+msgid "Listening · tap the mic to send"
+msgstr "À l’écoute · touchez le micro pour envoyer"
 
 msgid "Move"
 msgstr "Déplacer"
@@ -428,3 +428,6 @@ msgstr "Trouver la touche magique"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Regardez la TV et touchez Trouvé dès qu'elle fait ce que vous voulez pour cette touche."
+
+msgid "Google Assistant is open on the TV"
+msgstr "L’Assistant Google est ouvert sur la TV"

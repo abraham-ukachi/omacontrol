@@ -660,8 +660,12 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let (tx, weak, capture) = (jobs.clone(), ui.as_weak(), voice_capture.clone());
     ui.on_voice_start(move || {
         let Some(ui) = weak.upgrade() else { return };
-        if !ui.get_voice_supported() || capture.borrow().is_some() {
+        if !ui.get_voice_supported() {
             return;
+        }
+        if let Some(stop) = capture.borrow_mut().take() {
+            // A capture still winding down: stop it before starting over.
+            stop.store(true, Ordering::Relaxed);
         }
         #[cfg(target_os = "android")]
         match android_voice::start(tx.clone(), weak.clone()) {
@@ -1412,6 +1416,10 @@ fn spawn_worker(
                 #[cfg(target_os = "android")]
                 Job::VoiceStart => {
                     voice_error = false;
+                    let assistant_error = omacontrol_core::Error::Unsupported(
+                        omacontrol_core::tv::ASSISTANT_ON_TV.into(),
+                    )
+                    .to_string();
                     let result = remote
                         .as_mut()
                         .ok_or_else(|| "pick a TV first".to_string())
@@ -1422,6 +1430,15 @@ fn spawn_worker(
                             let _ = weak.upgrade_in_event_loop(|ui| {
                                 ui.set_voice_active(true);
                                 ui.set_voice_status_code("active".into());
+                                ui.set_voice_status_detail("".into());
+                            });
+                        }
+                        Err(error) if error == assistant_error => {
+                            // The TV opened its own Assistant: keep that as a note, not an error.
+                            voice_error = true;
+                            let _ = weak.upgrade_in_event_loop(|ui| {
+                                ui.set_voice_active(false);
+                                ui.set_voice_status_code("assistant".into());
                                 ui.set_voice_status_detail("".into());
                             });
                         }

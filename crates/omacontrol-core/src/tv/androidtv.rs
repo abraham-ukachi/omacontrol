@@ -16,7 +16,7 @@
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -33,9 +33,15 @@ const PAIRING_PORT: u16 = 6467;
 const REMOTE_PORT: u16 = 6466;
 const STATUS_OK: u64 = 200;
 const SHORT: u64 = 3;
-/// PING | KEY | VOICE | POWER | VOLUME | APP_LINK.
+/// PING | KEY | IME | VOICE | POWER | VOLUME | APP_LINK.
+const FEATURE_IME: u64 = 4;
 const FEATURE_VOICE: u64 = 8;
-const FEATURES: u64 = 1 | 2 | FEATURE_VOICE | 32 | 64 | 512;
+const FEATURES: u64 = 1 | 2 | FEATURE_IME | FEATURE_VOICE | 32 | 64 | 512;
+/// Voice payloads: 16-bit PCM, 8 kHz, mono, sent in pieces of 8–20 KiB (smaller ones get dropped).
+const VOICE_CHUNK_MAX: usize = 20 * 1024;
+const VOICE_CHUNK_MIN: usize = 8 * 1024;
+const KEYCODE_ENTER: u64 = 66;
+const KEYCODE_ASSIST: u64 = 219;
 const KEYCODE_SEARCH: u64 = 84;
 
 type Tls = StreamOwned<ClientConnection, TcpStream>;
@@ -294,8 +300,75 @@ fn voice_end(session: u64) -> Msg {
     Msg::new().msg(32, Msg::new().int(1, session))
 }
 
+/// The session a `remote_voice_begin` opens; protobuf leaves out a session id of 0.
 fn voice_session_id(message: &[u8]) -> Option<u64> {
-    proto::sub(message, 30).and_then(|begin| proto::int(begin, 1))
+    proto::sub(message, 30).map(|begin| proto::int(begin, 1).unwrap_or(0))
+}
+
+/// The focused text field, as the TV reports it with the IME feature on.
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+struct ImeField {
+    ime_counter: u64,
+    field_counter: u64,
+    /// Whether the TV told us about a field at all; without it, text goes as key presses.
+    known: bool,
+}
+
+/// Reads the IME counters from `remote_ime_key_inject` (20), `remote_ime_show_request` (22)
+/// or `remote_ime_batch_edit` (21).
+fn ime_update(message: &[u8], ime: &mut ImeField) -> bool {
+    if let Some(inject) = proto::sub(message, 20) {
+        if let Some(app) = proto::sub(inject, 1) {
+            ime.ime_counter = proto::int(app, 1).unwrap_or(0);
+        }
+        if let Some(field) = proto::sub(inject, 2) {
+            ime.field_counter = proto::int(field, 1).unwrap_or(0);
+        }
+        ime.known = true;
+        return true;
+    }
+    if let Some(show) = proto::sub(message, 22) {
+        if let Some(field) = proto::sub(show, 2) {
+            ime.field_counter = proto::int(field, 1).unwrap_or(0);
+        }
+        ime.known = true;
+        return true;
+    }
+    if let Some(edit) = proto::sub(message, 21) {
+        ime.ime_counter = proto::int(edit, 1).unwrap_or(ime.ime_counter);
+        ime.field_counter = proto::int(edit, 2).unwrap_or(ime.field_counter);
+        ime.known = true;
+        return true;
+    }
+    false
+}
+
+/// Replaces the focused field's text with `text`, cursor at its end.
+fn ime_batch_edit(ime: ImeField, text: &str) -> Msg {
+    let len = text.chars().count() as u64;
+    let object = Msg::new().int(1, len).int(2, len).str(3, text);
+    let edit = Msg::new().int(1, 1).msg(2, object);
+    Msg::new().msg(
+        21,
+        Msg::new()
+            .int(1, ime.ime_counter)
+            .int(2, ime.field_counter)
+            .msg(3, edit),
+    )
+}
+
+/// Splits captured audio into payloads the TV accepts, padding short ones with silence.
+fn voice_chunks(samples: &[u8]) -> Vec<Vec<u8>> {
+    samples
+        .chunks(VOICE_CHUNK_MAX)
+        .map(|piece| {
+            let mut piece = piece.to_vec();
+            if piece.len() < VOICE_CHUNK_MIN {
+                piece.resize(VOICE_CHUNK_MIN, 0);
+            }
+            piece
+        })
+        .collect()
 }
 
 /// The remote, once paired. A reader thread answers the TV's pings so it keeps us connected.
@@ -310,7 +383,9 @@ struct Link {
     stream: Arc<Mutex<Tls>>,
     alive: Arc<AtomicBool>,
     voice_supported: bool,
+    ime_supported: bool,
     voice_session: Arc<Mutex<Option<u64>>>,
+    ime: Arc<Mutex<ImeField>>,
 }
 
 impl Drop for Link {
@@ -324,7 +399,12 @@ fn answer(
     stream: &mut Tls,
     msg: &[u8],
     voice_session: &Mutex<Option<u64>>,
+    ime: &Mutex<ImeField>,
+    active: &AtomicU64,
 ) -> Result<Option<bool>> {
+    if ime_update(msg, &mut ime.lock().unwrap()) {
+        return Ok(None);
+    }
     if let Some(cfg) = proto::sub(msg, 1) {
         let theirs = proto::int(cfg, 1).unwrap_or(FEATURES);
         let info = Msg::new()
@@ -334,17 +414,23 @@ fn answer(
             .str(4, "1")
             .str(5, "atvremote")
             .str(6, env!("CARGO_PKG_VERSION"));
+        active.store(FEATURES & theirs, Ordering::Relaxed);
         send(
             stream,
             &Msg::new().msg(1, Msg::new().int(1, FEATURES & theirs).msg(2, info)),
         )?;
     } else if proto::sub(msg, 2).is_some() || has_field(msg, 2) {
-        send(stream, &Msg::new().msg(2, Msg::new().int(1, FEATURES)))?;
+        // set_active: answer with the features both sides agreed on.
+        let features = active.load(Ordering::Relaxed);
+        send(stream, &Msg::new().msg(2, Msg::new().int(1, features)))?;
     } else if let Some(ping) = proto::sub(msg, 8) {
         let val = proto::int(ping, 1).unwrap_or(0);
         send(stream, &Msg::new().msg(9, Msg::new().int(1, val)))?;
     } else if let Some(session) = voice_session_id(msg) {
         *voice_session.lock().unwrap() = Some(session);
+    } else if proto::sub(msg, 32).is_some() {
+        // The TV closed the voice session (it heard a pause, or gave up).
+        *voice_session.lock().unwrap() = None;
     } else if has_field(msg, 40) {
         return Ok(Some(true));
     }
@@ -355,6 +441,8 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
     let mut stream = open(ip, port, identity, true)?;
     let mut buf = Vec::new();
     let voice_session = Arc::new(Mutex::new(None));
+    let ime = Arc::new(Mutex::new(ImeField::default()));
+    let active = Arc::new(AtomicU64::new(FEATURES));
     let deadline = Instant::now() + Duration::from_secs(6);
     // configure → set_active → start (the TV may skip start while it sleeps).
     let mut configured = false;
@@ -382,7 +470,7 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
             configured = true;
             voice_supported = config_supports_voice(config);
         }
-        if answer(&mut stream, &msg, &voice_session)? == Some(true) {
+        if answer(&mut stream, &msg, &voice_session, &ime, &active)? == Some(true) {
             break;
         }
     }
@@ -396,7 +484,13 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
         .set_read_timeout(Some(Duration::from_millis(80)))?;
     let stream = Arc::new(Mutex::new(stream));
     let alive = Arc::new(AtomicBool::new(true));
-    let (s, a, voice) = (stream.clone(), alive.clone(), voice_session.clone());
+    let (s, a, voice, ime2, active2) = (
+        stream.clone(),
+        alive.clone(),
+        voice_session.clone(),
+        ime.clone(),
+        active.clone(),
+    );
     thread::spawn(move || {
         let mut buf = buf;
         while a.load(Ordering::Relaxed) {
@@ -410,7 +504,7 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
                     Err(_) => break,
                 }
                 for msg in proto::drain_frames(&mut buf) {
-                    if answer(&mut st, &msg, &voice).is_err() {
+                    if answer(&mut st, &msg, &voice, &ime2, &active2).is_err() {
                         a.store(false, Ordering::Relaxed);
                     }
                 }
@@ -419,11 +513,14 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
         }
         a.store(false, Ordering::Relaxed);
     });
+    let ime_supported = active.load(Ordering::Relaxed) & FEATURE_IME != 0;
     Ok(Link {
         stream,
         alive,
         voice_supported,
+        ime_supported,
         voice_session,
+        ime,
     })
 }
 
@@ -471,6 +568,24 @@ impl AndroidTv {
     fn key(&mut self, code: u64) -> Result<()> {
         self.send(Msg::new().msg(10, Msg::new().int(1, code).int(2, SHORT)))
     }
+
+    /// Types text as key presses, for TVs that never reported a focused field.
+    fn type_keys(&mut self, text: &str) -> Result<()> {
+        for c in text.chars() {
+            let Some((code, shift)) = char_keycode(c) else {
+                continue;
+            };
+            if shift {
+                // SHIFT_LEFT down, the letter, SHIFT_LEFT up.
+                self.send(Msg::new().msg(10, Msg::new().int(1, 59).int(2, 1)))?;
+                self.key(code)?;
+                self.send(Msg::new().msg(10, Msg::new().int(1, 59).int(2, 2)))?;
+            } else {
+                self.key(code)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Android `KeyEvent` codes for the remote's buttons.
@@ -512,6 +627,17 @@ pub(crate) fn char_keycode(c: char) -> Option<(u64, bool)> {
         '@' => (77, false),
         '/' => (76, false),
         '\'' => (75, false),
+        ';' => (74, false),
+        ':' => (74, true),
+        '?' => (76, true),
+        '_' => (69, true),
+        '=' => (70, false),
+        '+' => (81, false),
+        '#' => (18, false),
+        '*' => (17, false),
+        '&' => (14, true),
+        '!' => (8, true),
+        '%' => (12, true),
         _ => return None,
     })
 }
@@ -534,20 +660,21 @@ impl Remote for AndroidTv {
     }
 
     fn type_text(&mut self, text: &str) -> Result<()> {
-        for c in text.chars() {
-            let Some((code, shift)) = char_keycode(c) else {
-                continue;
-            };
-            if shift {
-                // SHIFT_LEFT down, the letter, SHIFT_LEFT up.
-                self.send(Msg::new().msg(10, Msg::new().int(1, 59).int(2, 1)))?;
-                self.key(code)?;
-                self.send(Msg::new().msg(10, Msg::new().int(1, 59).int(2, 2)))?;
-            } else {
-                self.key(code)?;
-            }
+        // With IME on, the TV tells us which field is focused: replace its text in one edit,
+        // then Enter, so a browser goes to the URL and a search box searches.
+        let field = self
+            .link
+            .as_ref()
+            .filter(|l| l.ime_supported)
+            .map(|l| *l.ime.lock().unwrap())
+            .filter(|f| f.known);
+        if let Some(field) = field {
+            self.send(ime_batch_edit(field, text))?;
+            thread::sleep(Duration::from_millis(150));
+            return self.key(KEYCODE_ENTER);
         }
-        Ok(())
+        self.type_keys(text)?;
+        self.key(KEYCODE_ENTER)
     }
 
     fn launch(&mut self, app: App) -> Result<()> {
@@ -555,7 +682,8 @@ impl Remote for AndroidTv {
     }
 
     fn supports_voice(&self) -> bool {
-        self.link.as_ref().is_some_and(|link| link.voice_supported)
+        // Every Android TV gets the mic: without the voice feature it opens the Assistant there.
+        self.link.is_some()
     }
 
     fn voice_start(&mut self) -> Result<()> {
@@ -564,9 +692,9 @@ impl Remote for AndroidTv {
             .as_ref()
             .ok_or_else(|| Error::Protocol("the Android TV remote is disconnected".into()))?;
         if !link.voice_supported {
-            return Err(Error::Unsupported(
-                "voice search (not supported by this TV)".into(),
-            ));
+            // No phone-mic streaming on this TV: open its Google Assistant instead.
+            self.key(KEYCODE_ASSIST)?;
+            return Err(Error::Unsupported(super::ASSISTANT_ON_TV.into()));
         }
         let voice_session = link.voice_session.clone();
         *voice_session.lock().unwrap() = None;
@@ -577,9 +705,8 @@ impl Remote for AndroidTv {
                 return self.send(voice_begin(session));
             }
             if Instant::now() >= deadline {
-                return Err(Error::Protocol(
-                    "the TV did not start a voice-search session".into(),
-                ));
+                // The Search key opened the Assistant, but it listens to its own remote.
+                return Err(Error::Unsupported(super::ASSISTANT_ON_TV.into()));
             }
             thread::sleep(Duration::from_millis(25));
         }
@@ -589,22 +716,24 @@ impl Remote for AndroidTv {
         let session = self
             .link
             .as_ref()
-            .and_then(|link| *link.voice_session.lock().unwrap())
-            .ok_or_else(|| {
-                Error::Protocol("no Android TV voice-search session is active".into())
-            })?;
-        self.send(voice_payload(session, samples))
+            .and_then(|link| *link.voice_session.lock().unwrap());
+        // The TV ends the session itself once it has heard enough: drop the rest.
+        let Some(session) = session else { return Ok(()) };
+        for chunk in voice_chunks(samples) {
+            self.send(voice_payload(session, &chunk))?;
+        }
+        Ok(())
     }
 
     fn voice_stop(&mut self) -> Result<()> {
         let session = self
             .link
             .as_ref()
-            .and_then(|link| link.voice_session.lock().unwrap().take())
-            .ok_or_else(|| {
-                Error::Protocol("no Android TV voice-search session is active".into())
-            })?;
-        self.send(voice_end(session))
+            .and_then(|link| link.voice_session.lock().unwrap().take());
+        match session {
+            Some(session) => self.send(voice_end(session)),
+            None => Ok(()),
+        }
     }
 
     fn token(&self) -> Option<String> {
@@ -658,6 +787,55 @@ mod tests {
     #[test]
     fn trims_leading_zeros() {
         assert_eq!(trim(&[0, 0, 1, 0, 1]), vec![1, 0, 1]);
+    }
+
+    #[test]
+    fn a_voice_session_id_of_zero_still_opens_the_session() {
+        let begin = Msg::new().msg(30, Msg::new());
+        assert_eq!(voice_session_id(&begin.0), Some(0));
+    }
+
+    #[test]
+    fn voice_audio_is_split_and_padded_for_the_tv() {
+        let chunks = voice_chunks(&vec![1u8; 25 * 1024]);
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].len(), VOICE_CHUNK_MAX);
+        assert_eq!(chunks[1].len(), VOICE_CHUNK_MIN);
+        assert_eq!(voice_chunks(&[7u8; 100])[0].len(), VOICE_CHUNK_MIN);
+    }
+
+    #[test]
+    fn ime_counters_come_from_the_focused_field() {
+        let mut ime = ImeField::default();
+        let inject = Msg::new().msg(
+            20,
+            Msg::new()
+                .msg(1, Msg::new().int(1, 5).str(12, "com.android.chrome"))
+                .msg(2, Msg::new().int(1, 9)),
+        );
+        assert!(ime_update(&inject.0, &mut ime));
+        assert_eq!((ime.ime_counter, ime.field_counter, ime.known), (5, 9, true));
+        let show = Msg::new().msg(22, Msg::new().msg(2, Msg::new().int(1, 11)));
+        assert!(ime_update(&show.0, &mut ime));
+        assert_eq!(ime.field_counter, 11);
+        assert!(!ime_update(&Msg::new().msg(8, Msg::new().int(1, 1)).0, &mut ime));
+
+        let edit = ime_batch_edit(ime, "bfmtv.com");
+        let batch = proto::sub(&edit.0, 21).unwrap();
+        assert_eq!(proto::int(batch, 1), Some(5));
+        assert_eq!(proto::int(batch, 2), Some(11));
+        let info = proto::sub(batch, 3).unwrap();
+        assert_eq!(proto::int(info, 1), Some(1));
+        let object = proto::sub(info, 2).unwrap();
+        assert_eq!(proto::int(object, 1), Some(9));
+        assert_eq!(proto::sub(object, 3), Some(&b"bfmtv.com"[..]));
+    }
+
+    #[test]
+    fn url_signs_have_key_codes() {
+        for c in "https://a.b/c?d=e_f".chars() {
+            assert!(char_keycode(c).is_some(), "{c}");
+        }
     }
 
     #[test]

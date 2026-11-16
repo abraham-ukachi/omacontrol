@@ -318,8 +318,8 @@ msgstr "{} · ventola {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · tocca il nome per riprovare"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "Consenti l’accesso al microfono, quindi tieni premuto di nuovo"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "Consenti l’accesso al microfono, poi tocca di nuovo il microfono"
 
 msgid "Archive"
 msgstr "Archivia"
@@ -336,8 +336,8 @@ msgstr "Connessione all’assistente vocale…"
 msgid "Language"
 msgstr "Lingua"
 
-msgid "Listening · release to send"
-msgstr "In ascolto · rilascia per inviare"
+msgid "Listening · tap the mic to send"
+msgstr "In ascolto · tocca il microfono per inviare"
 
 msgid "Move"
 msgstr "Sposta"
@@ -428,3 +428,6 @@ msgstr "Trova il tasto magico"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Guarda la TV e tocca Trovato appena fa ciò che vuoi da questo tasto."
+
+msgid "Google Assistant is open on the TV"
+msgstr "L’Assistente Google è aperto sulla TV"

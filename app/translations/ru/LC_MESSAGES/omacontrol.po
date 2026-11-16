@@ -318,8 +318,8 @@ msgstr "{} · вентилятор {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · нажмите на название, чтобы повторить попытку"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "Разрешите доступ к микрофону и снова нажмите и удерживайте"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "Разрешите доступ к микрофону и снова нажмите на микрофон"
 
 msgid "Archive"
 msgstr "В архив"
@@ -336,8 +336,8 @@ msgstr "Подключение к голосовому помощнику…"
 msgid "Language"
 msgstr "Язык"
 
-msgid "Listening · release to send"
-msgstr "Слушаю · отпустите, чтобы отправить"
+msgid "Listening · tap the mic to send"
+msgstr "Слушаю · нажмите на микрофон, чтобы отправить"
 
 msgid "Move"
 msgstr "Переместить"
@@ -428,3 +428,6 @@ msgstr "Поиск волшебной кнопки"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Следите за телевизором и нажмите «Найдено», когда он сделает нужное действие."
+
+msgid "Google Assistant is open on the TV"
+msgstr "Google Ассистент открыт на телевизоре"

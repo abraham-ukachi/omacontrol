@@ -318,8 +318,8 @@ msgstr "{} · 送风 {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · 点按名称重试"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "请允许麦克风访问，然后再次长按"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "请允许使用麦克风，然后再次点按麦克风"
 
 msgid "Archive"
 msgstr "归档"
@@ -336,8 +336,8 @@ msgstr "正在连接语音助手…"
 msgid "Language"
 msgstr "语言"
 
-msgid "Listening · release to send"
-msgstr "正在聆听 · 松开发送"
+msgid "Listening · tap the mic to send"
+msgstr "正在聆听 · 点按麦克风发送"
 
 msgid "Move"
 msgstr "移动"
@@ -428,3 +428,6 @@ msgstr "查找魔法键"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "看着电视，一旦它做出你想要的动作就点“找到了”。"
+
+msgid "Google Assistant is open on the TV"
+msgstr "Google 助理已在电视上打开"

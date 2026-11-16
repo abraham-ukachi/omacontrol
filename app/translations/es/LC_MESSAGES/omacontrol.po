@@ -318,8 +318,8 @@ msgstr "{} · ventilador {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · toca el nombre para volver a intentarlo"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "Permite el acceso al micrófono y vuelve a mantener pulsado"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "Permite el acceso al micrófono y vuelve a tocar el micro"
 
 msgid "Archive"
 msgstr "Archivar"
@@ -336,8 +336,8 @@ msgstr "Conectando con el asistente de voz…"
 msgid "Language"
 msgstr "Idioma"
 
-msgid "Listening · release to send"
-msgstr "Escuchando · suelta para enviar"
+msgid "Listening · tap the mic to send"
+msgstr "Escuchando · toca el micro para enviar"
 
 msgid "Move"
 msgstr "Mover"
@@ -428,3 +428,6 @@ msgstr "Buscar la tecla mágica"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Mira la TV y toca Encontrado en cuanto haga lo que quieres que haga esta tecla."
+
+msgid "Google Assistant is open on the TV"
+msgstr "El Asistente de Google está abierto en la TV"

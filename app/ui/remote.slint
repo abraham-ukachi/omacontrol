@@ -44,9 +44,10 @@ export component RemotePage inherits VerticalLayout {
     }
 
     function localized-voice-status() -> string {
-        if root.voice-status-code == "permission" { return @tr("Allow microphone access, then press and hold again"); }
+        if root.voice-status-code == "permission" { return @tr("Allow microphone access, then tap the mic again"); }
         if root.voice-status-code == "starting" { return @tr("Connecting to voice assistant…"); }
-        if root.voice-status-code == "active" { return @tr("Listening · release to send"); }
+        if root.voice-status-code == "active" { return @tr("Listening · tap the mic to send"); }
+        if root.voice-status-code == "assistant" { return @tr("Google Assistant is open on the TV"); }
         if root.voice-status-code == "error" { return @tr("Voice unavailable: {}", root.voice-status-detail); }
         return "";
     }
@@ -158,8 +159,10 @@ export component RemotePage inherits VerticalLayout {
                     icon-size: 22px;
                     icon: @image-url("icons/mic.svg");
                     kind: root.voice-active ? KeyKind.primary : KeyKind.operator;
-                    pressed => { root.voice-start(); }
-                    released => { root.voice-stop(); }
+                    // Tap to talk, tap again to send (the TV also stops on its own after a pause).
+                    clicked => {
+                        if root.voice-active { root.voice-stop(); } else { root.voice-start(); }
+                    }
                 }
                 if !root.ir: Key {
                     has-icon: true;

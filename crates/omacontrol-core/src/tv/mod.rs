@@ -9,6 +9,10 @@
 //! | 5 | Any TV with an IR receiver | infrared (phone's IR blaster) | - | none |
 
 pub mod androidtv;
+
+/// The voice error an Android TV gives when it opened its own Google Assistant instead of
+/// taking audio from the phone's mic.
+pub const ASSISTANT_ON_TV: &str = "assistant-on-tv";
 mod infrared;
 mod lg;
 mod proto;

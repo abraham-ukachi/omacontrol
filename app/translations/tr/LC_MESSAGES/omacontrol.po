@@ -318,8 +318,8 @@ msgstr "{} · fan {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · tekrar denemek için ada dokunun"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "Mikrofon erişimine izin verin, ardından tekrar basılı tutun"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "Mikrofon erişimine izin verin, sonra mikrofona tekrar dokunun"
 
 msgid "Archive"
 msgstr "Arşivle"
@@ -336,8 +336,8 @@ msgstr "Sesli asistana bağlanıyor…"
 msgid "Language"
 msgstr "Dil"
 
-msgid "Listening · release to send"
-msgstr "Dinleniyor · göndermek için bırakın"
+msgid "Listening · tap the mic to send"
+msgstr "Dinliyor · göndermek için mikrofona dokunun"
 
 msgid "Move"
 msgstr "Taşı"
@@ -428,3 +428,6 @@ msgstr "Sihirli tuşu bul"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "TV'yi izleyin ve bu tuştan istediğinizi yaptığı anda Bulundu'ya dokunun."
+
+msgid "Google Assistant is open on the TV"
+msgstr "Google Asistan TV’de açık"

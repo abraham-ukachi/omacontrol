@@ -318,8 +318,8 @@ msgstr "{} · Lüfter {}"
 msgid "{} · tap the name to try again"
 msgstr "{} · tippe auf den Namen, um es erneut zu versuchen"
 
-msgid "Allow microphone access, then press and hold again"
-msgstr "Erlaube den Mikrofonzugriff und halte dann erneut gedrückt"
+msgid "Allow microphone access, then tap the mic again"
+msgstr "Mikrofonzugriff erlauben, dann erneut auf das Mikro tippen"
 
 msgid "Archive"
 msgstr "Archivieren"
@@ -336,8 +336,8 @@ msgstr "Verbindung zum Sprachassistenten wird hergestellt…"
 msgid "Language"
 msgstr "Sprache"
 
-msgid "Listening · release to send"
-msgstr "Hört zu · loslassen zum Senden"
+msgid "Listening · tap the mic to send"
+msgstr "Hört zu · zum Senden auf das Mikro tippen"
 
 msgid "Move"
 msgstr "Verschieben"
@@ -428,3 +428,6 @@ msgstr "Magische Taste suchen"
 
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Beobachte den Fernseher und tippe auf Gefunden, sobald er tut, was diese Taste tun soll."
+
+msgid "Google Assistant is open on the TV"
+msgstr "Google Assistant ist auf dem Fernseher geöffnet"
