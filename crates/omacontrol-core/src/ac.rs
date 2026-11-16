@@ -221,6 +221,27 @@ pub fn custom_frames(code: &str) -> crate::Result<Vec<Pattern>> {
     crate::ir::pronto(code).map(|pattern| vec![pattern])
 }
 
+/// The address and command of a `NEC XXXXXXXX` code, when its complement bytes check out.
+pub fn nec_parts(code: &str) -> Option<(u8, u8)> {
+    let value = u32::from_str_radix(code.strip_prefix("NEC ")?, 16).ok()?;
+    let [address, inverted_address, command, inverted_command] = value.to_be_bytes();
+    (inverted_address == !address && inverted_command == !command).then_some((address, command))
+}
+
+/// The keys of the AC remote that can be learned once the power key is a NEC code.
+pub const NEC_LEARNABLE_KEYS: [&str; 6] = ["mode", "fan", "cooler", "warmer", "sleep", "swing"];
+
+/// Candidates for learning one more key of a per-key NEC remote: every other command on the
+/// power key's address, starting just after the power command (remotes number their keys
+/// close together), skipping commands already taken by other keys.
+pub fn nec_learn_candidates(address: u8, power: u8, known: &[u8]) -> Vec<(u8, u8)> {
+    (1..=u8::MAX)
+        .map(|offset| power.wrapping_add(offset))
+        .filter(|command| !known.contains(command))
+        .map(|command| (address, command))
+        .collect()
+}
+
 /// A deterministic, bounded NEC address/command sweep for manual AC discovery.
 ///
 /// The first candidate is the reported `00FF40BF` code. The remaining candidates cover
@@ -1008,6 +1029,17 @@ mod tests {
             vec![crate::ir::nec(0x00, 0x40)]
         );
         assert!(custom_frames("NEC 00FF40BE").is_err());
+    }
+
+    #[test]
+    fn nec_learning_skips_power_and_known_keys() {
+        assert_eq!(nec_parts("NEC 00FF40BF"), Some((0x00, 0x40)));
+        assert_eq!(nec_parts("NEC 00FF40BE"), None);
+        assert_eq!(nec_parts("0000 006D"), None);
+        let candidates = nec_learn_candidates(0x00, 0x40, &[0x41]);
+        assert_eq!(candidates.len(), 254);
+        assert_eq!(candidates[0], (0x00, 0x42));
+        assert!(!candidates.iter().any(|&(_, c)| c == 0x40 || c == 0x41));
     }
 
     #[test]

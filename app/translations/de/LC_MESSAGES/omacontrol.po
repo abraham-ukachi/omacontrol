@@ -389,3 +389,30 @@ msgstr "Spracheingabe nicht verfügbar: {}"
 
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} wird aus OmaControl entfernt. Du kannst es später wieder hinzufügen."
+
+msgid "Auto-find"
+msgstr "Automatisch suchen"
+
+msgid "Find the {} key"
+msgstr "Taste {} suchen"
+
+msgid "Long-press a device to restore it"
+msgstr "Gerät lange drücken, um es wiederherzustellen"
+
+msgid "Watch the AC and tap Found it as soon as it reacts to this key."
+msgstr "Beobachte die Klimaanlage und tippe auf Gefunden, sobald sie auf diese Taste reagiert."
+
+msgid "fan"
+msgstr "Lüfter"
+
+msgid "mode"
+msgstr "Modus"
+
+msgid "sleep"
+msgstr "Schlaf"
+
+msgid "swing"
+msgstr "Schwenken"
+
+msgid "{} archived"
+msgstr "{} archiviert"

@@ -389,3 +389,30 @@ msgstr "语音不可用：{}"
 
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} 将从 OmaControl 中移除。之后可以重新添加。"
+
+msgid "Auto-find"
+msgstr "自动查找"
+
+msgid "Find the {} key"
+msgstr "查找 {} 键"
+
+msgid "Long-press a device to restore it"
+msgstr "长按设备以恢复"
+
+msgid "Watch the AC and tap Found it as soon as it reacts to this key."
+msgstr "观察空调，一有反应就点“找到了”。"
+
+msgid "fan"
+msgstr "风速"
+
+msgid "mode"
+msgstr "模式"
+
+msgid "sleep"
+msgstr "睡眠"
+
+msgid "swing"
+msgstr "摆风"
+
+msgid "{} archived"
+msgstr "已归档 {} 个"

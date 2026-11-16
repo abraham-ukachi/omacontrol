@@ -95,6 +95,9 @@ pub struct Device {
     /// Air conditioners: the last state we sent (IR is one way, so we remember it).
     #[serde(default)]
     pub ac_state: crate::ac::AcState,
+    /// Per-key NEC codes learned for an AC whose power key is a NEC code (`mode` → `NEC 00FF…`).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub ac_keys: std::collections::BTreeMap<String, String>,
     /// TVs: channel numbers saved by name (`4002` → `BFMTV`), in the order they were saved.
     #[serde(default)]
     pub channels: Vec<Channel>,
@@ -120,6 +123,7 @@ impl Device {
             transport: Transport::Network,
             ac_protocol: None,
             ac_code: None,
+            ac_keys: Default::default(),
             ac_state: Default::default(),
             channels: Vec::new(),
         }
@@ -140,6 +144,7 @@ impl Device {
             transport: Transport::Infrared,
             ac_protocol: None,
             ac_code: None,
+            ac_keys: Default::default(),
             ac_state: Default::default(),
             channels: Vec::new(),
         }
@@ -163,6 +168,7 @@ impl Device {
             transport: Transport::Infrared,
             ac_protocol: None,
             ac_code: None,
+            ac_keys: Default::default(),
             ac_state: Default::default(),
             channels: Vec::new(),
         }

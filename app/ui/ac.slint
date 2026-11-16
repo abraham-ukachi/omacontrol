@@ -1,8 +1,31 @@
 import { Theme } from "theme.slint";
 import { Key, KeyKind, Header, Divider, Confirm } from "widgets.slint";
 
+// Which keys of a per-key NEC remote have their code yet.
+export struct AcLearned {
+    mode: bool,
+    fan: bool,
+    cooler: bool,
+    warmer: bool,
+    sleep: bool,
+    swing: bool,
+}
+
+// A key that may still need learning: a small "?" in the corner until it has its code.
+component LearnKey inherits Key {
+    in property <bool> unlearned;
+    Text {
+        x: parent.width - 24px;
+        y: 8px;
+        text: "?";
+        color: Theme.muted;
+        font-size: 14px;
+        visible: root.unlearned;
+    }
+}
+
 // A toggle key (swing, sleep): an accent dot in the corner while it's on.
-component Toggle inherits Key {
+component Toggle inherits LearnKey {
     in property <bool> on;
     kind: KeyKind.operator;
     Rectangle {
@@ -16,12 +39,138 @@ component Toggle inherits Key {
     }
 }
 
+// The NEC sweep: a progress card while codes go out, then a review to replay and keep one.
+// `learning` names the AC key being learned; empty while finding the power code.
+component NecScanOverlay inherits Rectangle {
+    in property <bool> scan-active;
+    in property <bool> scan-finished;
+    in property <bool> scan-cancelled;
+    in property <int> scan-count;
+    in property <int> scan-total;
+    in property <int> scan-index;
+    in property <bool> scan-review;
+    in property <string> scan-code;
+    in property <string> scan-result;
+    in property <string> learning;
+    property <float> scan-progress: root.scan-total > 0 ? (root.scan-count * 1.0) / root.scan-total : 0;
+    callback setup(string);
+    callback scan-cancel();
+    callback scan-navigate(int);
+        background: Theme.bg.with-alpha(0.82);
+        TouchArea { }
+        card := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: min(parent.width - 32px, 420px);
+            height: body.preferred-height;
+            border-radius: Theme.radius;
+            background: Theme.bg;
+            border-width: 1px;
+            border-color: Theme.divider;
+            TouchArea { }
+            body := VerticalLayout {
+                padding: 20px;
+                spacing: 14px;
+                Text {
+                    text: root.learning != "" ? @tr("Find the {} key", root.learning)
+                        : root.scan-review ? @tr("Review NEC codes")
+                        : root.scan-active ? @tr("Scanning NEC codes")
+                        : root.scan-cancelled ? @tr("NEC scan stopped")
+                        : root.scan-result != "" ? @tr("NEC scan failed")
+                        : @tr("NEC scan complete");
+                    color: Theme.fg;
+                    font-size: 22px;
+                    wrap: word-wrap;
+                }
+                if root.scan-active && !root.scan-review: Text {
+                    text: root.scan-count + " / " + root.scan-total;
+                    color: Theme.muted;
+                    font-size: 16px;
+                }
+                if root.scan-review: Text {
+                    text: @tr("Candidate {} of {}", root.scan-index + 1, root.scan-total);
+                    color: Theme.muted;
+                    font-size: 15px;
+                }
+                if !root.scan-review: Rectangle {
+                    height: 8px;
+                    border-radius: 4px;
+                    background: Theme.operator;
+                    Rectangle { width: parent.width * root.scan-progress; height: parent.height; border-radius: 4px; background: Theme.accent; }
+                }
+                if root.scan-code != "": Text { text: root.scan-code; color: Theme.fg; font-size: 14px; }
+                Text {
+                    text: root.scan-result != "" ? @tr("Error: {}", root.scan-result)
+                        : root.scan-review
+                            ? @tr("Use Previous or Next to replay a code, then choose Use this to save it.")
+                        : root.scan-active
+                            ? root.learning != ""
+                                ? @tr("Watch the AC and tap Found it as soon as it reacts to this key.")
+                                : @tr("Your phone cannot detect an IR response. Watch the AC and tap Found it when it reacts.")
+                            : root.scan-cancelled
+                                ? @tr("Scan stopped. You can start again when ready.")
+                                : @tr("Your phone cannot detect an IR response. If the AC did not react, try another angle or start again.");
+                    color: Theme.muted;
+                    font-size: 15px;
+                    wrap: word-wrap;
+                }
+                if root.scan-review: HorizontalLayout {
+                    height: 56px;
+                    spacing: Theme.gap;
+                    Key { label: @tr("Previous"); kind: KeyKind.operator; font-size: 15px; clicked => { root.scan-navigate(-1); } }
+                    Key { label: @tr("Next"); kind: KeyKind.operator; font-size: 15px; clicked => { root.scan-navigate(1); } }
+                }
+                if root.scan-review: HorizontalLayout {
+                    height: 56px;
+                    spacing: Theme.gap;
+                    Key { label: @tr("Done"); kind: KeyKind.operator; font-size: 15px; clicked => { root.setup("scan-dismiss"); } }
+                    Key { label: @tr("Use this"); kind: KeyKind.primary; font-size: 15px; clicked => { root.setup("scan-save"); } }
+                }
+                if !root.scan-review: HorizontalLayout {
+                    height: 56px;
+                    spacing: Theme.gap;
+                    if root.scan-count > 0 && (root.scan-active || root.scan-finished): Key {
+                        label: root.scan-active ? @tr("Found it") : @tr("Review codes");
+                        kind: KeyKind.primary;
+                        font-size: 16px;
+                        clicked => { root.setup("scan-found"); }
+                    }
+                    Key {
+                        label: root.scan-active ? @tr("Cancel scan") : @tr("Done");
+                        kind: KeyKind.operator;
+                        font-size: 16px;
+                        clicked => {
+                            if root.scan-active { root.scan-cancel(); } else { root.setup("scan-dismiss"); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 // 04 · Air conditioner, laid out like its own panel: power, mode, fan, − 22° +, sleep, swing.
-export component AcPage inherits VerticalLayout {
+export component AcPage inherits Rectangle {
     in property <string> name;
     in property <string> status;
     in property <bool> status-error;
-    in property <bool> custom-code;
+    // A pasted Pronto code drives power only; a NEC power code opens the full keypad.
+    in property <bool> power-only;
+    // Set while the power key is a NEC code: keys without a code learn theirs on first tap.
+    in property <bool> nec;
+    in property <AcLearned> learned;
+    in property <string> learning;
+    in property <bool> scan-active;
+    in property <bool> scan-finished;
+    in property <bool> scan-cancelled;
+    in property <int> scan-count;
+    in property <int> scan-total;
+    in property <int> scan-index;
+    in property <bool> scan-review;
+    in property <string> scan-code;
+    in property <string> scan-result;
+    callback setup(string);
+    callback scan-cancel();
+    callback scan-navigate(int);
     in property <bool> power;
     in property <int> temp;
     in property <string> mode;
@@ -32,75 +181,98 @@ export component AcPage inherits VerticalLayout {
     callback action(string);
     callback devices;
 
-    spacing: Theme.gap;
-    Header {
-        title: root.name;
-        subtitle: root.status-error ? @tr("Error: {}", root.status) : root.status == "not set up yet" ? @tr("Not set up yet") : root.status == "code · IR" ? @tr("Code · IR") : root.status;
-        online: root.power;
-        tappable: true;
-        title-clicked => { root.devices(); }
-        menu => { root.menu(); }
-    }
-    if root.custom-code: VerticalLayout {
-        vertical-stretch: 1;
-        alignment: center;
-        Text {
-            text: @tr("This infrared code controls power only.");
-            color: Theme.muted;
-            font-size: 19px;
-            horizontal-alignment: center;
-            wrap: word-wrap;
+    VerticalLayout {
+        spacing: Theme.gap;
+        Header {
+            title: root.name;
+            subtitle: root.status-error ? @tr("Error: {}", root.status) : root.status == "not set up yet" ? @tr("Not set up yet") : root.status == "code · IR" ? @tr("Code · IR") : root.status;
+            online: root.power;
+            tappable: true;
+            title-clicked => { root.devices(); }
+            menu => { root.menu(); }
         }
-        Key {
+        if root.power-only: VerticalLayout {
             vertical-stretch: 1;
-            min-height: 160px;
-            has-icon: true;
-            icon: @image-url("icons/power.svg");
-            kind: root.power ? KeyKind.primary : KeyKind.number;
-            clicked => { root.action("power"); }
+            alignment: center;
+            Text {
+                text: @tr("This infrared code controls power only.");
+                color: Theme.muted;
+                font-size: 19px;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+            Key {
+                vertical-stretch: 1;
+                min-height: 160px;
+                has-icon: true;
+                icon: @image-url("icons/power.svg");
+                kind: root.power ? KeyKind.primary : KeyKind.number;
+                clicked => { root.action("power"); }
+            }
+        }
+        if !root.power-only: VerticalLayout {
+            vertical-stretch: 1;
+            padding-left: 8px;
+            padding-right: 8px;
+            padding-top: 14px;
+            spacing: 4px;
+            Text {
+                text: root.power
+                    ? @tr("{} · fan {}", root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"),
+                        root.fan == "low" ? @tr("Low") : root.fan == "med" ? @tr("Medium") : root.fan == "high" ? @tr("High") : @tr("Auto"))
+                    : @tr("Off");
+                color: Theme.muted;
+                font-size: 19px;
+            }
+            Text {
+                text: root.mode == "fan" ? @tr("Fan") : root.temp + "°";
+                color: root.power ? Theme.fg : Theme.muted;
+                font-size: 112px;
+                horizontal-alignment: right;
+            }
+        }
+        if !root.power-only: Divider { }
+        if !root.power-only: HorizontalLayout {
+            height: 72px;
+            spacing: Theme.gap;
+            Key { has-icon: true; icon: @image-url("icons/power.svg"); kind: root.power ? KeyKind.primary : KeyKind.number; clicked => { root.action("power"); } }
+            LearnKey { unlearned: root.nec && !root.learned.mode; label: root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"); font-size: 18px; clicked => { root.action("mode"); } }
+            LearnKey { unlearned: root.nec && !root.learned.fan; has-icon: true; icon: @image-url("icons/fan.svg"); clicked => { root.action("fan"); } }
+        }
+        if !root.power-only: HorizontalLayout {
+            spacing: Theme.gap;
+            vertical-stretch: 1;
+            min-height: 150px;
+            LearnKey { unlearned: root.nec && !root.learned.cooler; label: "−"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("cooler"); } }
+            LearnKey { unlearned: root.nec && !root.learned.warmer; label: "+"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("warmer"); } }
+        }
+        if !root.power-only: HorizontalLayout {
+            height: 72px;
+            spacing: Theme.gap;
+            Toggle { unlearned: root.nec && !root.learned.sleep; has-icon: true; icon: @image-url("icons/sleep.svg"); on: root.sleep; clicked => { root.action("sleep"); } }
+            Toggle { unlearned: root.nec && !root.learned.swing; has-icon: true; icon: @image-url("icons/swing.svg"); on: root.swing; clicked => { root.action("swing"); } }
         }
     }
-    if !root.custom-code: VerticalLayout {
-        vertical-stretch: 1;
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-top: 14px;
-        spacing: 4px;
-        Text {
-            text: root.power
-                ? @tr("{} · fan {}", root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"),
-                    root.fan == "low" ? @tr("Low") : root.fan == "med" ? @tr("Medium") : root.fan == "high" ? @tr("High") : @tr("Auto"))
-                : @tr("Off");
-            color: Theme.muted;
-            font-size: 19px;
-        }
-        Text {
-            text: root.mode == "fan" ? @tr("Fan") : root.temp + "°";
-            color: root.power ? Theme.fg : Theme.muted;
-            font-size: 112px;
-            horizontal-alignment: right;
-        }
-    }
-    if !root.custom-code: Divider { }
-    if !root.custom-code: HorizontalLayout {
-        height: 72px;
-        spacing: Theme.gap;
-        Key { has-icon: true; icon: @image-url("icons/power.svg"); kind: root.power ? KeyKind.primary : KeyKind.number; clicked => { root.action("power"); } }
-        Key { label: root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"); font-size: 18px; clicked => { root.action("mode"); } }
-        Key { has-icon: true; icon: @image-url("icons/fan.svg"); clicked => { root.action("fan"); } }
-    }
-    if !root.custom-code: HorizontalLayout {
-        spacing: Theme.gap;
-        vertical-stretch: 1;
-        min-height: 150px;
-        Key { label: "−"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("cooler"); } }
-        Key { label: "+"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("warmer"); } }
-    }
-    if !root.custom-code: HorizontalLayout {
-        height: 72px;
-        spacing: Theme.gap;
-        Toggle { has-icon: true; icon: @image-url("icons/sleep.svg"); on: root.sleep; clicked => { root.action("sleep"); } }
-        Toggle { has-icon: true; icon: @image-url("icons/swing.svg"); on: root.swing; clicked => { root.action("swing"); } }
+    if root.scan-active || root.scan-finished || root.scan-review: NecScanOverlay {
+        learning: root.learning == "mode" ? @tr("mode")
+            : root.learning == "fan" ? @tr("fan")
+            : root.learning == "cooler" ? "−"
+            : root.learning == "warmer" ? "+"
+            : root.learning == "sleep" ? @tr("sleep")
+            : root.learning == "swing" ? @tr("swing")
+            : root.learning;
+        scan-active: root.scan-active;
+        scan-finished: root.scan-finished;
+        scan-cancelled: root.scan-cancelled;
+        scan-count: root.scan-count;
+        scan-total: root.scan-total;
+        scan-index: root.scan-index;
+        scan-review: root.scan-review;
+        scan-code: root.scan-code;
+        scan-result: root.scan-result;
+        setup(step) => { root.setup(step); }
+        scan-cancel => { root.scan-cancel(); }
+        scan-navigate(d) => { root.scan-navigate(d); }
     }
 }
 
@@ -131,7 +303,6 @@ export component AcSetupPage inherits Rectangle {
     property <bool> lifted: field.has-focus && root.kb-height > 0;
     property <length> bar-y: root.lifted ? min(slot.y, root.kb-top - root.absolute-position.y - 56px - 10px) : slot.y;
     property <bool> scan-warning;
-    property <float> scan-progress: root.scan-total > 0 ? (root.scan-count * 1.0) / root.scan-total : 0;
 
     VerticalLayout {
         spacing: Theme.gap;
@@ -166,14 +337,9 @@ export component AcSetupPage inherits Rectangle {
         HorizontalLayout {
             height: 72px;
             spacing: Theme.gap;
-            Key {
-                label: @tr("Test");
-                font-size: 19px;
-                long-press-enabled: true;
-                clicked => { root.setup("test"); }
-                long-pressed => { root.scan-warning = true; }
-            }
+            Key { label: @tr("Test"); font-size: 19px; clicked => { root.setup("test"); } }
             Key { label: @tr("Next"); kind: KeyKind.operator; font-size: 19px; clicked => { root.setup("next"); } }
+            Key { label: @tr("Auto-find"); kind: KeyKind.operator; font-size: 17px; clicked => { root.scan-warning = true; } }
         }
         // Where the pasted-code row sits until the keyboard lifts it.
         slot := Rectangle { height: 56px; }
@@ -228,93 +394,18 @@ export component AcSetupPage inherits Rectangle {
         confirmed => { root.scan-warning = false; root.setup("scan-confirm"); }
         cancelled => { root.scan-warning = false; }
     }
-    if root.scan-active || root.scan-finished || root.scan-review: Rectangle {
-        background: Theme.bg.with-alpha(0.82);
-        TouchArea { }
-        card := Rectangle {
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            width: min(parent.width - 32px, 420px);
-            height: body.preferred-height;
-            border-radius: Theme.radius;
-            background: Theme.bg;
-            border-width: 1px;
-            border-color: Theme.divider;
-            TouchArea { }
-            body := VerticalLayout {
-                padding: 20px;
-                spacing: 14px;
-                Text {
-                    text: root.scan-review ? @tr("Review NEC codes")
-                        : root.scan-active ? @tr("Scanning NEC codes")
-                        : root.scan-cancelled ? @tr("NEC scan stopped")
-                        : root.scan-result != "" ? @tr("NEC scan failed")
-                        : @tr("NEC scan complete");
-                    color: Theme.fg;
-                    font-size: 22px;
-                    wrap: word-wrap;
-                }
-                if root.scan-active && !root.scan-review: Text {
-                    text: root.scan-count + " / " + root.scan-total;
-                    color: Theme.muted;
-                    font-size: 16px;
-                }
-                if root.scan-review: Text {
-                    text: @tr("Candidate {} of {}", root.scan-index + 1, root.scan-total);
-                    color: Theme.muted;
-                    font-size: 15px;
-                }
-                if !root.scan-review: Rectangle {
-                    height: 8px;
-                    border-radius: 4px;
-                    background: Theme.operator;
-                    Rectangle { width: parent.width * root.scan-progress; height: parent.height; border-radius: 4px; background: Theme.accent; }
-                }
-                if root.scan-code != "": Text { text: root.scan-code; color: Theme.fg; font-size: 14px; }
-                Text {
-                    text: root.scan-result != "" ? @tr("Error: {}", root.scan-result)
-                        : root.scan-review
-                            ? @tr("Use Previous or Next to replay a code, then choose Use this to save it.")
-                        : root.scan-active
-                            ? @tr("Your phone cannot detect an IR response. Watch the AC and tap Found it when it reacts.")
-                            : root.scan-cancelled
-                                ? @tr("Scan stopped. You can start again when ready.")
-                                : @tr("Your phone cannot detect an IR response. If the AC did not react, try another angle or start again.");
-                    color: Theme.muted;
-                    font-size: 15px;
-                    wrap: word-wrap;
-                }
-                if root.scan-review: HorizontalLayout {
-                    height: 56px;
-                    spacing: Theme.gap;
-                    Key { label: @tr("Previous"); kind: KeyKind.operator; font-size: 15px; clicked => { root.scan-navigate(-1); } }
-                    Key { label: @tr("Next"); kind: KeyKind.operator; font-size: 15px; clicked => { root.scan-navigate(1); } }
-                }
-                if root.scan-review: HorizontalLayout {
-                    height: 56px;
-                    spacing: Theme.gap;
-                    Key { label: @tr("Done"); kind: KeyKind.operator; font-size: 15px; clicked => { root.setup("scan-dismiss"); } }
-                    Key { label: @tr("Use this"); kind: KeyKind.primary; font-size: 15px; clicked => { root.setup("scan-save"); } }
-                }
-                if !root.scan-review: HorizontalLayout {
-                    height: 56px;
-                    spacing: Theme.gap;
-                    if root.scan-count > 0 && (root.scan-active || root.scan-finished): Key {
-                        label: root.scan-active ? @tr("Found it") : @tr("Review codes");
-                        kind: KeyKind.primary;
-                        font-size: 16px;
-                        clicked => { root.setup("scan-found"); }
-                    }
-                    Key {
-                        label: root.scan-active ? @tr("Cancel scan") : @tr("Done");
-                        kind: KeyKind.operator;
-                        font-size: 16px;
-                        clicked => {
-                            if root.scan-active { root.scan-cancel(); } else { root.setup("scan-dismiss"); }
-                        }
-                    }
-                }
-            }
-        }
+    if root.scan-active || root.scan-finished || root.scan-review: NecScanOverlay {
+        scan-active: root.scan-active;
+        scan-finished: root.scan-finished;
+        scan-cancelled: root.scan-cancelled;
+        scan-count: root.scan-count;
+        scan-total: root.scan-total;
+        scan-index: root.scan-index;
+        scan-review: root.scan-review;
+        scan-code: root.scan-code;
+        scan-result: root.scan-result;
+        setup(step) => { root.setup(step); }
+        scan-cancel => { root.scan-cancel(); }
+        scan-navigate(d) => { root.scan-navigate(d); }
     }
 }

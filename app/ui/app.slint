@@ -4,10 +4,10 @@ import { DevicesPage, DeviceRow } from "devices.slint";
 import { RemotePage } from "remote.slint";
 import { KeypadPage, ChannelRow } from "keypad.slint";
 import { MenuPage } from "menu.slint";
-import { AcPage, AcSetupPage } from "ac.slint";
+import { AcPage, AcSetupPage, AcLearned } from "ac.slint";
 import { SettingsPage } from "settings.slint";
 
-export { Theme, Feedback, DeviceRow, ChannelRow }
+export { Theme, Feedback, DeviceRow, ChannelRow, AcLearned }
 
 // Pages: 0 Devices · 1 Remote · 2 Channels & apps · 3 Menu · 4 AC · 5 AC setup · 6 Settings
 export component AppWindow inherits Window {
@@ -60,7 +60,10 @@ export component AppWindow inherits Window {
     in property <string> ac-name;
     in property <string> ac-status;
     in property <bool> ac-status-error;
-    in property <bool> ac-custom-code;
+    in property <bool> ac-power-only;
+    in property <bool> ac-nec;
+    in property <AcLearned> ac-learned;
+    in property <string> ac-learning;
     in property <bool> ac-power;
     in property <int> ac-temp: 22;
     in property <string> ac-mode: "cool";
@@ -185,7 +188,22 @@ export component AppWindow inherits Window {
             name: root.ac-name;
             status: root.ac-status;
             status-error: root.ac-status-error;
-            custom-code: root.ac-custom-code;
+            power-only: root.ac-power-only;
+            nec: root.ac-nec;
+            learned: root.ac-learned;
+            learning: root.ac-learning;
+            scan-active: root.ac-scan-active;
+            scan-finished: root.ac-scan-finished;
+            scan-cancelled: root.ac-scan-cancelled;
+            scan-count: root.ac-scan-count;
+            scan-total: root.ac-scan-total;
+            scan-index: root.ac-scan-index;
+            scan-review: root.ac-scan-review;
+            scan-code: root.ac-scan-code;
+            scan-result: root.ac-scan-result;
+            setup(step) => { root.ac-setup(step); }
+            scan-cancel => { root.ac-scan-cancel(); }
+            scan-navigate(d) => { root.ac-scan-navigate(d); }
             power: root.ac-power;
             temp: root.ac-temp;
             mode: root.ac-mode;

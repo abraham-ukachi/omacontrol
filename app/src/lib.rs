@@ -263,11 +263,113 @@ enum Job {
 }
 
 /// Shows an air conditioner on the AC page.
+/// Applies one AC key to the state we show. Per-key (NEC) remotes never report back, so this
+/// is our own count of what the AC should be doing.
+fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str) -> Option<AcChange> {
+    Some(match action {
+        "power" => {
+            state.power = !state.power;
+            AcChange::State
+        }
+        "mode" => {
+            state.mode = state.mode.next();
+            AcChange::State
+        }
+        "fan" => {
+            state.fan = state.fan.next();
+            AcChange::State
+        }
+        "warmer" => {
+            state.warmer();
+            AcChange::State
+        }
+        "cooler" => {
+            state.cooler();
+            AcChange::State
+        }
+        "swing" => {
+            state.swing = !state.swing;
+            AcChange::Swing
+        }
+        "sleep" => {
+            state.sleep = !state.sleep;
+            AcChange::Sleep
+        }
+        _ => return None,
+    })
+}
+
+/// The shared state of a NEC sweep (finding the power code, or learning one more key).
+#[derive(Clone, Default)]
+struct NecScan {
+    cancel: Rc<RefCell<Option<Arc<AtomicBool>>>>,
+    dismissed: Rc<RefCell<Option<Arc<AtomicBool>>>>,
+    candidates: Rc<RefCell<Vec<(u8, u8)>>>,
+    selected: Rc<Cell<usize>>,
+}
+
+impl NecScan {
+    fn start(&self, ui: &AppWindow, tx: &Sender<Job>, candidates: Vec<(u8, u8)>) {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let dismissed = Arc::new(AtomicBool::new(false));
+        *self.cancel.borrow_mut() = Some(cancel.clone());
+        *self.dismissed.borrow_mut() = Some(dismissed.clone());
+        *self.candidates.borrow_mut() = candidates.clone();
+        self.selected.set(0);
+        ui.set_ac_scan_active(true);
+        ui.set_ac_scan_finished(false);
+        ui.set_ac_scan_cancelled(false);
+        ui.set_ac_scan_count(0);
+        ui.set_ac_scan_index(0);
+        ui.set_ac_scan_review(false);
+        ui.set_ac_scan_total(candidates.len() as i32);
+        ui.set_ac_scan_code("".into());
+        ui.set_ac_scan_result("".into());
+        if let Err(e) = tx.send(Job::AcScan { candidates, cancel, dismissed }) {
+            *self.cancel.borrow_mut() = None;
+            ui.set_ac_scan_active(false);
+            ui.set_ac_scan_finished(true);
+            ui.set_ac_scan_result(e.to_string().into());
+        }
+    }
+
+    /// Closes the card, whatever the sweep is doing.
+    fn close(&self, ui: &AppWindow) {
+        if let Some(dismissed) = self.dismissed.borrow().as_ref() {
+            dismissed.store(true, Ordering::Relaxed);
+        }
+        if let Some(cancel) = self.cancel.borrow_mut().take() {
+            cancel.store(true, Ordering::Relaxed);
+        }
+        ui.set_ac_scan_active(false);
+        ui.set_ac_scan_finished(false);
+        ui.set_ac_scan_cancelled(false);
+        ui.set_ac_scan_review(false);
+        ui.set_ac_scan_result("".into());
+        ui.set_ac_learning("".into());
+    }
+}
+
+fn nec_label(address: u8, command: u8) -> String {
+    format!("NEC {:08X}", omacontrol_core::ir::nec_code(address, command))
+}
+
 fn show_ac(ui: &AppWindow, d: &Device) {
     let s = d.ac_state;
     ui.set_current_is_ac(true);
     ui.set_ac_name(d.name.clone().into());
-    ui.set_ac_custom_code(d.ac_code.is_some());
+    let nec = d.ac_code.as_deref().and_then(omacontrol_core::ac::nec_parts).is_some();
+    ui.set_ac_power_only(d.ac_code.is_some() && !nec);
+    ui.set_ac_nec(nec);
+    let has = |key: &str| d.ac_keys.contains_key(key);
+    ui.set_ac_learned(AcLearned {
+        mode: has("mode"),
+        fan: has("fan"),
+        cooler: has("cooler"),
+        warmer: has("warmer"),
+        sleep: has("sleep"),
+        swing: has("swing"),
+    });
     ui.set_ac_status(match (&d.ac_protocol, d.ac_code.is_some()) {
         (_, true) => d
             .ac_code
@@ -782,20 +884,14 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         *typed.borrow_mut() = text.to_string();
     });
 
-    let scan_cancel = Rc::new(RefCell::new(None::<Arc<AtomicBool>>));
-    let scan_dismissed = Rc::new(RefCell::new(None::<Arc<AtomicBool>>));
-    let scan_candidates = Rc::new(RefCell::new(Vec::<(u8, u8)>::new()));
-    let scan_index = Rc::new(Cell::new(0usize));
-    let (tx, st, weak, idx, pasted, scan_cancel_state, scan_dismissed_state, scan_candidates_state, selected_scan_index) = (
+    let nec_scan = NecScan::default();
+    let (tx, st, weak, idx, pasted, scan) = (
         jobs.clone(),
         store.clone(),
         ui.as_weak(),
         setup_index.clone(),
         pasted,
-        scan_cancel.clone(),
-        scan_dismissed.clone(),
-        scan_candidates.clone(),
-        scan_index.clone(),
+        nec_scan.clone(),
     );
     ui.on_ac_setup(move |step| {
         let Some(ui) = weak.upgrade() else { return };
@@ -820,82 +916,58 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 }
             }
             "scan-confirm" => {
-                let cancel = Arc::new(AtomicBool::new(false));
-                let dismissed = Arc::new(AtomicBool::new(false));
-                *scan_cancel_state.borrow_mut() = Some(cancel.clone());
-                *scan_dismissed_state.borrow_mut() = Some(dismissed.clone());
-                ui.set_ac_scan_active(true);
-                ui.set_ac_scan_finished(false);
-                ui.set_ac_scan_cancelled(false);
-                ui.set_ac_scan_count(0);
-                let candidates = omacontrol_core::ac::nec_autotest_candidates();
-                *scan_candidates_state.borrow_mut() = candidates.clone();
-                selected_scan_index.set(0);
-                ui.set_ac_scan_index(0);
-                ui.set_ac_scan_review(false);
-                ui.set_ac_scan_total(candidates.len() as i32);
-                ui.set_ac_scan_code("".into());
-                ui.set_ac_scan_result("".into());
-                if let Err(e) = tx.send(Job::AcScan {
-                    candidates,
-                    cancel,
-                    dismissed,
-                }) {
-                    *scan_cancel_state.borrow_mut() = None;
-                    ui.set_ac_scan_active(false);
-                    ui.set_ac_scan_finished(true);
-                    ui.set_ac_scan_cancelled(false);
-                    ui.set_ac_scan_result(e.to_string().into());
-                }
+                ui.set_ac_learning("".into());
+                scan.start(&ui, &tx, omacontrol_core::ac::nec_autotest_candidates());
             }
             "scan-found" => {
-                let code = ui.get_ac_scan_code().to_string();
-                if code.is_empty() {
+                if ui.get_ac_scan_code().is_empty() {
                     return;
                 }
-                let selected = ui.get_ac_scan_count().saturating_sub(1) as usize;
-                selected_scan_index.set(selected);
+                if let Some(cancel) = scan.cancel.borrow_mut().take() {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+                // People tap a beat after the AC reacts, by when the next code is often out:
+                // step back one and play it again.
+                let sent = ui.get_ac_scan_count().max(1) as usize;
+                let selected = sent.saturating_sub(2);
+                scan.selected.set(selected);
                 ui.set_ac_scan_index(selected as i32);
                 ui.set_ac_scan_review(true);
                 ui.set_ac_scan_active(false);
-                if let Some(cancel) = scan_cancel_state.borrow_mut().take() {
-                    cancel.store(true, Ordering::Relaxed);
+                if let Some(&(address, command)) = scan.candidates.borrow().get(selected) {
+                    ui.set_ac_scan_code(nec_label(address, command).into());
+                    let _ = tx.send(Job::Ac(vec![omacontrol_core::ir::nec(address, command)]));
                 }
             }
             "scan-save" => {
-                if let Some(dismissed) = scan_dismissed_state.borrow().as_ref() {
-                    dismissed.store(true, Ordering::Relaxed);
-                }
                 let code = ui.get_ac_scan_code().to_string();
                 if code.is_empty() {
                     return;
                 }
+                let learning = ui.get_ac_learning().to_string();
                 let mut s = st.lock().unwrap();
                 let Some(ip) = s.current.clone() else { return };
-                if let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) {
+                let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else { return };
+                if learning.is_empty() {
+                    // A new power code: keys learned for an older one no longer apply.
                     d.ac_protocol = None;
                     d.ac_code = Some(code);
+                    d.ac_keys.clear();
                     d.ac_state = omacontrol_core::ac::TEST_STATE;
-                    let d = d.clone();
-                    let _ = s.save();
-                    ui.set_devices(rows(&s, ui.get_archived_view()));
-                    show_ac(&ui, &d);
-                    ui.set_ac_scan_active(false);
-                    ui.set_ac_scan_finished(false);
-                    ui.set_ac_scan_cancelled(false);
-                    ui.set_ac_scan_review(false);
-                    ui.set_page(4);
+                } else {
+                    // The AC just reacted to this code, so count the key as pressed once.
+                    d.ac_keys.insert(learning.clone(), code);
+                    apply_ac_key(&mut d.ac_state, &learning);
                 }
+                let d = d.clone();
+                let _ = s.save();
+                ui.set_devices(rows(&s, ui.get_archived_view()));
+                drop(s);
+                scan.close(&ui);
+                show_ac(&ui, &d);
+                ui.set_page(4);
             }
-            "scan-dismiss" => {
-                if let Some(dismissed) = scan_dismissed_state.borrow().as_ref() {
-                    dismissed.store(true, Ordering::Relaxed);
-                }
-                *scan_cancel_state.borrow_mut() = None;
-                ui.set_ac_scan_finished(false);
-                ui.set_ac_scan_review(false);
-                ui.set_ac_scan_result("".into());
-            }
+            "scan-dismiss" => scan.close(&ui),
             _ => {
                 let mut s = st.lock().unwrap();
                 let Some(ip) = s.current.clone() else { return };
@@ -920,31 +992,25 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             }
         }
     });
-    let scan_cancel = scan_cancel.clone();
+    let scan = nec_scan.clone();
     ui.on_ac_scan_cancel(move || {
-        if let Some(cancel) = scan_cancel.borrow().as_ref() {
+        if let Some(cancel) = scan.cancel.borrow().as_ref() {
             cancel.store(true, Ordering::Relaxed);
         }
     });
 
-    let (tx, candidates, selected, weak) =
-        (jobs.clone(), scan_candidates, scan_index, ui.as_weak());
+    let (tx, scan, weak) = (jobs.clone(), nec_scan.clone(), ui.as_weak());
     ui.on_ac_scan_navigate(move |delta| {
-        let all = candidates.borrow();
+        let all = scan.candidates.borrow();
         if all.is_empty() {
             return;
         }
-        let next =
-            (selected.get() as isize + delta as isize).clamp(0, all.len() as isize - 1) as usize;
-        selected.set(next);
+        let next = (scan.selected.get() as isize + delta as isize).clamp(0, all.len() as isize - 1) as usize;
+        scan.selected.set(next);
         let (address, command) = all[next];
-        let code = format!(
-            "NEC {:08X}",
-            omacontrol_core::ir::nec_code(address, command)
-        );
         if let Some(ui) = weak.upgrade() {
             ui.set_ac_scan_index(next as i32);
-            ui.set_ac_scan_code(code.into());
+            ui.set_ac_scan_code(nec_label(address, command).into());
             ui.set_ac_scan_result("".into());
         }
         if let Err(error) = tx.send(Job::Ac(vec![omacontrol_core::ir::nec(address, command)])) {
@@ -954,7 +1020,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         }
     });
 
-    let (tx, st, weak) = (jobs.clone(), store.clone(), ui.as_weak());
+    let (tx, st, weak, scan) = (jobs.clone(), store.clone(), ui.as_weak(), nec_scan.clone());
     ui.on_ac_action(move |action| {
         let Some(ui) = weak.upgrade() else { return };
         let mut s = st.lock().unwrap();
@@ -963,14 +1029,41 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             return;
         };
         if let Some(code) = d.ac_code.clone() {
-            // A pasted code is one command (usually power); the state keys have nothing to send.
-            if action.as_str() != "power" {
-                return;
-            }
-            d.ac_state.power = !d.ac_state.power;
-            let Ok(frames) = omacontrol_core::ac::custom_frames(&code) else {
-                return;
+            let frames = match omacontrol_core::ac::nec_parts(&code) {
+                // A NEC power code: every key sends its own learned code.
+                Some((address, power)) => {
+                    let key_code = if action.as_str() == "power" { Some(code.clone()) } else { d.ac_keys.get(action.as_str()).cloned() };
+                    let Some(key_code) = key_code else {
+                        // Not learned yet: sweep this address until the AC reacts.
+                        if !omacontrol_core::ac::NEC_LEARNABLE_KEYS.contains(&action.as_str()) {
+                            return;
+                        }
+                        let known: Vec<u8> = d
+                            .ac_keys
+                            .values()
+                            .filter_map(|c| omacontrol_core::ac::nec_parts(c))
+                            .map(|(_, command)| command)
+                            .collect();
+                        drop(s);
+                        ui.set_ac_learning(action.clone());
+                        scan.start(&ui, &tx, omacontrol_core::ac::nec_learn_candidates(address, power, &known));
+                        return;
+                    };
+                    match omacontrol_core::ac::custom_frames(&key_code) {
+                        Ok(frames) => frames,
+                        Err(_) => return,
+                    }
+                }
+                // A pasted Pronto code is one command (usually power); the other keys have nothing to send.
+                None => {
+                    if action.as_str() != "power" {
+                        return;
+                    }
+                    let Ok(frames) = omacontrol_core::ac::custom_frames(&code) else { return };
+                    frames
+                }
             };
+            apply_ac_key(&mut d.ac_state, &action);
             let d = d.clone();
             let _ = s.save();
             drop(s);
@@ -982,37 +1075,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             return;
         };
         let state = &mut d.ac_state;
-        let change = match action.as_str() {
-            "power" => {
-                state.power = !state.power;
-                AcChange::State
-            }
-            "mode" => {
-                state.mode = state.mode.next();
-                AcChange::State
-            }
-            "fan" => {
-                state.fan = state.fan.next();
-                AcChange::State
-            }
-            "warmer" => {
-                state.warmer();
-                AcChange::State
-            }
-            "cooler" => {
-                state.cooler();
-                AcChange::State
-            }
-            "swing" => {
-                state.swing = !state.swing;
-                AcChange::Swing
-            }
-            "sleep" => {
-                state.sleep = !state.sleep;
-                AcChange::Sleep
-            }
-            _ => return,
-        };
+        let Some(change) = apply_ac_key(state, &action) else { return };
         let frames = protocol.frames(state, change);
         let d = d.clone();
         let _ = s.save();

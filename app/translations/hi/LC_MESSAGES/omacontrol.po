@@ -389,3 +389,30 @@ msgstr "वॉइस उपलब्ध नहीं: {}"
 
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} को OmaControl से हटा दिया जाएगा। आप इसे बाद में फिर जोड़ सकते हैं।"
+
+msgid "Auto-find"
+msgstr "स्वतः खोजें"
+
+msgid "Find the {} key"
+msgstr "{} कुंजी खोजें"
+
+msgid "Long-press a device to restore it"
+msgstr "पुनर्स्थापित करने के लिए डिवाइस को देर तक दबाएँ"
+
+msgid "Watch the AC and tap Found it as soon as it reacts to this key."
+msgstr "AC को देखें और इस कुंजी पर प्रतिक्रिया होते ही मिल गया दबाएँ।"
+
+msgid "fan"
+msgstr "पंखा"
+
+msgid "mode"
+msgstr "मोड"
+
+msgid "sleep"
+msgstr "स्लीप"
+
+msgid "swing"
+msgstr "स्विंग"
+
+msgid "{} archived"
+msgstr "{} संग्रहीत"

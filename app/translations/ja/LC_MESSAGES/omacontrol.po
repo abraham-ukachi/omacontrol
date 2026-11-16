@@ -389,3 +389,30 @@ msgstr "音声を利用できません: {}"
 
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{}はOmaControlから削除されます。後で再度追加できます。"
+
+msgid "Auto-find"
+msgstr "自動検索"
+
+msgid "Find the {} key"
+msgstr "{}キーを探す"
+
+msgid "Long-press a device to restore it"
+msgstr "長押しでデバイスを復元"
+
+msgid "Watch the AC and tap Found it as soon as it reacts to this key."
+msgstr "エアコンを見て、このキーに反応したらすぐに「見つかった」をタップ。"
+
+msgid "fan"
+msgstr "風量"
+
+msgid "mode"
+msgstr "モード"
+
+msgid "sleep"
+msgstr "スリープ"
+
+msgid "swing"
+msgstr "スイング"
+
+msgid "{} archived"
+msgstr "アーカイブ {} 件"

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.4.0-beta.1] - 2026-11-16
+
+### Added
+- :brain: NEC ACs with only a power code now learn each key: an unlearned key shows `?`, sweeps codes on the power address, and saves the one you confirm.
+- :mag: "Auto-find" is now a visible key on the AC setup page, next to Test.
+
+### Fixed
+- :bug: Move mode grabs the row: the dragged device follows your finger, lifts above the list and drops into its new slot.
+- :bug: Swiping a device left or right slides the row and reveals Remove; let go past the mark to remove it.
+- :bug: The last device is no longer hidden under the footer.
+- :bug: Renaming keeps the device name as the title, adds Cancel, and lifts the drawer above the keyboard.
+- :bug: "Found it" during a NEC scan steps back to the code the AC reacted to and replays it.
+- :bug: The archived view shows the archived count and a restore hint instead of a duplicate button.
+
 ## [0.3.7] - 2026-11-16
 
 ### Added

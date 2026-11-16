@@ -13,6 +13,8 @@ export struct DeviceRow {
 
 component DeviceItem inherits Rectangle {
     in property <DeviceRow> device;
+    // How far one slot is, row plus gap: a drag of this much moves the row one place.
+    in property <length> slot: 72px + Theme.gap;
     in property <bool> archived-view;
     in property <bool> drag-mode;
     callback picked(string);
@@ -24,12 +26,37 @@ component DeviceItem inherits Rectangle {
     property <length> swipe-distance;
     property <length> start-x;
     property <length> start-y;
+    // Where the row sits under the finger while it's swiped (x) or dragged (y).
+    property <length> offset-x: root.gesture == 1 ? root.swipe-distance : 0px;
+    property <length> offset-y: root.gesture == 2 ? touch.mouse-y - root.start-y : 0px;
+    property <bool> armed: abs(root.swipe-distance) > 96px;
+    out property <bool> lifted: root.gesture == 2;
 
     height: 72px;
+    z: root.lifted ? 10 : 0;
+
+    // Revealed behind the row as it slides away: past the threshold, letting go asks to remove it.
+    if root.gesture == 1: Rectangle {
+        border-radius: Theme.radius;
+        background: root.armed ? Theme.fg : Theme.operator;
+        Text {
+            x: root.swipe-distance > 0 ? 20px : parent.width - self.width - 20px;
+            text: @tr("Remove");
+            color: root.armed ? Theme.bg : Theme.muted;
+            font-size: 15px;
+            vertical-alignment: center;
+            height: parent.height;
+        }
+    }
+
+    row := Rectangle {
+    x: root.offset-x;
+    y: root.offset-y;
+    animate x, y { duration: root.gesture == 0 ? 160ms : 0ms; easing: ease-out; }
     border-radius: Theme.radius;
-    background: device.current ? Theme.operator : (touch.pressed ? Theme.key-pressed : Theme.key);
-    border-width: device.current ? 0px : 1px;
-    border-color: Theme.key-border;
+    background: device.current ? Theme.operator : (touch.pressed || root.lifted ? Theme.key-pressed : Theme.key);
+    border-width: device.current && !root.lifted ? 0px : 1px;
+    border-color: root.lifted ? Theme.accent : Theme.key-border;
 
     HorizontalLayout {
         padding-left: 14px;
@@ -75,6 +102,8 @@ component DeviceItem inherits Rectangle {
         }
     }
 
+    }
+
     touch := TouchArea {
         pointer-event(e) => {
             if e.kind == PointerEventKind.down {
@@ -83,29 +112,33 @@ component DeviceItem inherits Rectangle {
                 root.start-x = self.mouse-x;
                 root.start-y = self.mouse-y;
             } else if e.kind == PointerEventKind.up {
-                if root.gesture == 1 && abs(root.swipe-distance) > 48px {
+                if root.gesture == 1 && root.armed {
                     root.swiped(root.device.id, root.device.name);
                 } else if root.gesture == 2 && root.drag-mode {
                     let delta = self.mouse-y - root.start-y;
-                    let steps = Math.floor(abs(delta) / 84px) * (delta > 0px ? 1 : -1);
+                    let steps = Math.round(abs(delta) / root.slot) * (delta > 0px ? 1 : -1);
                     if steps != 0 { root.moved(root.device.id, steps); }
                 } else if root.gesture == 0 && !root.drag-mode && !root.archived-view {
                     root.picked(root.device.id);
                 }
                 root.gesture = 0;
+                root.swipe-distance = 0px;
             } else if e.kind == PointerEventKind.cancel {
                 root.gesture = 0;
+                root.swipe-distance = 0px;
             }
         }
         moved => {
             let dx = self.mouse-x - root.start-x;
             let dy = self.mouse-y - root.start-y;
             if root.drag-mode {
-                if abs(dy) > 18px { root.gesture = 2; }
-            } else if abs(dx) > 18px && abs(dx) > abs(dy) {
+                if abs(dy) > 8px { root.gesture = 2; }
+            } else if root.gesture == 1 {
+                root.swipe-distance = dx;
+            } else if root.gesture == 0 && abs(dx) > 14px && abs(dx) > abs(dy) {
                 root.gesture = 1;
                 root.swipe-distance = dx;
-            } else if abs(dy) > 18px {
+            } else if root.gesture == 0 && abs(dy) > 14px {
                 root.gesture = 3;
             }
         }
@@ -150,6 +183,10 @@ export component DevicesPage inherits Rectangle {
     property <string> selected-name;
     property <string> deleting-id;
     property <string> deleting-name;
+    property <length> rename-y: root.renaming && root.kb-height > 0px
+        ? root.kb-top - root.absolute-position.y - 8px
+        : root.height;
+    property <string> rename-text;
     property <length> footer-height: root.adding && root.has-ir && root.kb-height == 0px ? 280px : root.adding ? 136px : 64px;
     property <length> footer-y: root.adding && root.kb-height > 0px
         ? max(0px, min(root.height - self.footer-height, root.kb-top - root.absolute-position.y - self.footer-height))
@@ -165,7 +202,7 @@ export component DevicesPage inherits Rectangle {
             padding-top: 22px;
             spacing: 8px;
             Text { text: root.subnet == "your network" ? @tr("Your network") : root.subnet; color: Theme.muted; font-size: 19px; }
-            Text { text: @tr("{} found", root.devices.length); color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
+            Text { text: root.archived-view ? @tr("{} archived", root.devices.length) : @tr("{} found", root.devices.length); color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
         }
         if root.scanning: HorizontalLayout {
             padding: 8px;
@@ -199,9 +236,13 @@ export component DevicesPage inherits Rectangle {
         Divider { }
         Flickable {
             vertical-stretch: 1;
+            // A row being dragged must not scroll the list out from under it.
+            interactive: !root.drag-mode;
             VerticalLayout {
                 alignment: start;
                 spacing: Theme.gap;
+                // Room under the last row, so the floating buttons never cover it.
+                padding-bottom: root.footer-height + Theme.gap;
                 if root.devices.length == 0: Text {
                     text: root.archived-view ? @tr("No archived devices") : @tr("No devices found");
                     color: Theme.muted;
@@ -216,6 +257,7 @@ export component DevicesPage inherits Rectangle {
                     long-pressed(id, name) => {
                         root.selected-id = id;
                         root.selected-name = name;
+                        root.rename-text = name;
                         root.renaming = false;
                         root.drawer-open = true;
                     }
@@ -280,27 +322,25 @@ export component DevicesPage inherits Rectangle {
                     font-size: 17px;
                     clicked => { root.drag-mode = false; }
                 }
-                if !root.drag-mode: Key {
+                if !root.drag-mode && !root.archived-view: Key {
                     label: root.adding ? @tr("Cancel") : @tr("Add");
                     font-size: 17px;
                     clicked => {
                         root.adding = !root.adding;
                     }
                 }
-                Key {
-                    label: root.drag-mode ? @tr("Move mode")
-                        : root.archived-view ? @tr("Devices") : @tr("Rescan");
+                if !root.drag-mode && !root.archived-view: Key {
+                    label: @tr("Rescan");
                     kind: KeyKind.primary;
                     font-size: 17px;
-                    clicked => {
-                        if root.drag-mode {
-                            root.drag-mode = false;
-                        } else if root.archived-view {
-                            root.set-archived-view(false);
-                        } else {
-                            root.rescan();
-                        }
-                    }
+                    clicked => { root.rescan(); }
+                }
+                if !root.drag-mode && root.archived-view: Text {
+                    text: @tr("Long-press a device to restore it");
+                    color: Theme.muted;
+                    font-size: 15px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
                 }
             }
         }
@@ -313,7 +353,8 @@ export component DevicesPage inherits Rectangle {
         TouchArea { clicked => { root.drawer-open = false; root.renaming = false; } }
         drawer := Rectangle {
             x: (parent.width - self.width) / 2;
-            y: root.drawer-open ? parent.height - self.height : parent.height;
+            y: !root.drawer-open ? parent.height
+                : max(0px, min(parent.height, root.rename-y) - self.height);
             width: min(parent.width - 24px, 460px);
             height: body.preferred-height;
             border-radius: Theme.radius;
@@ -338,7 +379,7 @@ export component DevicesPage inherits Rectangle {
                         color: Theme.fg;
                         font-size: 17px;
                         vertical-alignment: center;
-                        text <=> root.selected-name;
+                        text <=> root.rename-text;
                         accepted => {
                             root.rename-device(root.selected-id, self.text);
                             root.drawer-open = false;
@@ -352,20 +393,26 @@ export component DevicesPage inherits Rectangle {
                     spacing: Theme.gap;
                     Key {
                         label: root.renaming ? @tr("Save") : @tr("Rename");
-                        kind: KeyKind.operator;
+                        kind: root.renaming ? KeyKind.primary : KeyKind.operator;
                         font-size: 16px;
                         clicked => {
                             if root.renaming {
-                                root.rename-device(root.selected-id, root.selected-name);
+                                root.rename-device(root.selected-id, root.rename-text);
                                 root.drawer-open = false;
                                 root.renaming = false;
                             } else {
-                                root.selected-name = root.selected-name;
+                                root.rename-text = root.selected-name;
                                 root.renaming = true;
                             }
                         }
                     }
-                    Key {
+                    if root.renaming: Key {
+                        label: @tr("Cancel");
+                        kind: KeyKind.operator;
+                        font-size: 16px;
+                        clicked => { root.renaming = false; root.rename-text = root.selected-name; }
+                    }
+                    if !root.renaming: Key {
                         label: root.archived-view ? @tr("Restore") : @tr("Archive");
                         kind: KeyKind.operator;
                         font-size: 16px;
@@ -375,7 +422,7 @@ export component DevicesPage inherits Rectangle {
                         }
                     }
                 }
-                HorizontalLayout {
+                if !root.renaming: HorizontalLayout {
                     height: 56px;
                     spacing: Theme.gap;
                     Key {

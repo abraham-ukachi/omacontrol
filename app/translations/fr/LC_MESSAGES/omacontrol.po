@@ -389,3 +389,30 @@ msgstr "Voix indisponible : {}"
 
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} sera supprimé d’OmaControl. Vous pourrez l’ajouter à nouveau plus tard."
+
+msgid "Auto-find"
+msgstr "Recherche auto"
+
+msgid "Find the {} key"
+msgstr "Trouver la touche {}"
+
+msgid "Long-press a device to restore it"
+msgstr "Appui long sur un appareil pour le restaurer"
+
+msgid "Watch the AC and tap Found it as soon as it reacts to this key."
+msgstr "Surveillez le climatiseur et touchez Trouvé dès qu'il réagit à cette touche."
+
+msgid "fan"
+msgstr "ventilation"
+
+msgid "mode"
+msgstr "mode"
+
+msgid "sleep"
+msgstr "sommeil"
+
+msgid "swing"
+msgstr "oscillation"
+
+msgid "{} archived"
+msgstr "{} archivés"

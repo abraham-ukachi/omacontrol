@@ -389,3 +389,30 @@ msgstr "Голосовой ввод недоступен: {}"
 
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} будет удалён из OmaControl. Вы сможете добавить его позже."
+
+msgid "Auto-find"
+msgstr "Автопоиск"
+
+msgid "Find the {} key"
+msgstr "Поиск кнопки {}"
+
+msgid "Long-press a device to restore it"
+msgstr "Удерживайте устройство, чтобы восстановить"
+
+msgid "Watch the AC and tap Found it as soon as it reacts to this key."
+msgstr "Следите за кондиционером и нажмите «Найдено», как только он отреагирует."
+
+msgid "fan"
+msgstr "вентилятор"
+
+msgid "mode"
+msgstr "режим"
+
+msgid "sleep"
+msgstr "сон"
+
+msgid "swing"
+msgstr "качание"
+
+msgid "{} archived"
+msgstr "В архиве: {}"
