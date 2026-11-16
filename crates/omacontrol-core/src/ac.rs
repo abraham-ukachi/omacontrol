@@ -227,6 +227,15 @@ pub fn custom_frames(code: &str) -> crate::Result<Vec<Pattern>> {
         }
         return Ok(vec![crate::ir::nec(address, command)]);
     }
+    // `SAMSUNG AACC` / `SONY AACC`: a TV's address and command, as the magic key learns them.
+    for (prefix, encode) in [("SAMSUNG ", crate::ir::samsung32 as fn(u8, u8) -> crate::ir::Pattern), ("SONY ", crate::ir::sony12)] {
+        if let Some(hex) = code.strip_prefix(prefix) {
+            let value = u16::from_str_radix(hex, 16)
+                .map_err(|_| crate::Error::Protocol(format!("not a {}code", prefix)))?;
+            let [address, command] = value.to_be_bytes();
+            return Ok(vec![encode(address, command)]);
+        }
+    }
     crate::ir::pronto(code).map(|pattern| vec![pattern])
 }
 
@@ -243,12 +252,29 @@ pub const NEC_LEARNABLE_KEYS: [&str; 7] = ["mode", "fan", "cooler", "warmer", "t
 /// Candidates for learning one more key of a per-key NEC remote: every other command on the
 /// power key's address, starting just after the power command (remotes number their keys
 /// close together), skipping commands already taken by other keys.
+/// When none of those works, the sweep carries on through every command of the other common AC
+/// addresses (`00`, `04`, `08`), so no code of the auto-test set is out of reach.
 pub fn nec_learn_candidates(address: u8, power: u8, known: &[u8]) -> Vec<(u8, u8)> {
-    (1..=u8::MAX)
+    let mut candidates: Vec<(u8, u8)> = (1..=u8::MAX)
         .map(|offset| power.wrapping_add(offset))
         .filter(|command| !known.contains(command))
         .map(|command| (address, command))
-        .collect()
+        .collect();
+    for other in [0x00u8, 0x04, 0x08].into_iter().filter(|&a| a != address) {
+        candidates.extend((0..=u8::MAX).map(|command| (other, command)));
+    }
+    candidates
+}
+
+/// Every command on an IR TV's own address, for its magic key: `NEC …` for LG, `SAMSUNG …`
+/// and `SONY …` (7-bit commands) for the others. Each one plays through `custom_frames`.
+pub fn tv_learn_candidates(brand: crate::tv::Brand) -> Vec<String> {
+    use crate::tv::Brand;
+    match brand {
+        Brand::Samsung => (0..=u8::MAX).map(|c| format!("SAMSUNG 07{c:02X}")).collect(),
+        Brand::Sony => (0..0x80u8).map(|c| format!("SONY 01{c:02X}")).collect(),
+        _ => (0..=u8::MAX).map(|c| format!("NEC {:08X}", crate::ir::nec_code(0x04, c))).collect(),
+    }
 }
 
 /// A deterministic, bounded NEC address/command sweep for manual AC discovery.
@@ -1046,9 +1072,21 @@ mod tests {
         assert_eq!(nec_parts("NEC 00FF40BE"), None);
         assert_eq!(nec_parts("0000 006D"), None);
         let candidates = nec_learn_candidates(0x00, 0x40, &[0x41]);
-        assert_eq!(candidates.len(), 254);
+        assert_eq!(candidates.len(), 254 + 2 * 256);
+        assert_eq!(candidates[254], (0x04, 0x00));
         assert_eq!(candidates[0], (0x00, 0x42));
-        assert!(!candidates.iter().any(|&(_, c)| c == 0x40 || c == 0x41));
+        assert!(!candidates.iter().any(|&(a, c)| a == 0x00 && (c == 0x40 || c == 0x41)));
+    }
+
+    #[test]
+    fn tv_magic_candidates_play_back() {
+        for brand in [crate::tv::Brand::Samsung, crate::tv::Brand::Lg, crate::tv::Brand::Sony] {
+            let all = tv_learn_candidates(brand);
+            assert!(all.len() >= 128);
+            for code in &all {
+                assert_eq!(custom_frames(code).unwrap().len(), 1, "{code}");
+            }
+        }
     }
 
     #[test]

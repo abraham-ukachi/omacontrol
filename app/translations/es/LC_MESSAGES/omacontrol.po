@@ -419,3 +419,12 @@ msgstr "{} archivados"
 
 msgid "timer"
 msgstr "temporizador"
+
+msgid "Air conditioner"
+msgstr "Aire acondicionado"
+
+msgid "Find the magic key"
+msgstr "Buscar la tecla mágica"
+
+msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
+msgstr "Mira la TV y toca Encontrado en cuanto haga lo que quieres que haga esta tecla."

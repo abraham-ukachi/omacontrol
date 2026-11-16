@@ -42,7 +42,7 @@ component Toggle inherits LearnKey {
 
 // The NEC sweep: a progress card while codes go out, then a review to replay and keep one.
 // `learning` names the AC key being learned; empty while finding the power code.
-component NecScanOverlay inherits Rectangle {
+export component NecScanOverlay inherits Rectangle {
     in property <bool> scan-active;
     in property <bool> scan-finished;
     in property <bool> scan-cancelled;
@@ -73,7 +73,8 @@ component NecScanOverlay inherits Rectangle {
                 padding: 20px;
                 spacing: 14px;
                 Text {
-                    text: root.learning != "" ? @tr("Find the {} key", root.learning)
+                    text: root.learning == "magic" ? @tr("Find the magic key")
+                        : root.learning != "" ? @tr("Find the {} key", root.learning)
                         : root.scan-review ? @tr("Review NEC codes")
                         : root.scan-active ? @tr("Scanning NEC codes")
                         : root.scan-cancelled ? @tr("NEC scan stopped")
@@ -105,7 +106,9 @@ component NecScanOverlay inherits Rectangle {
                         : root.scan-review
                             ? @tr("Use Previous or Next to replay a code, then choose Use this to save it.")
                         : root.scan-active
-                            ? root.learning != ""
+                            ? root.learning == "magic"
+                                ? @tr("Watch the TV and tap Found it as soon as it does what you want this key to do.")
+                            : root.learning != ""
                                 ? @tr("Watch the AC and tap Found it as soon as it reacts to this key.")
                                 : @tr("Your phone cannot detect an IR response. Watch the AC and tap Found it when it reacts.")
                             : root.scan-cancelled

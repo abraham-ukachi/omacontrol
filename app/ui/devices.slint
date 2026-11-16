@@ -187,7 +187,7 @@ export component DevicesPage inherits Rectangle {
         ? root.kb-top - root.absolute-position.y - 8px
         : root.height;
     property <string> rename-text;
-    property <length> footer-height: root.adding && root.has-ir && root.kb-height == 0px ? 280px : root.adding ? 136px : 64px;
+    property <length> footer-height: root.adding && root.has-ir && root.kb-height == 0px ? 280px + Theme.gap * 6.5 + 36px : root.adding ? 136px : 64px;
     property <length> footer-y: root.adding && root.kb-height > 0px
         ? max(0px, min(root.height - self.footer-height, root.kb-top - root.absolute-position.y - self.footer-height))
         : root.height - self.footer-height;
@@ -280,9 +280,15 @@ export component DevicesPage inherits Rectangle {
         animate y { duration: 160ms; easing: ease-out; }
         VerticalLayout {
             spacing: Theme.gap;
+            // "IR" heads the infrared choices, a little more room above than below.
+            if root.adding && root.has-ir && root.kb-height == 0px: VerticalLayout {
+                padding-top: Theme.gap * 3.5;
+                padding-bottom: Theme.gap * 2;
+                Text { height: 24px; text: "IR"; color: Theme.muted; font-size: 19px; vertical-alignment: center; }
+            }
             if root.adding && root.has-ir && root.kb-height == 0px: Key {
                 height: 52px;
-                label: @tr("Air conditioner · IR");
+                label: @tr("Air conditioner");
                 kind: KeyKind.operator;
                 font-size: 15px;
                 clicked => { root.add-ac(); root.adding = false; }
@@ -291,7 +297,7 @@ export component DevicesPage inherits Rectangle {
                 height: 52px;
                 spacing: Theme.gap;
                 for b in ["Samsung", "LG", "Sony"]: Key {
-                    label: @tr("IR · {}", b);
+                    label: b;
                     kind: KeyKind.operator;
                     font-size: 15px;
                     clicked => { root.add-ir(b); root.adding = false; }

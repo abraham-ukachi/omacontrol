@@ -419,3 +419,12 @@ msgstr "{} arşivlendi"
 
 msgid "timer"
 msgstr "zamanlayıcı"
+
+msgid "Air conditioner"
+msgstr "Klima"
+
+msgid "Find the magic key"
+msgstr "Sihirli tuşu bul"
+
+msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
+msgstr "TV'yi izleyin ve bu tuştan istediğinizi yaptığı anda Bulundu'ya dokunun."

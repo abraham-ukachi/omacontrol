@@ -242,7 +242,7 @@ enum Job {
     Ac(Vec<Pattern>),
     /// A bounded NEC discovery sweep; cancellation is checked between frames.
     AcScan {
-        candidates: Vec<(u8, u8)>,
+        candidates: Vec<String>,
         cancel: Arc<AtomicBool>,
         dismissed: Arc<AtomicBool>,
     },
@@ -315,12 +315,13 @@ fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str, per_key:
 struct NecScan {
     cancel: Rc<RefCell<Option<Arc<AtomicBool>>>>,
     dismissed: Rc<RefCell<Option<Arc<AtomicBool>>>>,
-    candidates: Rc<RefCell<Vec<(u8, u8)>>>,
+    /// Each candidate as a code `custom_frames` plays (`NEC …`, `SAMSUNG …`, `SONY …`).
+    candidates: Rc<RefCell<Vec<String>>>,
     selected: Rc<Cell<usize>>,
 }
 
 impl NecScan {
-    fn start(&self, ui: &AppWindow, tx: &Sender<Job>, candidates: Vec<(u8, u8)>) {
+    fn start(&self, ui: &AppWindow, tx: &Sender<Job>, candidates: Vec<String>) {
         let cancel = Arc::new(AtomicBool::new(false));
         let dismissed = Arc::new(AtomicBool::new(false));
         *self.cancel.borrow_mut() = Some(cancel.clone());
@@ -363,6 +364,21 @@ impl NecScan {
 
 fn nec_label(address: u8, command: u8) -> String {
     format!("NEC {:08X}", omacontrol_core::ir::nec_code(address, command))
+}
+
+/// An IR TV gets a magic key in place of the second Home; it shows `?` until it is learned.
+fn show_tv_magic(ui: &AppWindow, d: &Device) {
+    ui.set_tv_ir(d.transport == omacontrol_core::tv::Transport::Infrared);
+    ui.set_tv_magic_learned(d.ac_keys.contains_key("magic"));
+}
+
+fn nec_codes(candidates: Vec<(u8, u8)>) -> Vec<String> {
+    candidates.into_iter().map(|(address, command)| nec_label(address, command)).collect()
+}
+
+/// The frames of one scan candidate (empty if it doesn't parse, which our own codes always do).
+fn code_frames(code: &str) -> Vec<omacontrol_core::ir::Pattern> {
+    omacontrol_core::ac::custom_frames(code).unwrap_or_default()
 }
 
 fn show_ac(ui: &AppWindow, d: &Device) {
@@ -607,6 +623,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 ui.set_page(if d.ac_protocol.is_some() || d.ac_code.is_some() { 4 } else { 0 });
             } else {
                 ui.set_tv_name(d.name.clone().into());
+                show_tv_magic(&ui, &d);
                 ui.set_page(1);
                 ui.set_voice_supported(false);
             }
@@ -732,6 +749,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             ui.set_voice_supported(false);
             ui.set_pairing(false);
             ui.set_tv_name(d.name.clone().into());
+                show_tv_magic(&ui, &d);
             ui.set_page(1);
             {
                 // Show this TV's saved channels right away (the connection catches up).
@@ -866,6 +884,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             ui.set_current_is_ac(false);
             ui.set_voice_supported(false);
             ui.set_tv_name(d.name.clone().into());
+                show_tv_magic(&ui, &d);
             ui.set_page(1);
         }
         let _ = tx.send(Job::Connect(d));
@@ -930,7 +949,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             }
             "scan-confirm" => {
                 ui.set_ac_learning("".into());
-                scan.start(&ui, &tx, omacontrol_core::ac::nec_autotest_candidates());
+                scan.start(&ui, &tx, nec_codes(omacontrol_core::ac::nec_autotest_candidates()));
             }
             "scan-found" => {
                 if ui.get_ac_scan_code().is_empty() {
@@ -947,9 +966,9 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 ui.set_ac_scan_index(selected as i32);
                 ui.set_ac_scan_review(true);
                 ui.set_ac_scan_active(false);
-                if let Some(&(address, command)) = scan.candidates.borrow().get(selected) {
-                    ui.set_ac_scan_code(nec_label(address, command).into());
-                    let _ = tx.send(Job::Ac(vec![omacontrol_core::ir::nec(address, command)]));
+                if let Some(code) = scan.candidates.borrow().get(selected) {
+                    ui.set_ac_scan_code(code.as_str().into());
+                    let _ = tx.send(Job::Ac(code_frames(code)));
                 }
             }
             "scan-save" => {
@@ -960,6 +979,17 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 let learning = ui.get_ac_learning().to_string();
                 let mut s = st.lock().unwrap();
                 let Some(ip) = s.current.clone() else { return };
+                if learning == "magic" {
+                    // An IR TV's magic key: kept with the TV, back on its remote.
+                    if let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && !d.is_ac()) {
+                        d.ac_keys.insert(learning, code);
+                    }
+                    let _ = s.save();
+                    drop(s);
+                    scan.close(&ui);
+                    ui.set_tv_magic_learned(true);
+                    return;
+                }
                 let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else { return };
                 if learning.is_empty() {
                     // A new power code: keys learned for an older one no longer apply.
@@ -1012,6 +1042,28 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         }
     });
 
+    // An IR TV's magic key: plays its learned code, or sweeps the TV's address to learn one.
+    let (tx, st, weak, scan) = (jobs.clone(), store.clone(), ui.as_weak(), nec_scan.clone());
+    ui.on_tv_magic(move |relearn| {
+        let Some(ui) = weak.upgrade() else { return };
+        let s = st.lock().unwrap();
+        let Some(d) = s.current.as_deref().and_then(|ip| s.device(ip)) else { return };
+        if d.is_ac() || d.transport != omacontrol_core::tv::Transport::Infrared {
+            return;
+        }
+        let (learned, brand) = (d.ac_keys.get("magic").cloned(), d.brand);
+        drop(s);
+        match learned {
+            Some(code) if !relearn => {
+                let _ = tx.send(Job::Ac(code_frames(&code)));
+            }
+            _ => {
+                ui.set_ac_learning("magic".into());
+                scan.start(&ui, &tx, omacontrol_core::ac::tv_learn_candidates(brand));
+            }
+        }
+    });
+
     let (tx, scan, weak) = (jobs.clone(), nec_scan.clone(), ui.as_weak());
     ui.on_ac_scan_navigate(move |delta| {
         let all = scan.candidates.borrow();
@@ -1020,13 +1072,13 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         }
         let next = (scan.selected.get() as isize + delta as isize).clamp(0, all.len() as isize - 1) as usize;
         scan.selected.set(next);
-        let (address, command) = all[next];
+        let code = all[next].clone();
         if let Some(ui) = weak.upgrade() {
             ui.set_ac_scan_index(next as i32);
-            ui.set_ac_scan_code(nec_label(address, command).into());
+            ui.set_ac_scan_code(code.as_str().into());
             ui.set_ac_scan_result("".into());
         }
-        if let Err(error) = tx.send(Job::Ac(vec![omacontrol_core::ir::nec(address, command)])) {
+        if let Err(error) = tx.send(Job::Ac(code_frames(&code))) {
             if let Some(ui) = weak.upgrade() {
                 ui.set_ac_scan_result(error.to_string().into());
             }
@@ -1059,7 +1111,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                             .collect();
                         drop(s);
                         ui.set_ac_learning(action.clone());
-                        scan.start(&ui, &tx, omacontrol_core::ac::nec_learn_candidates(address, power, &known));
+                        scan.start(&ui, &tx, nec_codes(omacontrol_core::ac::nec_learn_candidates(address, power, &known)));
                         return;
                     };
                     match omacontrol_core::ac::custom_frames(&key_code) {
@@ -1512,21 +1564,18 @@ fn spawn_worker(
                             failure = Some("this phone has no IR blaster".to_string())
                         }
                         Some(ir) => {
-                            for (address, command) in candidates.iter().copied() {
+                            'codes: for code in candidates.iter() {
                                 if cancel.load(Ordering::Relaxed) {
                                     break;
                                 }
-                                if let Err(e) =
-                                    ir.transmit(&omacontrol_core::ir::nec(address, command))
-                                {
-                                    failure = Some(e.to_string());
-                                    break;
+                                for frame in code_frames(code) {
+                                    if let Err(e) = ir.transmit(&frame) {
+                                        failure = Some(e.to_string());
+                                        break 'codes;
+                                    }
                                 }
                                 sent += 1;
-                                let code = format!(
-                                    "NEC {:08X}",
-                                    omacontrol_core::ir::nec_code(address, command)
-                                );
+                                let code = code.clone();
                                 let count = sent as i32;
                                 let _ = weak.upgrade_in_event_loop(move |ui| {
                                     ui.set_ac_scan_count(count);

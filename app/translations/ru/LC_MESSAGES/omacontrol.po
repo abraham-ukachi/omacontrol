@@ -419,3 +419,12 @@ msgstr "В архиве: {}"
 
 msgid "timer"
 msgstr "таймер"
+
+msgid "Air conditioner"
+msgstr "Кондиционер"
+
+msgid "Find the magic key"
+msgstr "Поиск волшебной кнопки"
+
+msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
+msgstr "Следите за телевизором и нажмите «Найдено», когда он сделает нужное действие."

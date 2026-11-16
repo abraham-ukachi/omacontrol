@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.4.1-beta.1] - 2026-11-16
+
+### Added
+- :sparkles: A magic key on IR TVs, in place of the second Home: tap Auto scan learns any code the TV answers to, long-press learns it again.
+- :mag: Learning an AC key no longer stops at its own address: after its 254 commands it sweeps every command at `00`, `04` and `08`.
+
+### Changed
+- :gear: Settings is a list like Home (Theme, Language, Feedback, About); Theme and Language open a picker drawer from the bottom with the current choice pinned on top.
+- :lipstick: The Add sheet groups the infrared choices under an "IR" title; the buttons now read Air conditioner, Samsung, LG and Sony.
+
+### Fixed
+- :bug: The remote's media keys sit in two even rows again (the mic or keyboard key no longer lands out of place).
+
 ## [0.4.0-beta.2] - 2026-11-16
 
 ### Added

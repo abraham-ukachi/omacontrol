@@ -23,6 +23,10 @@ export component RemotePage inherits VerticalLayout {
     callback pair(string);
     callback cancel-pair;
     in property <length> kb-height;
+    // IR TVs get a magic key: tap plays it, long-press learns it again with Auto scan.
+    in property <bool> ir;
+    in property <bool> magic-learned;
+    callback magic(bool);
 
     function localized-status() -> string {
         if root.tv-status-code == "pairing" { return @tr("Pairing…"); }
@@ -137,15 +141,18 @@ export component RemotePage inherits VerticalLayout {
         min-height: 220px;
         vertical-stretch: 1;
         Rocker { horizontal-stretch: 1.4; label: "VOL"; up => { root.press("vol+"); } down => { root.press("vol-"); } }
-        GridLayout {
+        // Two plain rows (a GridLayout misplaces the conditional mic/keyboard key).
+        VerticalLayout {
             horizontal-stretch: 3;
             spacing: Theme.gap;
-            Row {
+            HorizontalLayout {
+                spacing: Theme.gap;
                 Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/rew.svg"); clicked => { root.press("rew"); } }
                 Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/play.svg"); clicked => { root.press("play"); } }
                 Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/ff.svg"); clicked => { root.press("ff"); } }
             }
-            Row {
+            HorizontalLayout {
+                spacing: Theme.gap;
                 if root.voice-supported: Key {
                     has-icon: true;
                     icon-size: 22px;
@@ -154,13 +161,29 @@ export component RemotePage inherits VerticalLayout {
                     pressed => { root.voice-start(); }
                     released => { root.voice-stop(); }
                 }
-                if !root.voice-supported: Key {
+                if !root.ir: Key {
                     has-icon: true;
                     icon-size: 22px;
                     icon: @image-url("icons/kbd.svg");
                     clicked => { root.keyboard(); }
                 }
-                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/home.svg"); clicked => { root.press("home"); } }
+                if root.ir: Key {
+                    has-icon: true;
+                    icon-size: 22px;
+                    icon: @image-url("icons/magic.svg");
+                    kind: KeyKind.operator;
+                    long-press-enabled: true;
+                    clicked => { root.magic(false); }
+                    long-pressed => { root.magic(true); }
+                    Text {
+                        x: parent.width - 20px;
+                        y: 6px;
+                        text: "?";
+                        color: Theme.muted;
+                        font-size: 13px;
+                        visible: !root.magic-learned;
+                    }
+                }
                 Key { label: "123"; clicked => { root.keypad(); } }
             }
         }

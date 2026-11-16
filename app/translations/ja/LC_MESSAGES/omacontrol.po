@@ -419,3 +419,12 @@ msgstr "アーカイブ {} 件"
 
 msgid "timer"
 msgstr "タイマー"
+
+msgid "Air conditioner"
+msgstr "エアコン"
+
+msgid "Find the magic key"
+msgstr "マジックキーを探す"
+
+msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
+msgstr "テレビを見て、このキーにさせたい動作をしたら「見つかった」をタップ。"

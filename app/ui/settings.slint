@@ -1,4 +1,4 @@
-import { Theme } from "theme.slint";
+import { Theme, Feedback } from "theme.slint";
 import { Key, KeyKind, Header, Divider } from "widgets.slint";
 
 // A text field the Omacalc way: a number key's surface, muted placeholder, ink text.
@@ -52,13 +52,58 @@ component Link inherits Rectangle {
     touch := TouchArea { clicked => { root.clicked(); } }
 }
 
-// 07 · Settings: the Omarchy theme, About, and Feedback (straight to the maintainer's inbox).
-export component SettingsPage inherits VerticalLayout {
+
+// One Settings row, laid out like a device on Home: the setting, then its current value.
+component SettingRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    callback clicked;
+    height: 72px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.key-pressed : Theme.key;
+    border-width: 1px;
+    border-color: Theme.key-border;
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 14px;
+        Text { text: root.label; color: Theme.fg; font-size: 18px; vertical-alignment: center; }
+        Text { horizontal-stretch: 1; text: root.value; color: Theme.muted; font-size: 15px; vertical-alignment: center; horizontal-alignment: right; overflow: elide; }
+    }
+    touch := TouchArea {
+        pointer-event(e) => { if e.kind == PointerEventKind.down { Feedback.tap(); } }
+        clicked => { root.clicked(); }
+    }
+}
+
+// One choice in a picker drawer; the current one carries the accent dot.
+component Choice inherits Rectangle {
+    in property <string> label;
+    in property <bool> current;
+    callback clicked;
+    height: 52px;
+    border-radius: Theme.radius;
+    background: root.current ? Theme.operator : (touch.pressed ? Theme.key-pressed : transparent);
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 16px;
+        Text { text: root.label; color: Theme.fg; font-size: 16px; vertical-alignment: center; overflow: elide; }
+        if root.current: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
+    }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+// 07 · Settings: a list like Home (Theme, Language, Feedback, About); Theme and Language open
+// a picker drawer from the bottom.
+export component SettingsPage inherits Rectangle {
     in property <[string]> themes;
     in property <[string]> languages;
     in-out property <string> language: "system";
     in property <string> version;
+    // 0 = the list, 1 = About, 2 = Feedback.
     in-out property <int> tab: 0;
+    // The bottom drawer: "", "theme" or "language".
+    property <string> picker;
     callback menu;
     callback pick-theme(string);
     callback pick-language(string);
@@ -101,116 +146,146 @@ export component SettingsPage inherits VerticalLayout {
         return "简体中文";
     }
 
-    spacing: Theme.gap;
-    Header { title: @tr("Settings"); subtitle: "v" + root.version; menu => { root.menu(); } }
-    HorizontalLayout {
-        height: 48px;
+
+    VerticalLayout {
         spacing: Theme.gap;
-        for t[i] in [@tr("Theme"), @tr("About"), @tr("Feedback")]: Key {
-            label: t;
-            font-size: 15px;
-            kind: root.tab == i ? KeyKind.primary : KeyKind.operator;
-            clicked => { root.tab = i; }
+        Header {
+            title: root.tab == 0 ? @tr("Settings") : root.tab == 1 ? @tr("About") : @tr("Feedback");
+            subtitle: root.tab == 0 ? "v" + root.version : @tr("Settings");
+            tappable: root.tab != 0;
+            title-clicked => { root.tab = 0; }
+            menu => { root.menu(); }
         }
-    }
-    Divider { }
+        Divider { }
 
-    if root.tab == 0: Flickable {
-        vertical-stretch: 1;
-        VerticalLayout {
-            alignment: start;
-            Text { x: 8px; text: @tr("Language"); color: Theme.muted; font-size: 19px; }
-            for l in root.languages: Rectangle {
-                height: 44px;
-                border-radius: Theme.radius;
-                background: l == root.language ? Theme.operator : transparent;
-                HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 16px;
-                    Text { text: root.language-name(l); color: Theme.fg; font-size: 16px; vertical-alignment: center; }
-                    if l == root.language: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
-                }
-                TouchArea { clicked => { root.language = l; root.pick-language(l); } }
-            }
-            Divider { }
-            Text { x: 8px; text: @tr("Theme"); color: Theme.muted; font-size: 19px; }
-            for t in root.themes: Rectangle {
-                height: 44px;
-                border-radius: Theme.radius;
-                background: t == Theme.name ? Theme.operator : transparent;
-                HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 16px;
-                    Text { text: t; color: Theme.fg; font-size: 16px; vertical-alignment: center; }
-                    if t == Theme.name: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
-                }
-                TouchArea { clicked => { root.pick-theme(t); } }
-            }
-        }
-    }
-
-    if root.tab == 1: Flickable {
-        vertical-stretch: 1;
-        VerticalLayout {
-            alignment: start;
-            spacing: 4px;
-            padding-top: 10px;
+        if root.tab == 0: Flickable {
+            vertical-stretch: 1;
             VerticalLayout {
-                padding-left: 8px;
-                padding-right: 8px;
-                spacing: 6px;
-                Text { text: @tr("About"); color: Theme.muted; font-size: 19px; }
-                Text { text: "OmaControl"; color: Theme.fg; font-size: 40px; horizontal-alignment: right; }
-                Text { text: "v" + root.version; color: Theme.muted; font-size: 16px; horizontal-alignment: right; }
+                alignment: start;
+                spacing: Theme.gap;
+                SettingRow { label: @tr("Theme"); value: Theme.name; clicked => { root.picker = "theme"; } }
+                SettingRow { label: @tr("Language"); value: root.language-name(root.language); clicked => { root.picker = "language"; } }
+                SettingRow { label: @tr("Feedback"); value: "›"; clicked => { root.tab = 2; } }
+                SettingRow { label: @tr("About"); value: "v" + root.version; clicked => { root.tab = 1; } }
             }
-            Rectangle { height: 14px; }
-            Text { x: 8px; text: @tr("A dead-simple remote for TVs and air conditioners, in Omarchy's colors."); color: Theme.fg; font-size: 15px; wrap: word-wrap; }
-            Rectangle { height: 10px; }
-            Divider { }
-            Link { label: @tr("Made by"); value: "Abraham Ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
-            Link { label: "GitHub"; value: "@abraham-ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
-            Link { label: "X"; value: "@abrahamukachi"; clicked => { root.open-url("https://x.com/abrahamukachi"); } }
-            Link { label: @tr("Email"); value: "abrahamukachi@gmail.com"; clicked => { root.open-url("mailto:abrahamukachi@gmail.com?subject=OmaControl"); } }
-            Divider { }
-            Link { label: @tr("Source"); value: "github.com/abraham-ukachi/omacontrol"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol"); } }
-            Link { label: @tr("License"); value: "MIT"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/blob/main/LICENSE"); } }
-            Link { label: @tr("Version"); value: root.version; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/releases"); } }
-            Rectangle { height: 16px; }
-            Text { x: 8px; text: @tr("MOTTO: We'll always do more"); color: Theme.muted; font-size: 13px; }
+        }
+        if root.tab == 1: Flickable {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                spacing: 4px;
+                padding-top: 10px;
+                VerticalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    spacing: 6px;
+                    Text { text: @tr("About"); color: Theme.muted; font-size: 19px; }
+                    Text { text: "OmaControl"; color: Theme.fg; font-size: 40px; horizontal-alignment: right; }
+                    Text { text: "v" + root.version; color: Theme.muted; font-size: 16px; horizontal-alignment: right; }
+                }
+                Rectangle { height: 14px; }
+                Text { x: 8px; text: @tr("A dead-simple remote for TVs and air conditioners, in Omarchy's colors."); color: Theme.fg; font-size: 15px; wrap: word-wrap; }
+                Rectangle { height: 10px; }
+                Divider { }
+                Link { label: @tr("Made by"); value: "Abraham Ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
+                Link { label: "GitHub"; value: "@abraham-ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
+                Link { label: "X"; value: "@abrahamukachi"; clicked => { root.open-url("https://x.com/abrahamukachi"); } }
+                Link { label: @tr("Email"); value: "abrahamukachi@gmail.com"; clicked => { root.open-url("mailto:abrahamukachi@gmail.com?subject=OmaControl"); } }
+                Divider { }
+                Link { label: @tr("Source"); value: "github.com/abraham-ukachi/omacontrol"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol"); } }
+                Link { label: @tr("License"); value: "MIT"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/blob/main/LICENSE"); } }
+                Link { label: @tr("Version"); value: root.version; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/releases"); } }
+                Rectangle { height: 16px; }
+                Text { x: 8px; text: @tr("MOTTO: We'll always do more"); color: Theme.muted; font-size: 13px; }
+            }
+        }
+
+        if root.tab == 2: Flickable {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                spacing: Theme.gap;
+                padding-top: 6px;
+                padding-bottom: root.kb-height;
+                Text { x: 8px; text: @tr("An idea, or something broken? It goes straight to Abraham's inbox."); color: Theme.muted; font-size: 14px; wrap: word-wrap; }
+                HorizontalLayout {
+                    height: 48px;
+                    spacing: Theme.gap;
+                    for k in ["Feedback", "Issue"]: Key {
+                        label: k == "Feedback" ? @tr("Feedback") : @tr("Issue");
+                        font-size: 15px;
+                        kind: root.fb-kind == k ? KeyKind.primary : KeyKind.operator;
+                        clicked => { root.fb-kind = k; }
+                    }
+                }
+                Field { placeholder: @tr("Your email (optional, for a reply)"); text <=> root.fb-email; input-type: InputType.text; }
+                Field { placeholder: root.fb-kind == "Issue" ? @tr("What broke?") : @tr("Title"); text <=> root.fb-title; }
+                Field { placeholder: root.fb-kind == "Issue" ? @tr("What happened, and on which TV or AC?") : @tr("Tell me more…"); text <=> root.fb-message; multiline: true; }
+                HorizontalLayout {
+                    height: 60px;
+                    spacing: Theme.gap;
+                    Text { horizontal-stretch: 2; text: root.localized-feedback-status(); color: Theme.muted; font-size: 14px; vertical-alignment: center; wrap: word-wrap; }
+                    Key {
+                        horizontal-stretch: 1;
+                        label: root.fb-sending ? "…" : @tr("Send");
+                        kind: KeyKind.primary;
+                        font-size: 18px;
+                        clicked => { if !root.fb-sending { root.send-feedback(); } }
+                    }
+                }
+            }
         }
     }
 
-    if root.tab == 2: Flickable {
-        vertical-stretch: 1;
-        VerticalLayout {
-            alignment: start;
-            spacing: Theme.gap;
-            padding-top: 6px;
-            padding-bottom: root.kb-height;
-            Text { x: 8px; text: @tr("An idea, or something broken? It goes straight to Abraham's inbox."); color: Theme.muted; font-size: 14px; wrap: word-wrap; }
-            HorizontalLayout {
-                height: 48px;
-                spacing: Theme.gap;
-                for k in ["Feedback", "Issue"]: Key {
-                    label: k == "Feedback" ? @tr("Feedback") : @tr("Issue");
-                    font-size: 15px;
-                    kind: root.fb-kind == k ? KeyKind.primary : KeyKind.operator;
-                    clicked => { root.fb-kind = k; }
+    // The picker drawer slides up from the bottom; the current choice stays pinned on top.
+    Rectangle {
+        visible: root.picker != "";
+        background: Theme.bg.with-alpha(root.picker != "" ? 0.82 : 0);
+        animate background { duration: 180ms; }
+        TouchArea { clicked => { root.picker = ""; } }
+        sheet := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: root.picker == "" ? parent.height : parent.height - self.height;
+            width: min(parent.width, 460px);
+            height: parent.height * 0.72;
+            border-radius: Theme.radius;
+            background: Theme.bg;
+            border-width: 1px;
+            border-color: Theme.divider;
+            animate y { duration: 220ms; easing: ease-out; }
+            TouchArea { }
+            sheet-body := VerticalLayout {
+                padding: 20px;
+                spacing: 10px;
+                Text { text: root.picker == "theme" ? @tr("Theme") : @tr("Language"); color: Theme.muted; font-size: 19px; }
+                Choice {
+                    label: root.picker == "theme" ? Theme.name : root.language-name(root.language);
+                    current: true;
+                    clicked => { root.picker = ""; }
                 }
-            }
-            Field { placeholder: @tr("Your email (optional, for a reply)"); text <=> root.fb-email; input-type: InputType.text; }
-            Field { placeholder: root.fb-kind == "Issue" ? @tr("What broke?") : @tr("Title"); text <=> root.fb-title; }
-            Field { placeholder: root.fb-kind == "Issue" ? @tr("What happened, and on which TV or AC?") : @tr("Tell me more…"); text <=> root.fb-message; multiline: true; }
-            HorizontalLayout {
-                height: 60px;
-                spacing: Theme.gap;
-                Text { horizontal-stretch: 2; text: root.localized-feedback-status(); color: Theme.muted; font-size: 14px; vertical-alignment: center; wrap: word-wrap; }
-                Key {
-                    horizontal-stretch: 1;
-                    label: root.fb-sending ? "…" : @tr("Send");
-                    kind: KeyKind.primary;
-                    font-size: 18px;
-                    clicked => { if !root.fb-sending { root.send-feedback(); } }
+                Divider { }
+                Flickable {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        alignment: start;
+                        spacing: 2px;
+                        if root.picker == "theme": VerticalLayout {
+                            for t in root.themes: Choice {
+                                visible: t != Theme.name;
+                                height: t != Theme.name ? 52px : 0px;
+                                label: t;
+                                clicked => { root.pick-theme(t); root.picker = ""; }
+                            }
+                        }
+                        if root.picker == "language": VerticalLayout {
+                            for l in root.languages: Choice {
+                                visible: l != root.language;
+                                height: l != root.language ? 52px : 0px;
+                                label: root.language-name(l);
+                                clicked => { root.language = l; root.pick-language(l); root.picker = ""; }
+                            }
+                        }
+                    }
                 }
             }
         }

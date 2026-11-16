@@ -4,7 +4,7 @@ import { DevicesPage, DeviceRow } from "devices.slint";
 import { RemotePage } from "remote.slint";
 import { KeypadPage, ChannelRow } from "keypad.slint";
 import { MenuPage } from "menu.slint";
-import { AcPage, AcSetupPage, AcLearned } from "ac.slint";
+import { AcPage, AcSetupPage, AcLearned, NecScanOverlay } from "ac.slint";
 import { SettingsPage } from "settings.slint";
 
 export { Theme, Feedback, DeviceRow, ChannelRow, AcLearned }
@@ -64,6 +64,10 @@ export component AppWindow inherits Window {
     in property <bool> ac-nec;
     in property <AcLearned> ac-learned;
     in property <string> ac-learning;
+    // An IR TV, and whether its magic key is learned yet.
+    in property <bool> tv-ir;
+    in property <bool> tv-magic-learned;
+    callback tv-magic(bool);
     in property <bool> ac-power;
     in property <int> ac-temp: 22;
     in property <string> ac-mode: "cool";
@@ -168,6 +172,27 @@ export component AppWindow inherits Window {
             pair(c) => { root.pair(c); }
             cancel-pair => { root.cancel-pair(); }
             kb-height: root.virtual-keyboard-size.height;
+            ir: root.tv-ir;
+            magic-learned: root.tv-magic-learned;
+            magic(relearn) => { root.tv-magic(relearn); }
+        }
+        // Learning an IR TV's magic key: the same scan card as the AC's.
+        if root.page == 1 && (root.ac-scan-active || root.ac-scan-finished || root.ac-scan-review): NecScanOverlay {
+            width: parent.width;
+            height: parent.height;
+            learning: root.ac-learning;
+            scan-active: root.ac-scan-active;
+            scan-finished: root.ac-scan-finished;
+            scan-cancelled: root.ac-scan-cancelled;
+            scan-count: root.ac-scan-count;
+            scan-total: root.ac-scan-total;
+            scan-index: root.ac-scan-index;
+            scan-review: root.ac-scan-review;
+            scan-code: root.ac-scan-code;
+            scan-result: root.ac-scan-result;
+            setup(step) => { root.ac-setup(step); }
+            scan-cancel => { root.ac-scan-cancel(); }
+            scan-navigate(d) => { root.ac-scan-navigate(d); }
         }
         if root.page == 2: KeypadPage {
             tv-name: root.tv-name;
@@ -240,7 +265,10 @@ export component AppWindow inherits Window {
         if root.page == 3: MenuPage {
             version: root.version;
             close => { root.page = root.back-page; }
-            goto(i) => { root.page = i == 1 && root.current-is-ac ? 4 : i; }
+            goto(i) => {
+                if i == 6 { root.settings-tab = 0; }
+                root.page = i == 1 && root.current-is-ac ? 4 : i;
+            }
         }
         if root.page == 6: SettingsPage {
             themes: root.themes;

@@ -419,3 +419,12 @@ msgstr "已归档 {} 个"
 
 msgid "timer"
 msgstr "定时"
+
+msgid "Air conditioner"
+msgstr "空调"
+
+msgid "Find the magic key"
+msgstr "查找魔法键"
+
+msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
+msgstr "看着电视，一旦它做出你想要的动作就点“找到了”。"

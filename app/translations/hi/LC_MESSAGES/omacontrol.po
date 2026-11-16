@@ -419,3 +419,12 @@ msgstr "{} संग्रहीत"
 
 msgid "timer"
 msgstr "टाइमर"
+
+msgid "Air conditioner"
+msgstr "एयर कंडीशनर"
+
+msgid "Find the magic key"
+msgstr "मैजिक कुंजी खोजें"
+
+msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
+msgstr "TV देखें और जैसे ही वह वही करे जो आप इस कुंजी से चाहते हैं, मिल गया दबाएँ।"
