@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.6] - 2026-11-16
+
+### Fixed
+- :bug: Android locale detection now returns the language tag after the JNI string borrow is dropped, allowing the APK to compile.
+
 ## [0.3.5] - 2026-11-16
 
 ### Added

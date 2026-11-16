@@ -120,7 +120,8 @@ fn android_language_tag() -> Result<String, jni::errors::Error> {
     let locales = env.call_method(&configuration, "getLocales", "()Landroid/os/LocaleList;", &[])?.l()?;
     let locale = env.call_method(&locales, "get", "(I)Ljava/util/Locale;", &[JValue::Int(0)])?.l()?;
     let tag = env.call_method(&locale, "toLanguageTag", "()Ljava/lang/String;", &[])?.l()?;
-    Ok(env.get_string(&JString::from(tag))?.into())
+    let language_tag: String = env.get_string(&JString::from(tag))?.into();
+    Ok(language_tag)
 }
 
 fn select_system_translation() {
