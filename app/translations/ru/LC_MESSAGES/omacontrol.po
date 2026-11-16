@@ -1,0 +1,79 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: OmaControl 0.3.4\n"
+"PO-Revision-Date: 2026-11-16 00:00+0000\n"
+"Last-Translator: OmaControl contributors\n"
+"Language-Team: Russian\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ru\n"
+
+msgid "New air conditioner"
+msgstr "Новый кондиционер"
+
+msgid "This infrared code controls power only."
+msgstr "Этот инфракрасный код управляет только питанием."
+
+msgid "Point your phone at it"
+msgstr "Направьте на него телефон"
+
+msgid "Did it beep or switch on? If so, tap \"It works\". If not, try the next code."
+msgstr "Кондиционер издал сигнал или включился? Если да, нажмите «Работает». Если нет, попробуйте следующий код."
+
+msgid "Turn the AC off, point the top of your phone at it from a couple of meters, and tap Test. It sends the code a few times and should switch on in cool mode at 22°."
+msgstr "Выключите кондиционер, направьте на него верхнюю часть телефона с расстояния пары метров и нажмите «Тест». Код будет отправлен несколько раз и должен включить охлаждение на 22°."
+
+msgid "Test"
+msgstr "Тест"
+
+msgid "Next"
+msgstr "Далее"
+
+msgid "It works"
+msgstr "Работает"
+
+msgid "Paste a Pronto code for a unit no code above reaches"
+msgstr "Вставьте код Pronto для устройства, которое не поддерживается кодами выше"
+
+msgid "Test code"
+msgstr "Проверить код"
+
+msgid "Warning before NEC auto-test"
+msgstr "Предупреждение перед автотестом NEC"
+
+msgid "The 675-code sweep sends many infrared commands and can take several minutes. Nearby TVs, soundbars, set-top boxes, or other IR devices may react or change state. Point the phone only at your AC and be ready to stop the scan."
+msgstr "Перебор 675 кодов отправляет множество инфракрасных команд и может занять несколько минут. Ближайшие телевизоры, саундбары, приставки и другие ИК-устройства могут отреагировать или изменить состояние. Направьте телефон только на кондиционер и будьте готовы остановить сканирование."
+
+msgid "Start scan"
+msgstr "Начать поиск"
+
+msgid "Scanning NEC codes"
+msgstr "Поиск кодов NEC"
+
+msgid "NEC scan complete"
+msgstr "Поиск NEC завершён"
+
+msgid "NEC scan stopped"
+msgstr "Поиск NEC остановлен"
+
+msgid "NEC scan failed"
+msgstr "Не удалось выполнить поиск NEC"
+
+msgid "Your phone cannot detect an IR response. Watch the AC and tap Found it when it reacts."
+msgstr "Телефон не может обнаружить ИК-ответ. Следите за кондиционером и нажмите «Нашёл», когда он отреагирует."
+
+msgid "Your phone cannot detect an IR response. If the AC did not react, try another angle or start again."
+msgstr "Телефон не может обнаружить ИК-ответ. Если кондиционер не отреагировал, измените угол или начните поиск снова."
+
+msgid "Scan stopped. You can start again when ready."
+msgstr "Поиск остановлен. Вы можете начать его снова, когда будете готовы."
+
+msgid "Found it"
+msgstr "Нашёл"
+
+msgid "Cancel scan"
+msgstr "Остановить поиск"
+
+msgid "Done"
+msgstr "Готово"

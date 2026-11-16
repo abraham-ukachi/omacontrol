@@ -50,6 +50,11 @@ pub fn nec(address: u8, command: u8) -> Pattern {
     Pattern { carrier: 38_000, pulses: p }
 }
 
+/// The conventional 32-bit display form of a standard NEC frame.
+pub fn nec_code(address: u8, command: u8) -> u32 {
+    u32::from_be_bytes([address, !address, command, !command])
+}
+
 /// Samsung32: like NEC with a 4.5 ms leader and the address sent twice.
 pub fn samsung32(address: u8, command: u8) -> Pattern {
     let mut p = vec![4500, 4500];
@@ -194,6 +199,11 @@ mod tests {
         assert_eq!(&p.pulses[..2], &[9000, 4500]);
         // address 0x04 LSB first: 0,0,1 -> third bit's space is long.
         assert_eq!(p.pulses[2 + 2 * 2 + 1], 1690);
+    }
+
+    #[test]
+    fn nec_code_uses_complement_bytes() {
+        assert_eq!(nec_code(0x00, 0x40), 0x00FF40BF);
     }
 
     #[test]

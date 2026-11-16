@@ -5,6 +5,7 @@
 
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -67,6 +68,8 @@ fn blaster() -> Option<Arc<dyn IrTransmitter>> {
 /// What the worker thread is asked to do.
 /// The pause between digits when a saved channel is tuned.
 const TUNE_DIGIT_GAP_MS: u64 = 350;
+/// Gives the user time to observe the AC before the next NEC candidate is sent.
+const NEC_SCAN_STEP_GAP_MS: u64 = 350;
 
 enum Job {
     Scan,
@@ -78,6 +81,8 @@ enum Job {
     Launch(App),
     /// IR frames for the air conditioner, sent one after another.
     Ac(Vec<Pattern>),
+    /// A bounded NEC discovery sweep; cancellation is checked between frames.
+    AcScan { candidates: Vec<(u8, u8)>, cancel: Arc<AtomicBool> },
     /// A saved channel: its digits, one after another.
     Tune(String),
     /// The code an Android TV shows while pairing.
@@ -92,8 +97,14 @@ fn show_ac(ui: &AppWindow, d: &Device) {
     let s = d.ac_state;
     ui.set_current_is_ac(true);
     ui.set_ac_name(d.name.clone().into());
+    ui.set_ac_custom_code(d.ac_code.is_some());
     ui.set_ac_status(match (&d.ac_protocol, d.ac_code.is_some()) {
-        (_, true) => "code · IR".into(),
+        (_, true) => d
+            .ac_code
+            .as_deref()
+            .filter(|code| code.starts_with("NEC "))
+            .map(|code| format!("{code} · IR").into())
+            .unwrap_or_else(|| "code · IR".into()),
         (Some(p), false) => format!("{} · IR", p.label()).into(),
         (None, false) => "not set up yet".into(),
     });
@@ -376,7 +387,15 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let typed = pasted.clone();
     ui.on_ac_code_changed(move |text| { *typed.borrow_mut() = text.to_string(); });
 
-    let (tx, st, weak, idx, pasted) = (jobs.clone(), store.clone(), ui.as_weak(), setup_index.clone(), pasted);
+    let scan_cancel = Rc::new(RefCell::new(None::<Arc<AtomicBool>>));
+    let (tx, st, weak, idx, pasted, scan_cancel_state) = (
+        jobs.clone(),
+        store.clone(),
+        ui.as_weak(),
+        setup_index.clone(),
+        pasted,
+        scan_cancel.clone(),
+    );
     ui.on_ac_setup(move |step| {
         let Some(ui) = weak.upgrade() else { return };
         let protocol = AcProtocol::ALL[idx.get()];
@@ -396,6 +415,57 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 }
                 Err(e) => ui.set_ac_setup_protocol(format!("{e}").into()),
             },
+            "scan-confirm" => {
+                let cancel = Arc::new(AtomicBool::new(false));
+                *scan_cancel_state.borrow_mut() = Some(cancel.clone());
+                ui.set_ac_scan_active(true);
+                ui.set_ac_scan_finished(false);
+                ui.set_ac_scan_cancelled(false);
+                ui.set_ac_scan_count(0);
+                let candidates = omacontrol_core::ac::nec_autotest_candidates();
+                ui.set_ac_scan_total(candidates.len() as i32);
+                ui.set_ac_scan_code("".into());
+                ui.set_ac_scan_result("".into());
+                if let Err(e) = tx.send(Job::AcScan {
+                    candidates,
+                    cancel,
+                }) {
+                    *scan_cancel_state.borrow_mut() = None;
+                    ui.set_ac_scan_active(false);
+                    ui.set_ac_scan_finished(true);
+                    ui.set_ac_scan_cancelled(false);
+                    ui.set_ac_scan_result(format!("Could not start the scan: {e}").into());
+                }
+            }
+            "scan-found" => {
+                let code = ui.get_ac_scan_code().to_string();
+                if code.is_empty() {
+                    return;
+                }
+                if let Some(cancel) = scan_cancel_state.borrow_mut().take() {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+                let mut s = st.lock().unwrap();
+                let Some(ip) = s.current.clone() else { return };
+                if let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) {
+                    d.ac_protocol = None;
+                    d.ac_code = Some(code);
+                    d.ac_state = omacontrol_core::ac::TEST_STATE;
+                    let d = d.clone();
+                    let _ = s.save();
+                    ui.set_devices(rows(&s));
+                    show_ac(&ui, &d);
+                    ui.set_ac_scan_active(false);
+                    ui.set_ac_scan_finished(false);
+                    ui.set_ac_scan_cancelled(false);
+                    ui.set_page(4);
+                }
+            }
+            "scan-dismiss" => {
+                *scan_cancel_state.borrow_mut() = None;
+                ui.set_ac_scan_finished(false);
+                ui.set_ac_scan_result("".into());
+            }
             _ => {
                 let mut s = st.lock().unwrap();
                 let Some(ip) = s.current.clone() else { return };
@@ -412,6 +482,12 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                     ui.set_page(4);
                 }
             }
+        }
+    });
+    let scan_cancel = scan_cancel.clone();
+    ui.on_ac_scan_cancel(move || {
+        if let Some(cancel) = scan_cancel.borrow().as_ref() {
+            cancel.store(true, Ordering::Relaxed);
         }
     });
 
@@ -714,6 +790,47 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                     if let Err(e) = result {
                         let _ = weak.upgrade_in_event_loop(move |ui| ui.set_ac_status(e.into()));
                     }
+                }
+                Job::AcScan { candidates, cancel } => {
+                    let mut sent = 0usize;
+                    let mut failure = None;
+                    match &ir {
+                        None => failure = Some("this phone has no IR blaster".to_string()),
+                        Some(ir) if !ir.has_emitter() => {
+                            failure = Some("this phone has no IR blaster".to_string())
+                        }
+                        Some(ir) => {
+                            for (address, command) in candidates.iter().copied() {
+                                if cancel.load(Ordering::Relaxed) {
+                                    break;
+                                }
+                                if let Err(e) =
+                                    ir.transmit(&omacontrol_core::ir::nec(address, command))
+                                {
+                                    failure = Some(e.to_string());
+                                    break;
+                                }
+                                sent += 1;
+                                let code = format!("NEC {:08X}", omacontrol_core::ir::nec_code(address, command));
+                                let count = sent as i32;
+                                let _ = weak.upgrade_in_event_loop(move |ui| {
+                                    ui.set_ac_scan_count(count);
+                                    ui.set_ac_scan_code(code.into());
+                                });
+                                if sent < candidates.len() {
+                                    thread::sleep(Duration::from_millis(NEC_SCAN_STEP_GAP_MS));
+                                }
+                            }
+                        }
+                    }
+                    let stopped = failure.is_none() && cancel.load(Ordering::Relaxed);
+                    let result = failure.unwrap_or_default();
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        ui.set_ac_scan_active(false);
+                        ui.set_ac_scan_finished(true);
+                        ui.set_ac_scan_cancelled(stopped);
+                        ui.set_ac_scan_result(result.into());
+                    });
                 }
                 Job::Press(_) | Job::Text(_) | Job::Launch(_) if remote.is_none() => {
                     status(&weak, "pick a TV first".into(), false);

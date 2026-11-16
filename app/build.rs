@@ -1,3 +1,6 @@
 fn main() {
-    slint_build::compile("ui/app.slint").expect("the Slint UI compiles");
+    let config = slint_build::CompilerConfiguration::new()
+        .with_bundled_translations("translations")
+        .with_default_translation_context(slint_build::DefaultTranslationContext::None);
+    slint_build::compile_with_config("ui/app.slint", config).expect("the Slint UI compiles");
 }

@@ -50,6 +50,7 @@ export component AppWindow inherits Window {
     in property <bool> current-is-ac;
     in property <string> ac-name;
     in property <string> ac-status;
+    in property <bool> ac-custom-code;
     in property <bool> ac-power;
     in property <int> ac-temp: 22;
     in property <string> ac-mode: "cool";
@@ -60,6 +61,13 @@ export component AppWindow inherits Window {
     in property <int> ac-setup-index;
     in property <int> ac-setup-count: 10;
     in property <bool> ac-setup-tested;
+    in property <bool> ac-scan-active;
+    in property <bool> ac-scan-finished;
+    in property <bool> ac-scan-cancelled;
+    in property <int> ac-scan-count;
+    in property <int> ac-scan-total;
+    in property <string> ac-scan-code;
+    in property <string> ac-scan-result;
 
     callback rescan;
     callback pick(int);
@@ -72,6 +80,7 @@ export component AppWindow inherits Window {
     callback add-ac();
     callback ac-action(string);
     callback ac-setup(string);
+    callback ac-scan-cancel();
     callback ac-code-changed(string);
     callback tune(string);
     callback save-channel(string, string);
@@ -138,6 +147,7 @@ export component AppWindow inherits Window {
         if root.page == 4: AcPage {
             name: root.ac-name;
             status: root.ac-status;
+            custom-code: root.ac-custom-code;
             power: root.ac-power;
             temp: root.ac-temp;
             mode: root.ac-mode;
@@ -153,8 +163,16 @@ export component AppWindow inherits Window {
             index: root.ac-setup-index;
             count: root.ac-setup-count;
             tested: root.ac-setup-tested;
+            scan-active: root.ac-scan-active;
+            scan-finished: root.ac-scan-finished;
+            scan-cancelled: root.ac-scan-cancelled;
+            scan-count: root.ac-scan-count;
+            scan-total: root.ac-scan-total;
+            scan-code: root.ac-scan-code;
+            scan-result: root.ac-scan-result;
             menu => { root.open-menu(); }
             setup(s) => { root.ac-setup(s); }
+            scan-cancel => { root.ac-scan-cancel(); }
             code-changed(t) => { root.ac-code-changed(t); }
             kb-top: root.virtual-keyboard-position.y;
             kb-height: root.virtual-keyboard-size.height;

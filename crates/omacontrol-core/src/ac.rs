@@ -204,12 +204,45 @@ impl AcProtocol {
     }
 }
 
-/// A code pasted from an IR database, for units none of the protocols above reach.
+/// A custom IR code, pasted as Pronto or captured by the manual NEC scan.
 ///
 /// Phones can't listen to the remote, so a pasted code is the only way to drive an AC we have
 /// no protocol for: the power key sends exactly this code.
 pub fn custom_frames(code: &str) -> crate::Result<Vec<Pattern>> {
+    if let Some(hex) = code.strip_prefix("NEC ") {
+        let value = u32::from_str_radix(hex, 16)
+            .map_err(|_| crate::Error::Protocol("not a NEC code".into()))?;
+        let [address, inverted_address, command, inverted_command] = value.to_be_bytes();
+        if inverted_address != !address || inverted_command != !command {
+            return Err(crate::Error::Protocol("invalid NEC complement bytes".into()));
+        }
+        return Ok(vec![crate::ir::nec(address, command)]);
+    }
     crate::ir::pronto(code).map(|pattern| vec![pattern])
+}
+
+/// A deterministic, bounded NEC address/command sweep for manual AC discovery.
+///
+/// The first candidate is the reported `00FF40BF` code. The remaining candidates cover
+/// every command byte at addresses `00` and `04`, then the first 163 commands at `08`.
+/// This is an OmaControl-defined search set, not a reproduction of another app's database.
+pub const NEC_AUTOTEST_CANDIDATE_COUNT: usize = 675;
+
+pub fn nec_autotest_candidates() -> Vec<(u8, u8)> {
+    let mut candidates = Vec::with_capacity(NEC_AUTOTEST_CANDIDATE_COUNT);
+    candidates.push((0x00, 0x40));
+    for address in [0x00, 0x04, 0x08] {
+        for command in 0..=u8::MAX {
+            if (address, command) == (0x00, 0x40) {
+                continue;
+            }
+            candidates.push((address, command));
+            if candidates.len() == NEC_AUTOTEST_CANDIDATE_COUNT {
+                return candidates;
+            }
+        }
+    }
+    candidates
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -961,6 +994,20 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn nec_autotest_has_675_unique_candidates_and_starts_with_reported_code() {
+        let candidates = nec_autotest_candidates();
+        assert_eq!(candidates.len(), NEC_AUTOTEST_CANDIDATE_COUNT);
+        assert_eq!(candidates[0], (0x00, 0x40));
+        let unique: std::collections::HashSet<_> = candidates.iter().copied().collect();
+        assert_eq!(unique.len(), candidates.len());
+        assert_eq!(
+            custom_frames("NEC 00FF40BF").unwrap(),
+            vec![crate::ir::nec(0x00, 0x40)]
+        );
+        assert!(custom_frames("NEC 00FF40BE").is_err());
     }
 
     #[test]

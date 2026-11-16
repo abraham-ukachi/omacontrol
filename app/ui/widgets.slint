@@ -40,9 +40,12 @@ export component Key inherits Rectangle {
     in property <KeyKind> kind: KeyKind.number;
     in property <length> font-size: 20px;
     in property <length> icon-size: 26px;
+    in property <bool> long-press-enabled: false;
     callback clicked;
+    callback long-pressed;
     property <bool> pulsing;
     property <duration> pulse-start;
+    property <bool> long-press-fired;
 
     clip: true;
     border-radius: Theme.radius;
@@ -70,6 +73,7 @@ export component Key inherits Rectangle {
     touch := TouchArea {
         pointer-event(e) => {
             if e.kind == PointerEventKind.down {
+                root.long-press-fired = false;
                 Feedback.tap();
                 if Feedback.ir {
                     root.pulse-start = animation-tick();
@@ -77,7 +81,21 @@ export component Key inherits Rectangle {
                 }
             }
         }
-        clicked => { root.clicked(); }
+        clicked => {
+            if root.long-press-fired {
+                root.long-press-fired = false;
+            } else {
+                root.clicked();
+            }
+        }
+    }
+    Timer {
+        interval: 700ms;
+        running: root.long-press-enabled && touch.pressed && !root.long-press-fired;
+        triggered => {
+            root.long-press-fired = true;
+            root.long-pressed();
+        }
     }
     Timer { interval: 420ms; running: root.pulsing; triggered => { root.pulsing = false; } }
 }

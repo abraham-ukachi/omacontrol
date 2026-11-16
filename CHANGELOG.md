@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.4] - 2026-11-16
+
+### Added
+- :snowflake: Long-press **Test** on AC setup to open a warning and run a cancellable 675-candidate NEC sweep. The first code is the reported `00FF40BF`; OmaControl cannot detect IR responses, so the user confirms a match while the code is displayed.
+- :earth_americas: Slint system-locale translation bundles for the AC setup flow in German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese.
+
+### Changed
+- :memo: Added localization as a tracked 1.0 release requirement; translations fall back to English when the system locale is not bundled.
+
 ## [0.3.3] - 2026-11-15
 
 ### Added

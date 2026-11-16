@@ -1,0 +1,79 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: OmaControl 0.3.4\n"
+"PO-Revision-Date: 2026-11-16 00:00+0000\n"
+"Last-Translator: OmaControl contributors\n"
+"Language-Team: German\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: de\n"
+
+msgid "New air conditioner"
+msgstr "Neue Klimaanlage"
+
+msgid "This infrared code controls power only."
+msgstr "Dieser Infrarotcode steuert nur die Stromversorgung."
+
+msgid "Point your phone at it"
+msgstr "Richte dein Handy darauf"
+
+msgid "Did it beep or switch on? If so, tap \"It works\". If not, try the next code."
+msgstr "Hat sie gepiept oder sich eingeschaltet? Tippe dann auf „Funktioniert“. Wenn nicht, probiere den nächsten Code."
+
+msgid "Turn the AC off, point the top of your phone at it from a couple of meters, and tap Test. It sends the code a few times and should switch on in cool mode at 22°."
+msgstr "Schalte die Klimaanlage aus, richte die Oberseite deines Handys aus ein paar Metern Entfernung darauf und tippe auf Test. Der Code wird mehrmals gesendet und sollte sie im Kühlmodus auf 22° einschalten."
+
+msgid "Test"
+msgstr "Test"
+
+msgid "Next"
+msgstr "Weiter"
+
+msgid "It works"
+msgstr "Funktioniert"
+
+msgid "Paste a Pronto code for a unit no code above reaches"
+msgstr "Füge einen Pronto-Code für ein Gerät ein, das keiner der obigen Codes erreicht"
+
+msgid "Test code"
+msgstr "Code testen"
+
+msgid "Warning before NEC auto-test"
+msgstr "Warnung vor dem NEC-Autotest"
+
+msgid "The 675-code sweep sends many infrared commands and can take several minutes. Nearby TVs, soundbars, set-top boxes, or other IR devices may react or change state. Point the phone only at your AC and be ready to stop the scan."
+msgstr "Der Durchlauf mit 675 Codes sendet viele Infrarotbefehle und kann mehrere Minuten dauern. Fernseher, Soundbars, Set-Top-Boxen oder andere IR-Geräte in der Nähe können reagieren oder ihren Zustand ändern. Richte das Handy nur auf die Klimaanlage und sei bereit, den Scan abzubrechen."
+
+msgid "Start scan"
+msgstr "Scan starten"
+
+msgid "Scanning NEC codes"
+msgstr "NEC-Codes werden getestet"
+
+msgid "NEC scan complete"
+msgstr "NEC-Scan abgeschlossen"
+
+msgid "NEC scan stopped"
+msgstr "NEC-Scan angehalten"
+
+msgid "NEC scan failed"
+msgstr "NEC-Scan fehlgeschlagen"
+
+msgid "Your phone cannot detect an IR response. Watch the AC and tap Found it when it reacts."
+msgstr "Dein Handy kann keine IR-Antwort erkennen. Beobachte die Klimaanlage und tippe bei einer Reaktion auf Gefunden."
+
+msgid "Your phone cannot detect an IR response. If the AC did not react, try another angle or start again."
+msgstr "Dein Handy kann keine IR-Antwort erkennen. Wenn die Klimaanlage nicht reagiert hat, ändere den Winkel oder starte erneut."
+
+msgid "Scan stopped. You can start again when ready."
+msgstr "Scan angehalten. Du kannst ihn bei Bedarf erneut starten."
+
+msgid "Found it"
+msgstr "Gefunden"
+
+msgid "Cancel scan"
+msgstr "Scan abbrechen"
+
+msgid "Done"
+msgstr "Fertig"

@@ -49,7 +49,7 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 | 3 | *`Channels & apps`* | A big monospace channel display, **saved channels** (`4002` → **BFMTV**: type the number, **+ save**, name it; tap to tune, **long-press** to rename, **swipe up** to delete), streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
 | 4 | *`Menu`* | Devices, Remote, Channels & apps, Settings |
 | 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, sleep & swing |
-| 6 | *`AC setup`* | Tries each protocol (Midea, Coolix, Gree, TCL, LG, Electra, Samsung, Kelvinator, Haier, Daikin) until the AC beeps, or tests a pasted IR code |
+| 6 | *`AC setup`* | Tries each protocol or a pasted IR code; long-press **Test** for a warned, cancellable 675-candidate NEC sweep |
 | 7 | *`Settings`* | **Theme** (all 23 Omarchy themes), **About** (version, author, links) and **Feedback** (an idea or an issue, sent straight to the maintainer's inbox) |
 
 > TIP: Tap the device's name at the top of the Remote, Channels or AC screen to jump back to your devices.
@@ -136,6 +136,10 @@ cargo install --locked --path app
 
 Without an active Omarchy `colors.toml`, the desktop app keeps its built-in theme picker and uses Tokyo Night by default. When the file is available, **Omarchy (live)** follows its colors without a restart.
 
+The first localization bundle follows the system locale and translates the AC setup and NEC scan flow into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese. Other screens remain in English for this staged rollout.
+
+The NEC sweep is an OmaControl-defined candidate set, not IrCode Finder's verified sequence. It begins with `00FF40BF`; because a phone cannot receive IR, watch the AC and tap **Found it** when it reacts.
+
 After backing up the keystore and password in your vault, configure the repository secrets without printing either value:
 
 ```sh
@@ -168,6 +172,7 @@ The [GitHub 1.0 milestone](https://github.com/abraham-ukachi/omacontrol/mileston
 - [ ] 🎮 **Xbox and PlayStation 5**: provide supported control integrations; validate each console's available interfaces and document model- and capability-specific limits.
 - [ ] ⏲️ **AC timers** and 📚 **broader IR code support**: timer controls plus practical Pronto import and IR database code lookup/import.
 - [ ] ✅ **1.0 release gates**: document supported devices and limitations; validate pairing, recovery, responsiveness and core flows on real hardware; publish repeatable desktop and Android builds signed with the permanent release key.
+- [ ] 🌍 **Localization**: select the system language automatically, complete the initial 10-language rollout, then expand toward 50 languages.
 
 The phone/host connection is deliberately local and user-approved in 1.0. Console and media-device integrations must use supported interfaces or documented IR codes; any device-specific limitations must be visible rather than implied to work universally.
 
