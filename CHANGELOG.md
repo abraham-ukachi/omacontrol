@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.5.0] - 2026-11-16
+
+### Added
+- :microphone: The Android TV mic is a tap now: tap to talk, tap again to send, and it stops on its own after 12 s. The TV's Google Assistant takes the phone's audio.
+- :robot: On an Android TV that can't take phone audio, the mic opens Google Assistant on the TV instead of showing an error.
+- :keyboard: Typed text reaches Android TV fields through the TV's input method (IME): the whole text lands in the focused field, then Enter, so Go opens a URL in the browser or runs a search.
+
+### Fixed
+- :bug: Voice sessions that the TV numbers 0 were never seen, so the mic always timed out.
+- :bug: Voice audio goes out in 8–20 KiB pieces, as Android TV expects; smaller pieces were dropped.
+- :bug: The remote answers the TV's set-active with the features both sides agreed on.
+- :bug: Text sent as key presses now covers URL signs (`: ? = _ & + # * ! %`) and ends with Enter.
+
 ## [0.4.2-beta.1] - 2026-11-16
 
 ### Fixed
