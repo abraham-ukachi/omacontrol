@@ -72,7 +72,20 @@ impl Store {
             }
         };
         store.path = path;
+        store.drop_unset_acs();
         store
+    }
+
+    /// Drops air conditioners whose setup never finished (no protocol, no code):
+    /// older versions saved them the moment "Add" was tapped.
+    pub fn drop_unset_acs(&mut self) {
+        self.devices
+            .retain(|d| !d.is_ac() || d.ac_protocol.is_some() || d.ac_code.is_some());
+        if let Some(ip) = &self.current {
+            if !self.devices.iter().any(|d| &d.ip == ip) {
+                self.current = None;
+            }
+        }
     }
 
     /// Writes the store atomically: a temp file, then a rename; the old file stays as `.bak`.
@@ -350,5 +363,20 @@ mod tests {
             "not json at all"
         );
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_ac_left_unset_is_not_kept() {
+        let mut s = Store::default();
+        let unset = Device::infrared_ac(1);
+        let mut set = Device::infrared_ac(2);
+        set.ac_code = Some("NEC 0x00 0x1A".into());
+        s.upsert(unset.clone());
+        s.upsert(set.clone());
+        s.current = Some(unset.ip.clone());
+        s.drop_unset_acs();
+        assert_eq!(s.devices.len(), 1);
+        assert_eq!(s.devices[0].ip, set.ip);
+        assert_eq!(s.current, None);
     }
 }

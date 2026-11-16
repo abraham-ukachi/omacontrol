@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.4.2-beta.1] - 2026-11-16
+
+### Fixed
+- :bug: A new air conditioner is only saved once its setup finds a code; leaving setup early no longer leaves an empty "Air conditioner" in Devices.
+- :wastebasket: Air conditioners left unset by earlier versions are cleared from Devices on launch.
+
 ## [0.4.1-beta.1] - 2026-11-16
 
 ### Added

@@ -717,9 +717,12 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         let _ = tx.send(Job::Scan);
     });
 
-    let (tx, st, weak) = (jobs.clone(), store.clone(), ui.as_weak());
+    // A new AC lives here, unsaved, until its setup finds a code: closing setup forgets it.
+    let pending_ac: Rc<RefCell<Option<Device>>> = Rc::new(RefCell::new(None));
+    let (tx, st, weak, pending) = (jobs.clone(), store.clone(), ui.as_weak(), pending_ac.clone());
     ui.on_pick(move |id| {
         let id = id.to_string();
+        pending.borrow_mut().take();
         let device = st
             .lock()
             .unwrap()
@@ -892,16 +895,16 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
 
     // Air conditioners.
     let setup_index = Rc::new(Cell::new(0usize));
-    let (st, weak, idx) = (store.clone(), ui.as_weak(), setup_index.clone());
+    let (st, weak, idx, pending) = (store.clone(), ui.as_weak(), setup_index.clone(), pending_ac.clone());
     ui.on_add_ac(move || {
-        let mut s = st.lock().unwrap();
-        let n = s.devices.iter().filter(|d| d.is_ac()).count() + 1;
+        let s = st.lock().unwrap();
+        let mut n = s.devices.iter().filter(|d| d.is_ac()).count() + 1;
+        while s.devices.iter().any(|d| d.ip == format!("ir:ac:{n}")) {
+            n += 1;
+        }
         let d = Device::infrared_ac(n);
-        s.upsert(d.clone());
-        s.current = Some(d.ip.clone());
-        let _ = s.save();
+        *pending.borrow_mut() = Some(d.clone());
         if let Some(ui) = weak.upgrade() {
-            ui.set_devices(rows(&s, ui.get_archived_view()));
             ui.set_voice_supported(false);
             show_ac(&ui, &d);
             idx.set(0);
@@ -917,14 +920,22 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     });
 
     let nec_scan = NecScan::default();
-    let (tx, st, weak, idx, pasted, scan) = (
+    let (tx, st, weak, idx, pasted, scan, pending) = (
         jobs.clone(),
         store.clone(),
         ui.as_weak(),
         setup_index.clone(),
         pasted,
         nec_scan.clone(),
+        pending_ac.clone(),
     );
+    // Saves the AC being set up, now that it has a code, and makes it current.
+    let commit = move |s: &mut omacontrol_core::store::Store| {
+        if let Some(d) = pending.borrow_mut().take() {
+            s.current = Some(d.ip.clone());
+            s.upsert(d);
+        }
+    };
     ui.on_ac_setup(move |step| {
         let Some(ui) = weak.upgrade() else { return };
         let protocol = AcProtocol::ALL[idx.get()];
@@ -978,6 +989,9 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 }
                 let learning = ui.get_ac_learning().to_string();
                 let mut s = st.lock().unwrap();
+                if learning.is_empty() {
+                    commit(&mut s);
+                }
                 let Some(ip) = s.current.clone() else { return };
                 if learning == "magic" {
                     // An IR TV's magic key: kept with the TV, back on its remote.
@@ -1013,6 +1027,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             "scan-dismiss" => scan.close(&ui),
             _ => {
                 let mut s = st.lock().unwrap();
+                commit(&mut s);
                 let Some(ip) = s.current.clone() else { return };
                 let code = pasted.borrow().clone();
                 let pasted_code = (!code.is_empty()
@@ -1085,9 +1100,16 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         }
     });
 
-    let (tx, st, weak, scan) = (jobs.clone(), store.clone(), ui.as_weak(), nec_scan.clone());
+    let (tx, st, weak, scan, pending) =
+        (jobs.clone(), store.clone(), ui.as_weak(), nec_scan.clone(), pending_ac.clone());
     ui.on_ac_action(move |action| {
         let Some(ui) = weak.upgrade() else { return };
+        if pending.borrow().is_some() {
+            // An AC still being set up has no code yet: finish setup first.
+            show_ac_setup(&ui, ui.get_ac_setup_index().max(0) as usize, false);
+            ui.set_page(5);
+            return;
+        }
         let mut s = st.lock().unwrap();
         let Some(ip) = s.current.clone() else { return };
         let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else {
