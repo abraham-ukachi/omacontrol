@@ -20,6 +20,7 @@ component Toggle inherits Key {
 export component AcPage inherits VerticalLayout {
     in property <string> name;
     in property <string> status;
+    in property <bool> status-error;
     in property <bool> custom-code;
     in property <bool> power;
     in property <int> temp;
@@ -32,7 +33,14 @@ export component AcPage inherits VerticalLayout {
     callback devices;
 
     spacing: Theme.gap;
-    Header { title: root.name; subtitle: root.status; online: root.power; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
+    Header {
+        title: root.name;
+        subtitle: root.status-error ? @tr("Error: {}", root.status) : root.status == "not set up yet" ? @tr("Not set up yet") : root.status == "code · IR" ? @tr("Code · IR") : root.status;
+        online: root.power;
+        tappable: true;
+        title-clicked => { root.devices(); }
+        menu => { root.menu(); }
+    }
     if root.custom-code: VerticalLayout {
         vertical-stretch: 1;
         alignment: center;
@@ -58,9 +66,16 @@ export component AcPage inherits VerticalLayout {
         padding-right: 8px;
         padding-top: 14px;
         spacing: 4px;
-        Text { text: root.power ? root.mode + " · fan " + root.fan : "off"; color: Theme.muted; font-size: 19px; }
         Text {
-            text: root.mode == "fan" ? "fan" : root.temp + "°";
+            text: root.power
+                ? @tr("{} · fan {}", root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"),
+                    root.fan == "low" ? @tr("Low") : root.fan == "med" ? @tr("Medium") : root.fan == "high" ? @tr("High") : @tr("Auto"))
+                : @tr("Off");
+            color: Theme.muted;
+            font-size: 19px;
+        }
+        Text {
+            text: root.mode == "fan" ? @tr("Fan") : root.temp + "°";
             color: root.power ? Theme.fg : Theme.muted;
             font-size: 112px;
             horizontal-alignment: right;
@@ -71,7 +86,7 @@ export component AcPage inherits VerticalLayout {
         height: 72px;
         spacing: Theme.gap;
         Key { has-icon: true; icon: @image-url("icons/power.svg"); kind: root.power ? KeyKind.primary : KeyKind.number; clicked => { root.action("power"); } }
-        Key { label: root.mode; font-size: 18px; clicked => { root.action("mode"); } }
+        Key { label: root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"); font-size: 18px; clicked => { root.action("mode"); } }
         Key { has-icon: true; icon: @image-url("icons/fan.svg"); clicked => { root.action("fan"); } }
     }
     if !root.custom-code: HorizontalLayout {
@@ -92,6 +107,7 @@ export component AcPage inherits VerticalLayout {
 // 05 · AC setup. The phone can't listen to IR, so we try each protocol until the AC beeps.
 export component AcSetupPage inherits Rectangle {
     in property <string> protocol;
+    in property <string> setup-error;
     in property <int> index;
     in property <int> count;
     in property <bool> tested;
@@ -122,8 +138,15 @@ export component AcSetupPage inherits Rectangle {
             padding-right: 8px;
             padding-top: 14px;
             spacing: 4px;
-            Text { text: "code " + (root.index + 1) + " of " + root.count; color: Theme.muted; font-size: 19px; }
-            Text { text: root.protocol; color: Theme.fg; font-size: 76px; horizontal-alignment: right; overflow: elide; }
+            Text { text: @tr("Code {} of {}", root.index + 1, root.count); color: Theme.muted; font-size: 19px; }
+            Text {
+                text: root.setup-error != "" ? @tr("Invalid infrared code: {}", root.setup-error) : root.protocol;
+                color: Theme.fg;
+                font-size: root.setup-error != "" ? 18px : 76px;
+                horizontal-alignment: right;
+                overflow: elide;
+                wrap: word-wrap;
+            }
         }
         Divider { }
         Text {
@@ -240,7 +263,7 @@ export component AcSetupPage inherits Rectangle {
                 }
                 if root.scan-code != "": Text { text: root.scan-code; color: Theme.fg; font-size: 14px; }
                 Text {
-                    text: root.scan-result != "" ? root.scan-result
+                    text: root.scan-result != "" ? @tr("Error: {}", root.scan-result)
                         : root.scan-active
                             ? @tr("Your phone cannot detect an IR response. Watch the AC and tap Found it when it reacts.")
                             : root.scan-cancelled

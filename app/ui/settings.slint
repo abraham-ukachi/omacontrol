@@ -66,18 +66,29 @@ export component SettingsPage inherits VerticalLayout {
     in-out property <string> fb-email;
     in-out property <string> fb-title;
     in-out property <string> fb-message;
-    in property <string> fb-status;
+    in property <string> fb-status-code;
+    in property <string> fb-status-detail;
     in property <bool> fb-sending;
     callback send-feedback();
     // The on-screen keyboard's height, so the form can scroll above it.
     in property <length> kb-height;
 
+    function localized-feedback-status() -> string {
+        if root.fb-status-code == "email-invalid" { return @tr("That email address doesn't look right"); }
+        if root.fb-status-code == "title-required" { return @tr("Add a title"); }
+        if root.fb-status-code == "message-short" { return @tr("Write a few more words"); }
+        if root.fb-status-code == "sending" { return @tr("Sending…"); }
+        if root.fb-status-code == "sent" { return @tr("Sent. Thank you!"); }
+        if root.fb-status-code == "failed" { return @tr("Not sent: {}", root.fb-status-detail); }
+        return "";
+    }
+
     spacing: Theme.gap;
-    Header { title: "Settings"; subtitle: "v" + root.version; menu => { root.menu(); } }
+    Header { title: @tr("Settings"); subtitle: "v" + root.version; menu => { root.menu(); } }
     HorizontalLayout {
         height: 48px;
         spacing: Theme.gap;
-        for t[i] in ["Theme", "About", "Feedback"]: Key {
+        for t[i] in [@tr("Theme"), @tr("About"), @tr("Feedback")]: Key {
             label: t;
             font-size: 15px;
             kind: root.tab == i ? KeyKind.primary : KeyKind.operator;
@@ -115,24 +126,24 @@ export component SettingsPage inherits VerticalLayout {
                 padding-left: 8px;
                 padding-right: 8px;
                 spacing: 6px;
-                Text { text: "about"; color: Theme.muted; font-size: 19px; }
+                Text { text: @tr("About"); color: Theme.muted; font-size: 19px; }
                 Text { text: "OmaControl"; color: Theme.fg; font-size: 40px; horizontal-alignment: right; }
                 Text { text: "v" + root.version; color: Theme.muted; font-size: 16px; horizontal-alignment: right; }
             }
             Rectangle { height: 14px; }
-            Text { x: 8px; text: "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."; color: Theme.fg; font-size: 15px; wrap: word-wrap; }
+            Text { x: 8px; text: @tr("A dead-simple remote for TVs and air conditioners, in Omarchy's colors."); color: Theme.fg; font-size: 15px; wrap: word-wrap; }
             Rectangle { height: 10px; }
             Divider { }
-            Link { label: "made by"; value: "Abraham Ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
+            Link { label: @tr("Made by"); value: "Abraham Ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
             Link { label: "GitHub"; value: "@abraham-ukachi"; clicked => { root.open-url("https://github.com/abraham-ukachi"); } }
             Link { label: "X"; value: "@abrahamukachi"; clicked => { root.open-url("https://x.com/abrahamukachi"); } }
-            Link { label: "email"; value: "abrahamukachi@gmail.com"; clicked => { root.open-url("mailto:abrahamukachi@gmail.com?subject=OmaControl"); } }
+            Link { label: @tr("Email"); value: "abrahamukachi@gmail.com"; clicked => { root.open-url("mailto:abrahamukachi@gmail.com?subject=OmaControl"); } }
             Divider { }
-            Link { label: "source"; value: "github.com/abraham-ukachi/omacontrol"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol"); } }
-            Link { label: "license"; value: "MIT"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/blob/main/LICENSE"); } }
-            Link { label: "version"; value: root.version; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/releases"); } }
+            Link { label: @tr("Source"); value: "github.com/abraham-ukachi/omacontrol"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol"); } }
+            Link { label: @tr("License"); value: "MIT"; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/blob/main/LICENSE"); } }
+            Link { label: @tr("Version"); value: root.version; clicked => { root.open-url("https://github.com/abraham-ukachi/omacontrol/releases"); } }
             Rectangle { height: 16px; }
-            Text { x: 8px; text: "MOTTO: We'll always do more"; color: Theme.muted; font-size: 13px; }
+            Text { x: 8px; text: @tr("MOTTO: We'll always do more"); color: Theme.muted; font-size: 13px; }
         }
     }
 
@@ -143,27 +154,27 @@ export component SettingsPage inherits VerticalLayout {
             spacing: Theme.gap;
             padding-top: 6px;
             padding-bottom: root.kb-height;
-            Text { x: 8px; text: "an idea, or something broken? it goes straight to Abraham's inbox."; color: Theme.muted; font-size: 14px; wrap: word-wrap; }
+            Text { x: 8px; text: @tr("An idea, or something broken? It goes straight to Abraham's inbox."); color: Theme.muted; font-size: 14px; wrap: word-wrap; }
             HorizontalLayout {
                 height: 48px;
                 spacing: Theme.gap;
                 for k in ["Feedback", "Issue"]: Key {
-                    label: k;
+                    label: k == "Feedback" ? @tr("Feedback") : @tr("Issue");
                     font-size: 15px;
                     kind: root.fb-kind == k ? KeyKind.primary : KeyKind.operator;
                     clicked => { root.fb-kind = k; }
                 }
             }
-            Field { placeholder: "your email (optional, for a reply)"; text <=> root.fb-email; input-type: InputType.text; }
-            Field { placeholder: root.fb-kind == "Issue" ? "what broke?" : "title"; text <=> root.fb-title; }
-            Field { placeholder: root.fb-kind == "Issue" ? "what happened, and on which TV or AC?" : "tell me more…"; text <=> root.fb-message; multiline: true; }
+            Field { placeholder: @tr("Your email (optional, for a reply)"); text <=> root.fb-email; input-type: InputType.text; }
+            Field { placeholder: root.fb-kind == "Issue" ? @tr("What broke?") : @tr("Title"); text <=> root.fb-title; }
+            Field { placeholder: root.fb-kind == "Issue" ? @tr("What happened, and on which TV or AC?") : @tr("Tell me more…"); text <=> root.fb-message; multiline: true; }
             HorizontalLayout {
                 height: 60px;
                 spacing: Theme.gap;
-                Text { horizontal-stretch: 2; text: root.fb-status; color: Theme.muted; font-size: 14px; vertical-alignment: center; wrap: word-wrap; }
+                Text { horizontal-stretch: 2; text: root.localized-feedback-status(); color: Theme.muted; font-size: 14px; vertical-alignment: center; wrap: word-wrap; }
                 Key {
                     horizontal-stretch: 1;
-                    label: root.fb-sending ? "…" : "Send";
+                    label: root.fb-sending ? "…" : @tr("Send");
                     kind: KeyKind.primary;
                     font-size: 18px;
                     clicked => { if !root.fb-sending { root.send-feedback(); } }

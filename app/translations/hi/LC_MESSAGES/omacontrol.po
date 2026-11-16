@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: OmaControl 0.3.4\n"
+"Project-Id-Version: OmaControl 0.3.5\n"
 "PO-Revision-Date: 2026-11-16 00:00+0000\n"
 "Last-Translator: OmaControl contributors\n"
 "Language-Team: Hindi\n"
@@ -77,3 +77,243 @@ msgstr "स्कैन रद्द करें"
 
 msgid "Done"
 msgstr "हो गया"
+
+msgid "+ save"
+msgstr "+ सहेजें"
+
+msgid "6 characters, 0-9 and A-F. It stays on the TV for a minute."
+msgstr "6 अक्षर, 0-9 और A-F। कोड एक मिनट तक TV पर रहेगा।"
+
+msgid "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."
+msgstr "Omarchy के रंगों में टीवी और एयर कंडीशनर के लिए एक आसान रिमोट।"
+
+msgid "About"
+msgstr "जानकारी"
+
+msgid "Add"
+msgstr "जोड़ें"
+
+msgid "Add a title"
+msgstr "शीर्षक जोड़ें"
+
+msgid "Air conditioner · IR"
+msgstr "एयर कंडीशनर · IR"
+
+msgid "An idea, or something broken? It goes straight to Abraham's inbox."
+msgstr "कोई सुझाव है या कुछ खराब है? संदेश सीधे Abraham के इनबॉक्स में जाएगा।"
+
+msgid "Asking the TV for a code…"
+msgstr "TV से कोड माँगा जा रहा है…"
+
+msgid "Auto"
+msgstr "ऑटो"
+
+msgid "BFMTV, France 2…"
+msgstr "BFMTV, France 2…"
+
+msgid "Cancel"
+msgstr "रद्द करें"
+
+msgid "Channel"
+msgstr "चैनल"
+
+msgid "Channel {} won't be saved anymore. You can always save it again."
+msgstr "चैनल {} अब सहेजा नहीं जाएगा। आप इसे कभी भी फिर से सहेज सकते हैं।"
+
+msgid "Channels & apps"
+msgstr "चैनल और ऐप्स"
+
+msgid "Code {} of {}"
+msgstr "कोड {} / {}"
+
+msgid "Code · IR"
+msgstr "कोड · IR"
+
+msgid "Connected · {}"
+msgstr "कनेक्ट किया गया · {}"
+
+msgid "Connecting · {}"
+msgstr "कनेक्ट हो रहा है · {}"
+
+msgid "Cool"
+msgstr "ठंडा"
+
+msgid "Delete"
+msgstr "हटाएँ"
+
+msgid "Delete {}?"
+msgstr "{} हटाएँ?"
+
+msgid "Devices"
+msgstr "डिवाइस"
+
+msgid "Dry"
+msgstr "नमी हटाना"
+
+msgid "Email"
+msgstr "ईमेल"
+
+msgid "Error: {}"
+msgstr "त्रुटि: {}"
+
+msgid "Fan"
+msgstr "पंखा"
+
+msgid "Feedback"
+msgstr "प्रतिक्रिया"
+
+msgid "GO"
+msgstr "जाएँ"
+
+msgid "Heat"
+msgstr "गर्म"
+
+msgid "High"
+msgstr "तेज़"
+
+msgid "IR · tap to set up"
+msgstr "IR · सेटअप के लिए टैप करें"
+
+msgid "IR · {}"
+msgstr "IR · {}"
+
+msgid "Invalid infrared code: {}"
+msgstr "अमान्य इन्फ्रारेड कोड: {}"
+
+msgid "Issue"
+msgstr "समस्या"
+
+msgid "License"
+msgstr "लाइसेंस"
+
+msgid "Looking for the TV…"
+msgstr "TV ढूँढा जा रहा है…"
+
+msgid "Low"
+msgstr "कम"
+
+msgid "MOTTO: We'll always do more"
+msgstr "मोटो: हम हमेशा और बेहतर करेंगे"
+
+msgid "Made by"
+msgstr "निर्माता"
+
+msgid "Medium"
+msgstr "मध्यम"
+
+msgid "Name for {}"
+msgstr "{} का नाम"
+
+msgid "No TV"
+msgstr "कोई TV नहीं"
+
+msgid "Not paired"
+msgstr "पेयर नहीं हुआ"
+
+msgid "Not sent: {}"
+msgstr "नहीं भेजा गया: {}"
+
+msgid "Not set up yet"
+msgstr "अभी सेटअप नहीं हुआ"
+
+msgid "OK"
+msgstr "ठीक है"
+
+msgid "Off"
+msgstr "बंद"
+
+msgid "Pair"
+msgstr "पेयर करें"
+
+msgid "Pairing…"
+msgstr "पेयर हो रहा है…"
+
+msgid "Pick a TV first"
+msgstr "पहले TV चुनें"
+
+msgid "Remote"
+msgstr "रिमोट"
+
+msgid "Rename {}"
+msgstr "{} का नाम बदलें"
+
+msgid "Rescan"
+msgstr "फिर से स्कैन करें"
+
+msgid "SAVE"
+msgstr "सहेजें"
+
+msgid "Say yes on the TV…"
+msgstr "TV पर हाँ चुनें…"
+
+msgid "Scanning"
+msgstr "स्कैन हो रहा है"
+
+msgid "Scanning {}"
+msgstr "{} स्कैन हो रहा है"
+
+msgid "Send"
+msgstr "भेजें"
+
+msgid "Sending…"
+msgstr "भेजा जा रहा है…"
+
+msgid "Sent. Thank you!"
+msgstr "भेज दिया गया। धन्यवाद!"
+
+msgid "Settings"
+msgstr "सेटिंग्स"
+
+msgid "Source"
+msgstr "स्रोत कोड"
+
+msgid "Tell me more…"
+msgstr "और बताएँ…"
+
+msgid "That email address doesn't look right"
+msgstr "यह ईमेल पता सही नहीं लग रहा"
+
+msgid "Theme"
+msgstr "थीम"
+
+msgid "Title"
+msgstr "शीर्षक"
+
+msgid "Type a number, then + save"
+msgstr "नंबर लिखें, फिर + सहेजें दबाएँ"
+
+msgid "Type the code on the TV"
+msgstr "TV पर कोड दर्ज करें"
+
+msgid "Type the code your TV shows"
+msgstr "TV पर दिख रहा कोड दर्ज करें"
+
+msgid "Type to TV…"
+msgstr "TV पर लिखें…"
+
+msgid "Version"
+msgstr "संस्करण"
+
+msgid "What broke?"
+msgstr "क्या खराब हुआ?"
+
+msgid "What happened, and on which TV or AC?"
+msgstr "क्या हुआ और किस TV या AC पर?"
+
+msgid "Write a few more words"
+msgstr "कुछ और शब्द लिखें"
+
+msgid "Your email (optional, for a reply)"
+msgstr "आपका ईमेल (वैकल्पिक, जवाब के लिए)"
+
+msgid "Your network"
+msgstr "आपका नेटवर्क"
+
+msgid "{} found"
+msgstr "{} मिले"
+
+msgid "{} · fan {}"
+msgstr "{} · पंखा {}"
+
+msgid "{} · tap the name to try again"
+msgstr "{} · फिर से कोशिश करने के लिए नाम पर टैप करें"

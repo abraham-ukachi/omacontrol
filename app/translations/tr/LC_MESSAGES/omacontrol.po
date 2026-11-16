@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: OmaControl 0.3.4\n"
+"Project-Id-Version: OmaControl 0.3.5\n"
 "PO-Revision-Date: 2026-11-16 00:00+0000\n"
 "Last-Translator: OmaControl contributors\n"
 "Language-Team: Turkish\n"
@@ -77,3 +77,243 @@ msgstr "Taramayı iptal et"
 
 msgid "Done"
 msgstr "Bitti"
+
+msgid "+ save"
+msgstr "+ kaydet"
+
+msgid "6 characters, 0-9 and A-F. It stays on the TV for a minute."
+msgstr "6 karakter, 0-9 ve A-F. Kod TV'de bir dakika görünür."
+
+msgid "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."
+msgstr "Omarchy renklerinde TV ve klimalar için sade bir uzaktan kumanda."
+
+msgid "About"
+msgstr "Hakkında"
+
+msgid "Add"
+msgstr "Ekle"
+
+msgid "Add a title"
+msgstr "Bir başlık ekleyin"
+
+msgid "Air conditioner · IR"
+msgstr "Klima · IR"
+
+msgid "An idea, or something broken? It goes straight to Abraham's inbox."
+msgstr "Bir fikriniz mi var ya da bir şey mi bozuldu? Mesajınız doğrudan Abraham'a gider."
+
+msgid "Asking the TV for a code…"
+msgstr "TV'den kod isteniyor…"
+
+msgid "Auto"
+msgstr "Otomatik"
+
+msgid "BFMTV, France 2…"
+msgstr "BFMTV, France 2…"
+
+msgid "Cancel"
+msgstr "İptal"
+
+msgid "Channel"
+msgstr "Kanal"
+
+msgid "Channel {} won't be saved anymore. You can always save it again."
+msgstr "{} kanalı artık kaydedilmeyecek. İstediğiniz zaman yeniden kaydedebilirsiniz."
+
+msgid "Channels & apps"
+msgstr "Kanallar ve uygulamalar"
+
+msgid "Code {} of {}"
+msgstr "Kod {} / {}"
+
+msgid "Code · IR"
+msgstr "Kod · IR"
+
+msgid "Connected · {}"
+msgstr "Bağlandı · {}"
+
+msgid "Connecting · {}"
+msgstr "Bağlanıyor · {}"
+
+msgid "Cool"
+msgstr "Soğutma"
+
+msgid "Delete"
+msgstr "Sil"
+
+msgid "Delete {}?"
+msgstr "{} silinsin mi?"
+
+msgid "Devices"
+msgstr "Cihazlar"
+
+msgid "Dry"
+msgstr "Nem alma"
+
+msgid "Email"
+msgstr "E-posta"
+
+msgid "Error: {}"
+msgstr "Hata: {}"
+
+msgid "Fan"
+msgstr "Fan"
+
+msgid "Feedback"
+msgstr "Geri bildirim"
+
+msgid "GO"
+msgstr "GİT"
+
+msgid "Heat"
+msgstr "Isıtma"
+
+msgid "High"
+msgstr "Yüksek"
+
+msgid "IR · tap to set up"
+msgstr "IR · kurmak için dokunun"
+
+msgid "IR · {}"
+msgstr "IR · {}"
+
+msgid "Invalid infrared code: {}"
+msgstr "Geçersiz kızılötesi kod: {}"
+
+msgid "Issue"
+msgstr "Sorun"
+
+msgid "License"
+msgstr "Lisans"
+
+msgid "Looking for the TV…"
+msgstr "TV aranıyor…"
+
+msgid "Low"
+msgstr "Düşük"
+
+msgid "MOTTO: We'll always do more"
+msgstr "MOTTO: Her zaman daha fazlasını yapacağız"
+
+msgid "Made by"
+msgstr "Geliştiren"
+
+msgid "Medium"
+msgstr "Orta"
+
+msgid "Name for {}"
+msgstr "{} için ad"
+
+msgid "No TV"
+msgstr "TV yok"
+
+msgid "Not paired"
+msgstr "Eşleştirilmedi"
+
+msgid "Not sent: {}"
+msgstr "Gönderilemedi: {}"
+
+msgid "Not set up yet"
+msgstr "Henüz ayarlanmadı"
+
+msgid "OK"
+msgstr "Tamam"
+
+msgid "Off"
+msgstr "Kapalı"
+
+msgid "Pair"
+msgstr "Eşleştir"
+
+msgid "Pairing…"
+msgstr "Eşleştiriliyor…"
+
+msgid "Pick a TV first"
+msgstr "Önce bir TV seçin"
+
+msgid "Remote"
+msgstr "Uzaktan kumanda"
+
+msgid "Rename {}"
+msgstr "{} adını değiştir"
+
+msgid "Rescan"
+msgstr "Yeniden tara"
+
+msgid "SAVE"
+msgstr "KAYDET"
+
+msgid "Say yes on the TV…"
+msgstr "TV'de Evet'e basın…"
+
+msgid "Scanning"
+msgstr "Taranıyor"
+
+msgid "Scanning {}"
+msgstr "{} taranıyor"
+
+msgid "Send"
+msgstr "Gönder"
+
+msgid "Sending…"
+msgstr "Gönderiliyor…"
+
+msgid "Sent. Thank you!"
+msgstr "Gönderildi. Teşekkürler!"
+
+msgid "Settings"
+msgstr "Ayarlar"
+
+msgid "Source"
+msgstr "Kaynak kodu"
+
+msgid "Tell me more…"
+msgstr "Biraz daha anlatın…"
+
+msgid "That email address doesn't look right"
+msgstr "Bu e-posta adresi doğru görünmüyor"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Title"
+msgstr "Başlık"
+
+msgid "Type a number, then + save"
+msgstr "Bir numara yazın, sonra + kaydet'e dokunun"
+
+msgid "Type the code on the TV"
+msgstr "Kodu TV'ye girin"
+
+msgid "Type the code your TV shows"
+msgstr "TV'de gösterilen kodu girin"
+
+msgid "Type to TV…"
+msgstr "TV'ye yazın…"
+
+msgid "Version"
+msgstr "Sürüm"
+
+msgid "What broke?"
+msgstr "Ne bozuldu?"
+
+msgid "What happened, and on which TV or AC?"
+msgstr "Ne oldu ve hangi TV ya da klimada?"
+
+msgid "Write a few more words"
+msgstr "Birkaç kelime daha yazın"
+
+msgid "Your email (optional, for a reply)"
+msgstr "E-posta adresiniz (isteğe bağlı, yanıt için)"
+
+msgid "Your network"
+msgstr "Ağınız"
+
+msgid "{} found"
+msgstr "{} bulundu"
+
+msgid "{} · fan {}"
+msgstr "{} · fan {}"
+
+msgid "{} · tap the name to try again"
+msgstr "{} · tekrar denemek için ada dokunun"

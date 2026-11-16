@@ -222,7 +222,7 @@ export component Header inherits HorizontalLayout {
 export component Confirm inherits Rectangle {
     in property <string> title;
     in property <string> message;
-    in property <string> action: "Delete";
+    in property <string> action: @tr("Delete");
     callback confirmed;
     callback cancelled;
 
@@ -245,7 +245,7 @@ export component Confirm inherits Rectangle {
             HorizontalLayout {
                 height: 56px;
                 spacing: Theme.gap;
-                Key { label: "Cancel"; kind: KeyKind.operator; font-size: 17px; clicked => { root.cancelled(); } }
+                Key { label: @tr("Cancel"); kind: KeyKind.operator; font-size: 17px; clicked => { root.cancelled(); } }
                 Key { label: root.action; kind: KeyKind.primary; font-size: 17px; clicked => { root.confirmed(); } }
             }
         }

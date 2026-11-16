@@ -4,7 +4,8 @@ import { Key, KeyKind, Rocker, Header, Divider } from "widgets.slint";
 // 02 · Remote.
 export component RemotePage inherits VerticalLayout {
     in property <string> tv-name;
-    in property <string> tv-status;
+    in property <string> tv-status-code;
+    in property <string> tv-status-detail;
     in property <bool> online;
     callback menu;
     callback press(string);
@@ -17,8 +18,23 @@ export component RemotePage inherits VerticalLayout {
     callback cancel-pair;
     in property <length> kb-height;
 
+    function localized-status() -> string {
+        if root.tv-status-code == "pairing" { return @tr("Pairing…"); }
+        if root.tv-status-code == "not-paired" { return @tr("Not paired"); }
+        if root.tv-status-code == "pick-tv" { return @tr("Pick a TV first"); }
+        if root.tv-status-code == "looking" { return @tr("Looking for the TV…"); }
+        if root.tv-status-code == "connecting" { return @tr("Connecting · {}", root.tv-status-detail); }
+        if root.tv-status-code == "approval" { return @tr("Say yes on the TV…"); }
+        if root.tv-status-code == "asking-code" { return @tr("Asking the TV for a code…"); }
+        if root.tv-status-code == "type-code" { return @tr("Type the code on the TV"); }
+        if root.tv-status-code == "connected" { return @tr("Connected · {}", root.tv-status-detail); }
+        if root.tv-status-code == "pair-error" { return @tr("{} · tap the name to try again", root.tv-status-detail); }
+        if root.tv-status-code == "error" { return @tr("Error: {}", root.tv-status-detail); }
+        return root.tv-status-detail;
+    }
+
     spacing: Theme.gap;
-    Header { title: root.tv-name; subtitle: root.tv-status; online: root.online; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
+    Header { title: root.tv-name; subtitle: root.localized-status(); online: root.online; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
     Divider { }
     if root.pairing: VerticalLayout {
         spacing: Theme.gap;
@@ -26,8 +42,8 @@ export component RemotePage inherits VerticalLayout {
         padding-bottom: root.kb-height;
         vertical-stretch: 1;
         alignment: start;
-        Text { x: 8px; text: "pair"; color: Theme.muted; font-size: 19px; }
-        Text { text: "Type the code your TV shows"; color: Theme.fg; font-size: 22px; wrap: word-wrap; horizontal-alignment: right; }
+        Text { x: 8px; text: @tr("Pair"); color: Theme.muted; font-size: 19px; }
+        Text { text: @tr("Type the code your TV shows"); color: Theme.fg; font-size: 22px; wrap: word-wrap; horizontal-alignment: right; }
         Rectangle { height: 8px; }
         Rectangle {
             height: 84px;
@@ -46,12 +62,12 @@ export component RemotePage inherits VerticalLayout {
             }
             if code.text == "": Text { text: "_ _ _ _ _ _"; color: Theme.muted; font-size: 32px; }
         }
-        Text { x: 8px; text: "6 characters, 0-9 and A-F. It stays on the TV for a minute."; color: Theme.muted; font-size: 13px; wrap: word-wrap; }
+        Text { x: 8px; text: @tr("6 characters, 0-9 and A-F. It stays on the TV for a minute."); color: Theme.muted; font-size: 13px; wrap: word-wrap; }
         HorizontalLayout {
             height: 64px;
             spacing: Theme.gap;
-            Key { label: "Cancel"; font-size: 17px; clicked => { root.cancel-pair(); } }
-            Key { label: "Pair"; kind: KeyKind.primary; font-size: 17px; clicked => { root.pair(code.text); } }
+            Key { label: @tr("Cancel"); font-size: 17px; clicked => { root.cancel-pair(); } }
+            Key { label: @tr("Pair"); kind: KeyKind.primary; font-size: 17px; clicked => { root.pair(code.text); } }
         }
         init => { code.focus(); }
     }
@@ -78,7 +94,7 @@ export component RemotePage inherits VerticalLayout {
         }
         Row {
             Key { has-icon: true; icon: @image-url("icons/left.svg"); icon-size: 30px; clicked => { root.press("left"); } }
-            Key { label: "OK"; kind: KeyKind.primary; font-size: 22px; clicked => { root.press("ok"); } }
+            Key { label: @tr("OK"); kind: KeyKind.primary; font-size: 22px; clicked => { root.press("ok"); } }
             Key { has-icon: true; icon: @image-url("icons/right.svg"); icon-size: 30px; clicked => { root.press("right"); } }
         }
         Row {

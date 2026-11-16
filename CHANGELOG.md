@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.5] - 2026-11-16
+
+### Added
+- :earth_americas: Translated every app screen, built-in prompt and status message into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese.
+- :iphone: Select the phone's current Android language or the Linux desktop locale on startup; unsupported languages use English.
+
+### Fixed
+- :bug: Locale bundles were built but not selected at startup, and previously only the AC setup flow had translated strings.
+
 ## [0.3.4] - 2026-11-16
 
 ### Added

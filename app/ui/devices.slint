@@ -26,20 +26,20 @@ export component DevicesPage inherits VerticalLayout {
     property <bool> adding: false;
 
     spacing: Theme.gap;
-    Header { title: "Devices"; menu => { root.menu(); } }
+    Header { title: @tr("Devices"); menu => { root.menu(); } }
     if !root.scanning: VerticalLayout {
         padding: 8px;
         padding-top: 22px;
         spacing: 8px;
-        Text { text: root.subnet; color: Theme.muted; font-size: 19px; }
-        Text { text: root.devices.length + " found"; color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
+        Text { text: root.subnet == "your network" ? @tr("Your network") : root.subnet; color: Theme.muted; font-size: 19px; }
+        Text { text: @tr("{} found", root.devices.length); color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
     }
     // While scanning: the ASCII radar on the left, the running count on the right.
     if root.scanning: HorizontalLayout {
         padding: 8px;
         padding-top: 14px;
         spacing: 12px;
-        AsciiScan { label: "scanning " + root.subnet; size: 15px; }
+        AsciiScan { label: @tr("Scanning {}", root.subnet); size: 15px; }
         Text {
             text: root.devices.length == 0 ? "" : root.devices.length + "";
             color: Theme.fg; font-size: 64px; horizontal-alignment: right; vertical-alignment: center;
@@ -66,7 +66,14 @@ export component DevicesPage inherits VerticalLayout {
                         alignment: center;
                         spacing: 5px;
                         Text { text: d.name; color: Theme.fg; font-size: 17px; overflow: elide; }
-                        Text { text: d.meta; color: Theme.muted; font-size: 13px; overflow: elide; }
+                        Text {
+                            text: d.meta == "IR · tap to set up" ? @tr("IR · tap to set up")
+                                : d.meta == "code · IR" ? @tr("Code · IR")
+                                : d.meta;
+                            color: Theme.muted;
+                            font-size: 13px;
+                            overflow: elide;
+                        }
                     }
                     if d.current: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
                     if !d.current: Text { text: d.ip; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
@@ -78,7 +85,7 @@ export component DevicesPage inherits VerticalLayout {
     // With an IR blaster, air conditioners and Samsung, LG or Sony TVs work, even without Wi-Fi.
     if root.adding && root.has-ir: Key {
         height: 52px;
-        label: "Air conditioner · IR";
+        label: @tr("Air conditioner · IR");
         kind: KeyKind.operator;
         font-size: 15px;
         clicked => { root.add-ac(); root.adding = false; }
@@ -87,7 +94,7 @@ export component DevicesPage inherits VerticalLayout {
         height: 52px;
         spacing: Theme.gap;
         for b in ["Samsung", "LG", "Sony"]: Key {
-            label: "IR · " + b;
+            label: @tr("IR · {}", b);
             kind: KeyKind.operator;
             font-size: 15px;
             clicked => { root.add-ir(b); root.adding = false; }
@@ -112,7 +119,7 @@ export component DevicesPage inherits VerticalLayout {
     HorizontalLayout {
         height: 64px;
         spacing: Theme.gap;
-        Key { label: root.adding ? "Cancel" : "Add"; font-size: 17px; clicked => { root.adding = !root.adding; } }
-        Key { label: "Rescan"; kind: KeyKind.primary; font-size: 17px; clicked => { root.rescan(); } }
+        Key { label: root.adding ? @tr("Cancel") : @tr("Add"); font-size: 17px; clicked => { root.adding = !root.adding; } }
+        Key { label: @tr("Rescan"); kind: KeyKind.primary; font-size: 17px; clicked => { root.rescan(); } }
     }
 }

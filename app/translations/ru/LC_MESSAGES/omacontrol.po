@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: OmaControl 0.3.4\n"
+"Project-Id-Version: OmaControl 0.3.5\n"
 "PO-Revision-Date: 2026-11-16 00:00+0000\n"
 "Last-Translator: OmaControl contributors\n"
 "Language-Team: Russian\n"
@@ -77,3 +77,243 @@ msgstr "Остановить поиск"
 
 msgid "Done"
 msgstr "Готово"
+
+msgid "+ save"
+msgstr "+ сохранить"
+
+msgid "6 characters, 0-9 and A-F. It stays on the TV for a minute."
+msgstr "6 символов: от 0 до 9 и от A до F. Код будет показан на телевизоре в течение минуты."
+
+msgid "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."
+msgstr "Простой пульт для телевизоров и кондиционеров в цветах Omarchy."
+
+msgid "About"
+msgstr "О приложении"
+
+msgid "Add"
+msgstr "Добавить"
+
+msgid "Add a title"
+msgstr "Добавьте заголовок"
+
+msgid "Air conditioner · IR"
+msgstr "Кондиционер · ИК"
+
+msgid "An idea, or something broken? It goes straight to Abraham's inbox."
+msgstr "Есть идея или что-то сломалось? Сообщение попадёт прямо в почту Abraham."
+
+msgid "Asking the TV for a code…"
+msgstr "Телевизор запрашивает код…"
+
+msgid "Auto"
+msgstr "Авто"
+
+msgid "BFMTV, France 2…"
+msgstr "BFMTV, France 2…"
+
+msgid "Cancel"
+msgstr "Отмена"
+
+msgid "Channel"
+msgstr "Канал"
+
+msgid "Channel {} won't be saved anymore. You can always save it again."
+msgstr "Канал {} больше не будет сохранён. Вы всегда сможете сохранить его снова."
+
+msgid "Channels & apps"
+msgstr "Каналы и приложения"
+
+msgid "Code {} of {}"
+msgstr "Код {} из {}"
+
+msgid "Code · IR"
+msgstr "Код · ИК"
+
+msgid "Connected · {}"
+msgstr "Подключено · {}"
+
+msgid "Connecting · {}"
+msgstr "Подключение · {}"
+
+msgid "Cool"
+msgstr "Охлаждение"
+
+msgid "Delete"
+msgstr "Удалить"
+
+msgid "Delete {}?"
+msgstr "Удалить {}?"
+
+msgid "Devices"
+msgstr "Устройства"
+
+msgid "Dry"
+msgstr "Осушение"
+
+msgid "Email"
+msgstr "Эл. почта"
+
+msgid "Error: {}"
+msgstr "Ошибка: {}"
+
+msgid "Fan"
+msgstr "Вентилятор"
+
+msgid "Feedback"
+msgstr "Отзыв"
+
+msgid "GO"
+msgstr "ПЕРЕХОД"
+
+msgid "Heat"
+msgstr "Обогрев"
+
+msgid "High"
+msgstr "Высокая"
+
+msgid "IR · tap to set up"
+msgstr "ИК · нажмите для настройки"
+
+msgid "IR · {}"
+msgstr "ИК · {}"
+
+msgid "Invalid infrared code: {}"
+msgstr "Неверный инфракрасный код: {}"
+
+msgid "Issue"
+msgstr "Проблема"
+
+msgid "License"
+msgstr "Лицензия"
+
+msgid "Looking for the TV…"
+msgstr "Поиск телевизора…"
+
+msgid "Low"
+msgstr "Низкая"
+
+msgid "MOTTO: We'll always do more"
+msgstr "MOTTO: Her zaman daha fazlasını yapacağız"
+
+msgid "Made by"
+msgstr "Автор"
+
+msgid "Medium"
+msgstr "Средняя"
+
+msgid "Name for {}"
+msgstr "Имя для {}"
+
+msgid "No TV"
+msgstr "Нет телевизора"
+
+msgid "Not paired"
+msgstr "Не сопряжено"
+
+msgid "Not sent: {}"
+msgstr "Не отправлено: {}"
+
+msgid "Not set up yet"
+msgstr "Henüz ayarlanmadı"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Off"
+msgstr "Выключено"
+
+msgid "Pair"
+msgstr "Сопрячь"
+
+msgid "Pairing…"
+msgstr "Сопряжение…"
+
+msgid "Pick a TV first"
+msgstr "Сначала выберите телевизор"
+
+msgid "Remote"
+msgstr "Пульт"
+
+msgid "Rename {}"
+msgstr "Переименовать {}"
+
+msgid "Rescan"
+msgstr "Сканировать снова"
+
+msgid "SAVE"
+msgstr "СОХРАНИТЬ"
+
+msgid "Say yes on the TV…"
+msgstr "Wählen Sie Ja auf dem Fernseher…"
+
+msgid "Scanning"
+msgstr "Сканирование"
+
+msgid "Scanning {}"
+msgstr "Сканирование {}"
+
+msgid "Send"
+msgstr "Отправить"
+
+msgid "Sending…"
+msgstr "Отправка…"
+
+msgid "Sent. Thank you!"
+msgstr "Отправлено. Спасибо!"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Source"
+msgstr "Исходный код"
+
+msgid "Tell me more…"
+msgstr "Расскажите подробнее…"
+
+msgid "That email address doesn't look right"
+msgstr "Этот адрес электронной почты выглядит неверно"
+
+msgid "Theme"
+msgstr "Тема"
+
+msgid "Title"
+msgstr "Заголовок"
+
+msgid "Type a number, then + save"
+msgstr "Введите номер и нажмите + сохранить"
+
+msgid "Type the code on the TV"
+msgstr "Введите код на телевизоре"
+
+msgid "Type the code your TV shows"
+msgstr "Введите код, показанный на телевизоре"
+
+msgid "Type to TV…"
+msgstr "Введите текст на телевизоре…"
+
+msgid "Version"
+msgstr "Версия"
+
+msgid "What broke?"
+msgstr "Что сломалось?"
+
+msgid "What happened, and on which TV or AC?"
+msgstr "Ne oldu ve hangi TV ya da klimada?"
+
+msgid "Write a few more words"
+msgstr "Напишите ещё несколько слов"
+
+msgid "Your email (optional, for a reply)"
+msgstr "Электронная почта (необязательно, для ответа)"
+
+msgid "Your network"
+msgstr "Ваша сеть"
+
+msgid "{} found"
+msgstr "Найдено: {}"
+
+msgid "{} · fan {}"
+msgstr "{} · вентилятор {}"
+
+msgid "{} · tap the name to try again"
+msgstr "{} · нажмите на название, чтобы повторить попытку"

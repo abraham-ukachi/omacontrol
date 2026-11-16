@@ -3,7 +3,7 @@ import { Theme } from "theme.slint";
 // The scanner: an ASCII radar sweeping while we look for devices, Omarchy-terminal style,
 // with a bouncing bar and a blinking cursor under it. Pure text, so every theme paints it.
 export component AsciiScan inherits VerticalLayout {
-    in property <string> label: "scanning";
+    in property <string> label: @tr("Scanning");
     in property <bool> running: true;
     in property <length> size: 15px;
     property <int> tick: root.running ? Math.floor(animation-tick() / 110ms) : 0;

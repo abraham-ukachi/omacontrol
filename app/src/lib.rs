@@ -47,6 +47,107 @@ fn version_line() -> String {
     format!("{} · {os}", env!("CARGO_PKG_VERSION"))
 }
 
+enum TvStatus {
+    Pairing,
+    NotPaired,
+    PickTv,
+    Looking,
+    Connecting(String),
+    Approval,
+    AskingCode,
+    TypeCode,
+    Connected(String),
+    PairError(String),
+    Error(String),
+}
+
+fn update_tv_status(weak: &slint::Weak<AppWindow>, status: TvStatus, online: bool) {
+    let (code, detail) = match status {
+        TvStatus::Pairing => ("pairing", String::new()),
+        TvStatus::NotPaired => ("not-paired", String::new()),
+        TvStatus::PickTv => ("pick-tv", String::new()),
+        TvStatus::Looking => ("looking", String::new()),
+        TvStatus::Connecting(detail) => ("connecting", detail),
+        TvStatus::Approval => ("approval", String::new()),
+        TvStatus::AskingCode => ("asking-code", String::new()),
+        TvStatus::TypeCode => ("type-code", String::new()),
+        TvStatus::Connected(detail) => ("connected", detail),
+        TvStatus::PairError(detail) => ("pair-error", detail),
+        TvStatus::Error(detail) => ("error", detail),
+    };
+    let code = code.to_string();
+    let _ = weak.upgrade_in_event_loop(move |ui| {
+        ui.set_tv_status_code(code.into());
+        ui.set_tv_status_detail(detail.into());
+        ui.set_online(online);
+    });
+}
+
+fn language_for_locale(locale: &str) -> &'static str {
+    let locale = locale.trim().split(['.', '@']).next().unwrap_or_default().replace('-', "_");
+    let normalized = locale.to_ascii_lowercase();
+    let language = normalized.split('_').next().unwrap_or_default();
+    match language {
+        "de" => "de",
+        "es" => "es",
+        "fr" => "fr",
+        "hi" => "hi",
+        "it" => "it",
+        "ja" => "ja",
+        "pt" => "pt",
+        "ru" => "ru",
+        "tr" => "tr",
+        "zh" if !normalized.contains("hant")
+            && !["_tw", "_hk", "_mo"].iter().any(|region| normalized.ends_with(region)) =>
+        {
+            "zh_CN"
+        }
+        _ => "en",
+    }
+}
+
+#[cfg(target_os = "android")]
+fn android_language_tag() -> Result<String, jni::errors::Error> {
+    use jni::objects::{JObject, JString, JValue};
+    use jni::JavaVM;
+
+    let context = ndk_context::android_context();
+    let vm = unsafe { JavaVM::from_raw(context.vm().cast()) }?;
+    let mut env = vm.attach_current_thread()?;
+    let context = unsafe { JObject::from_raw(context.context().cast()) };
+    let resources = env.call_method(&context, "getResources", "()Landroid/content/res/Resources;", &[])?.l()?;
+    let configuration = env.call_method(&resources, "getConfiguration", "()Landroid/content/res/Configuration;", &[])?.l()?;
+    let locales = env.call_method(&configuration, "getLocales", "()Landroid/os/LocaleList;", &[])?.l()?;
+    let locale = env.call_method(&locales, "get", "(I)Ljava/util/Locale;", &[JValue::Int(0)])?.l()?;
+    let tag = env.call_method(&locale, "toLanguageTag", "()Ljava/lang/String;", &[])?.l()?;
+    Ok(env.get_string(&JString::from(tag))?.into())
+}
+
+fn select_system_translation() {
+    #[cfg(target_os = "android")]
+    let locale = match android_language_tag() {
+        Ok(locale) => locale,
+        Err(error) => {
+            log::warn!("could not read Android system language: {error}");
+            "en".to_string()
+        }
+    };
+    #[cfg(not(target_os = "android"))]
+    let locale = ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .find(|value| !value.is_empty())
+        .unwrap_or_else(|| "en".to_string());
+
+    let language = language_for_locale(&locale);
+    if let Err(error) = slint::select_bundled_translation(language) {
+        log::warn!("could not select translation for {locale}: {error}");
+        if let Err(fallback_error) = slint::select_bundled_translation("en") {
+            log::error!("could not select English translation fallback: {fallback_error}");
+        }
+    }
+}
+
 /// A faint tick under the finger (Android only; desktops have nothing to vibrate).
 fn haptic_tick() {
     #[cfg(target_os = "android")]
@@ -108,6 +209,7 @@ fn show_ac(ui: &AppWindow, d: &Device) {
         (Some(p), false) => format!("{} · IR", p.label()).into(),
         (None, false) => "not set up yet".into(),
     });
+    ui.set_ac_status_error(false);
     ui.set_ac_power(s.power);
     ui.set_ac_temp(s.temp as i32);
     ui.set_ac_mode(s.mode.label().into());
@@ -121,6 +223,7 @@ fn show_ac_setup(ui: &AppWindow, index: usize, tested: bool) {
     ui.set_ac_setup_index(index as i32);
     ui.set_ac_setup_count(AcProtocol::ALL.len() as i32);
     ui.set_ac_setup_protocol(AcProtocol::ALL[index].label().into());
+    ui.set_ac_setup_error("".into());
     ui.set_ac_setup_tested(tested);
 }
 
@@ -235,6 +338,7 @@ fn rows(store: &Store) -> ModelRc<DeviceRow> {
 /// Starts the app. `inset_top` / `inset_bottom` keep the UI clear of the status and navigation bars.
 pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     let ui = AppWindow::new().expect("the window opens");
+    select_system_translation();
     let store = Arc::new(Mutex::new(Store::load(&data_dir)));
 
     #[cfg(target_os = "linux")]
@@ -408,13 +512,16 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 idx.set((idx.get() + 1) % AcProtocol::ALL.len());
                 show_ac_setup(&ui, idx.get(), false);
             }
-            "code" => match omacontrol_core::ac::custom_frames(&pasted.borrow().clone()) {
-                Ok(frames) => {
-                    let _ = tx.send(Job::Ac(frames));
-                    show_ac_setup(&ui, idx.get(), true);
+            "code" => {
+                ui.set_ac_setup_error("".into());
+                match omacontrol_core::ac::custom_frames(&pasted.borrow().clone()) {
+                    Ok(frames) => {
+                        let _ = tx.send(Job::Ac(frames));
+                        show_ac_setup(&ui, idx.get(), true);
+                    }
+                    Err(e) => ui.set_ac_setup_error(e.to_string().into()),
                 }
-                Err(e) => ui.set_ac_setup_protocol(format!("{e}").into()),
-            },
+            }
             "scan-confirm" => {
                 let cancel = Arc::new(AtomicBool::new(false));
                 *scan_cancel_state.borrow_mut() = Some(cancel.clone());
@@ -434,7 +541,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                     ui.set_ac_scan_active(false);
                     ui.set_ac_scan_finished(true);
                     ui.set_ac_scan_cancelled(false);
-                    ui.set_ac_scan_result(format!("Could not start the scan: {e}").into());
+                    ui.set_ac_scan_result(e.to_string().into());
                 }
             }
             "scan-found" => {
@@ -594,11 +701,19 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             version: version_line(),
         };
         if let Err(why) = form.validate() {
-            ui.set_fb_status(why.into());
+            let code = match why {
+                "that email doesn't look right" => "email-invalid",
+                "add a title" => "title-required",
+                "write a few more words" => "message-short",
+                _ => "invalid",
+            };
+            ui.set_fb_status_code(code.into());
+            ui.set_fb_status_detail("".into());
             return;
         }
         ui.set_fb_sending(true);
-        ui.set_fb_status("sending…".into());
+        ui.set_fb_status_code("sending".into());
+        ui.set_fb_status_detail("".into());
         let _ = tx.send(Job::Feedback(form));
     });
 
@@ -652,12 +767,7 @@ fn probe_brand(ip: &str) -> Brand {
 /// The worker thread: owns the connection to the current TV.
 fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Option<Arc<dyn IrTransmitter>>) -> Sender<Job> {
     let (tx, rx) = mpsc::channel::<Job>();
-    let status = move |weak: &slint::Weak<AppWindow>, text: String, online: bool| {
-        let _ = weak.upgrade_in_event_loop(move |ui| {
-            ui.set_tv_status(text.into());
-            ui.set_online(online);
-        });
-    };
+    let status = |weak: &slint::Weak<AppWindow>, state: TvStatus, online: bool| update_tv_status(weak, state, online);
     thread::spawn(move || {
         let mut remote: Option<Box<dyn Remote>> = None;
         let mut label = String::new();
@@ -690,11 +800,11 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                     let Some((device, pairing)) = pending.take() else { continue };
                     // A typo is caught before anything is sent, and the TV keeps its code up.
                     if let Err(e) = pairing.check(&code) {
-                        status(&weak, e.to_string(), false);
+                        status(&weak, TvStatus::Error(e.to_string()), false);
                         pending = Some((device, pairing));
                         continue;
                     }
-                    status(&weak, "pairing…".into(), false);
+                    status(&weak, TvStatus::Pairing, false);
                     match pairing.finish(&code) {
                         Ok(()) => {
                             let mut paired = device.clone();
@@ -711,18 +821,18 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                         }
                         Err(e) => {
                             let _ = weak.upgrade_in_event_loop(|ui| ui.set_pairing(false));
-                            status(&weak, format!("{e} · tap the name to try again"), false);
+                            status(&weak, TvStatus::PairError(e.to_string()), false);
                         }
                     }
                 }
                 Job::CancelPair => {
                     pending = None;
                     let _ = weak.upgrade_in_event_loop(|ui| ui.set_pairing(false));
-                    status(&weak, "not paired".into(), false);
+                    status(&weak, TvStatus::NotPaired, false);
                 }
                 Job::Tune(number) => {
                     let Some(r) = remote.as_mut() else {
-                        status(&weak, "pick a TV first".into(), false);
+                        status(&weak, TvStatus::PickTv, false);
                         continue;
                     };
                     let mut result = Ok(());
@@ -744,11 +854,15 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                         ui.set_fb_sending(false);
                         match result {
                             Ok(()) => {
-                                ui.set_fb_status("sent. thank you!".into());
+                                ui.set_fb_status_code("sent".into());
+                                ui.set_fb_status_detail("".into());
                                 ui.set_fb_title("".into());
                                 ui.set_fb_message("".into());
                             }
-                            Err(e) => ui.set_fb_status(format!("not sent: {e}").into()),
+                            Err(e) => {
+                                ui.set_fb_status_code("failed".into());
+                                ui.set_fb_status_detail(e.to_string().into());
+                            }
                         }
                     });
                 }
@@ -756,10 +870,10 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                     // A TV added by hand: try the brands one by one, Roku first (it needs no pairing).
                     let name = format!("TV {ip}");
                     let shown = name.clone();
+                    status(&weak, TvStatus::Looking, false);
                     let _ = weak.upgrade_in_event_loop(move |ui| {
                         ui.set_current_is_ac(false);
                         ui.set_tv_name(shown.into());
-                        ui.set_tv_status("looking for the TV…".into());
                         ui.set_online(false);
                         ui.set_page(1);
                     });
@@ -788,7 +902,10 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                         }),
                     };
                     if let Err(e) = result {
-                        let _ = weak.upgrade_in_event_loop(move |ui| ui.set_ac_status(e.into()));
+                        let _ = weak.upgrade_in_event_loop(move |ui| {
+                            ui.set_ac_status(e.into());
+                            ui.set_ac_status_error(true);
+                        });
                     }
                 }
                 Job::AcScan { candidates, cancel } => {
@@ -833,7 +950,7 @@ fn spawn_worker(weak: slint::Weak<AppWindow>, store: Arc<Mutex<Store>>, ir: Opti
                     });
                 }
                 Job::Press(_) | Job::Text(_) | Job::Launch(_) if remote.is_none() => {
-                    status(&weak, "pick a TV first".into(), false);
+                    status(&weak, TvStatus::PickTv, false);
                 }
                 Job::Press(k) => report(&weak, &label, remote.as_mut().unwrap().press(k), &status),
                 Job::Text(t) => report(&weak, &label, remote.as_mut().unwrap().type_text(&t), &status),
@@ -850,13 +967,13 @@ fn connect_device(
     store: &Arc<Mutex<Store>>,
     ir: &Option<Arc<dyn IrTransmitter>>,
     device: &Device,
-    status: &impl Fn(&slint::Weak<AppWindow>, String, bool),
+    status: &impl Fn(&slint::Weak<AppWindow>, TvStatus, bool),
     pending: &mut Option<(Device, Pairing)>,
 ) -> (Option<Box<dyn Remote>>, String) {
     let label = if device.transport == Transport::Infrared { format!("{} · IR", device.brand.label()) } else { device.brand.label().to_string() };
-    status(weak, format!("connecting · {label}"), false);
+    status(weak, TvStatus::Connecting(label.clone()), false);
     if device.transport == Transport::Network && matches!(device.brand, Brand::Samsung | Brand::Lg) && device.token.is_none() {
-        status(weak, "say yes on the TV…".into(), false);
+        status(weak, TvStatus::Approval, false);
     }
     let android_tv = device.transport == Transport::Network && device.brand == Brand::AndroidTv;
     let connected = if android_tv {
@@ -864,12 +981,12 @@ fn connect_device(
             Ok(id) => match connect_android_tv(&device.ip, &id) {
                 Err(Error::NotPaired) => {
                     // The TV doesn't know our certificate: ask it for a code.
-                    status(weak, "asking the TV for a code…".into(), false);
+                    status(weak, TvStatus::AskingCode, false);
                     match Pairing::start(&device.ip, &id, "OmaControl") {
                         Ok(p) => {
                             *pending = Some((device.clone(), p));
                             let _ = weak.upgrade_in_event_loop(|ui| ui.set_pairing(true));
-                            status(weak, "type the code on the TV".into(), false);
+                            status(weak, TvStatus::TypeCode, false);
                             return (None, label);
                         }
                         Err(e) => Err(e),
@@ -896,14 +1013,14 @@ fn connect_device(
                 ui.set_devices(rows(&snapshot));
                 ui.set_channels(channel_rows(&snapshot));
             });
-            status(weak, label.clone(), true);
+            status(weak, TvStatus::Connected(label.clone()), true);
             let ir_mode = device.transport == Transport::Infrared;
             let _ = weak.upgrade_in_event_loop(move |ui| ui.global::<Feedback>().set_ir(ir_mode));
             (Some(r), label)
         }
         Err(e) => {
             let _ = weak.upgrade_in_event_loop(|ui| ui.global::<Feedback>().set_ir(false));
-            status(weak, e.to_string(), false);
+            status(weak, TvStatus::Error(e.to_string()), false);
             (None, label)
         }
     }
@@ -925,11 +1042,11 @@ fn report(
     weak: &slint::Weak<AppWindow>,
     label: &str,
     result: omacontrol_core::Result<()>,
-    status: &impl Fn(&slint::Weak<AppWindow>, String, bool),
+    status: &impl Fn(&slint::Weak<AppWindow>, TvStatus, bool),
 ) {
     match result {
-        Ok(()) => status(weak, label.to_string(), true),
-        Err(e) => status(weak, e.to_string(), false),
+        Ok(()) => status(weak, TvStatus::Connected(label.to_string()), true),
+        Err(e) => status(weak, TvStatus::Error(e.to_string()), false),
     }
 }
 
@@ -942,4 +1059,114 @@ fn android_main(app: slint::android::AndroidApp) {
     slint::android::init(app).expect("Slint starts on Android");
     // Room for the status bar and the gesture bar until Slint reports the real insets.
     run(dir, 36.0, 16.0);
+}
+
+#[cfg(test)]
+mod localization_tests {
+    use super::language_for_locale;
+    use std::collections::{HashMap, HashSet};
+
+    #[test]
+    fn selects_supported_system_languages_and_falls_back_to_english() {
+        for (locale, expected) in [
+            ("de-DE", "de"),
+            ("es_MX.UTF-8", "es"),
+            ("fr_CA", "fr"),
+            ("hi-IN", "hi"),
+            ("it-IT", "it"),
+            ("ja-JP", "ja"),
+            ("pt-BR", "pt"),
+            ("ru-RU", "ru"),
+            ("tr-TR", "tr"),
+            ("zh-Hans-CN", "zh_CN"),
+            ("zh-CN.UTF-8", "zh_CN"),
+            ("zh-Hant-TW", "en"),
+            ("en-GB", "en"),
+            ("ar-SA", "en"),
+        ] {
+            assert_eq!(language_for_locale(locale), expected, "{locale}");
+        }
+    }
+
+    fn quoted_content(source: &str, quote_at: usize) -> Option<(&str, usize)> {
+        let content_start = quote_at + 1;
+        let mut escaped = false;
+        for (offset, character) in source[content_start..].char_indices() {
+            if character == '"' && !escaped {
+                let end = content_start + offset;
+                return Some((&source[content_start..end], end + 1));
+            }
+            escaped = character == '\\' && !escaped;
+        }
+        None
+    }
+
+    fn slint_messages(source: &str) -> HashSet<String> {
+        let mut messages = HashSet::new();
+        let mut cursor = 0;
+        while let Some(start) = source[cursor..].find("@tr(\"") {
+            let quote_at = cursor + start + 4;
+            let (message, end) = quoted_content(source, quote_at).expect("translation string closes");
+            messages.insert(message.to_string());
+            cursor = end;
+        }
+        messages
+    }
+
+    fn po_messages(source: &str) -> HashMap<String, String> {
+        let mut messages = HashMap::new();
+        let mut msgid = None;
+        for line in source.lines() {
+            if let Some(value) = line.strip_prefix("msgid ") {
+                let (message, _) = quoted_content(value, 0).expect("PO msgid is quoted");
+                msgid = Some(message.to_string());
+            } else if let Some(value) = line.strip_prefix("msgstr ") {
+                let (translation, _) = quoted_content(value, 0).expect("PO msgstr is quoted");
+                if let Some(message) = msgid.take() {
+                    messages.insert(message, translation.to_string());
+                }
+            }
+        }
+        messages
+    }
+
+    #[test]
+    fn every_screen_message_is_translated_in_each_bundled_locale() {
+        let ui_sources = [
+            include_str!("../ui/ac.slint"),
+            include_str!("../ui/app.slint"),
+            include_str!("../ui/devices.slint"),
+            include_str!("../ui/keypad.slint"),
+            include_str!("../ui/menu.slint"),
+            include_str!("../ui/remote.slint"),
+            include_str!("../ui/scanner.slint"),
+            include_str!("../ui/settings.slint"),
+            include_str!("../ui/widgets.slint"),
+        ];
+        let messages: HashSet<_> = ui_sources.iter().flat_map(|source| slint_messages(source)).collect();
+        let catalogs = [
+            ("de", include_str!("../translations/de/LC_MESSAGES/omacontrol.po")),
+            ("es", include_str!("../translations/es/LC_MESSAGES/omacontrol.po")),
+            ("fr", include_str!("../translations/fr/LC_MESSAGES/omacontrol.po")),
+            ("hi", include_str!("../translations/hi/LC_MESSAGES/omacontrol.po")),
+            ("it", include_str!("../translations/it/LC_MESSAGES/omacontrol.po")),
+            ("ja", include_str!("../translations/ja/LC_MESSAGES/omacontrol.po")),
+            ("pt", include_str!("../translations/pt/LC_MESSAGES/omacontrol.po")),
+            ("ru", include_str!("../translations/ru/LC_MESSAGES/omacontrol.po")),
+            ("tr", include_str!("../translations/tr/LC_MESSAGES/omacontrol.po")),
+            ("zh_CN", include_str!("../translations/zh_CN/LC_MESSAGES/omacontrol.po")),
+        ];
+        for (locale, source) in catalogs {
+            let catalog = po_messages(source);
+            for message in &messages {
+                let translation = catalog.get(message).unwrap_or_else(|| panic!("{locale} is missing {message:?}"));
+                assert!(!translation.is_empty(), "{locale} has an empty translation for {message:?}");
+                assert_eq!(
+                    message.matches("{}").count(),
+                    translation.matches("{}").count(),
+                    "{locale} has mismatched placeholders for {message:?}"
+                );
+            }
+        }
+    }
 }

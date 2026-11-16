@@ -130,7 +130,13 @@ export component KeypadPage inherits Rectangle {
         padding-left: 8px;
         padding-right: 8px;
         padding-top: 4px;
-        Text { text: root.editing != "" ? "rename " + root.editing : root.naming ? "name for " + root.channel : "channel"; color: Theme.muted; font-size: 19px; }
+        Text {
+            text: root.editing != "" ? @tr("Rename {}", root.editing)
+                : root.naming ? @tr("Name for {}", root.channel)
+                : @tr("Channel");
+            color: Theme.muted;
+            font-size: 19px;
+        }
         Text { text: root.channel == "" ? "_" : root.channel; color: Theme.fg; font-size: 64px; horizontal-alignment: right; overflow: elide; }
     }
     // Saved channels, one tap away.
@@ -144,14 +150,14 @@ export component KeypadPage inherits Rectangle {
             alignment: start;
             if root.channel != "" && root.editing == "": Key {
                 width: 92px;
-                label: root.naming ? "cancel" : "+ save";
+                label: root.naming ? @tr("Cancel") : @tr("+ save");
                 kind: root.naming ? KeyKind.primary : KeyKind.operator;
                 font-size: 14px;
                 clicked => { root.naming = !root.naming; if root.naming { text.focus(); } }
             }
             if root.editing != "": Key {
                 width: 92px;
-                label: "cancel";
+                label: @tr("Cancel");
                 kind: KeyKind.primary;
                 font-size: 14px;
                 clicked => { root.stop-naming(); }
@@ -180,7 +186,7 @@ export component KeypadPage inherits Rectangle {
                 }
             }
             if root.channels.length == 0 && root.channel == "": Text {
-                text: "type a number, then + save";
+                text: @tr("Type a number, then + save");
                 color: Theme.muted;
                 font-size: 14px;
                 vertical-alignment: center;
@@ -259,15 +265,15 @@ export component KeypadPage inherits Rectangle {
                 vertical-alignment: center;
                 accepted => { root.go(); }
             }
-            if text.text == "": Text { x: 18px; width: parent.width - 36px; overflow: elide; text: root.naming ? "BFMTV, France 2…" : "type to TV…"; color: Theme.muted; font-size: 16px; vertical-alignment: center; }
+            if text.text == "": Text { x: 18px; width: parent.width - 36px; overflow: elide; text: root.naming ? @tr("BFMTV, France 2…") : @tr("Type to TV…"); color: Theme.muted; font-size: 16px; vertical-alignment: center; }
         }
-        Key { horizontal-stretch: 1; label: root.naming ? "SAVE" : "GO"; kind: KeyKind.primary; font-size: root.naming ? 18px : 22px; clicked => { root.go(); } }
+        Key { horizontal-stretch: 1; label: root.naming ? @tr("SAVE") : @tr("GO"); kind: KeyKind.primary; font-size: root.naming ? 18px : 22px; clicked => { root.go(); } }
     }
 
 
     if root.deleting != "": Confirm {
-        title: "Delete " + root.deleting-name + "?";
-        message: "Channel " + root.deleting + " won't be saved anymore. You can always save it again.";
+        title: @tr("Delete {}?", root.deleting-name);
+        message: @tr("Channel {} won't be saved anymore. You can always save it again.", root.deleting);
         confirmed => {
             root.remove-channel(root.deleting);
             if root.editing == root.deleting { root.stop-naming(); }

@@ -25,8 +25,9 @@ export component AppWindow inherits Window {
     in property <[DeviceRow]> devices;
     in property <bool> scanning;
     in property <string> subnet: "your network";
-    in property <string> tv-name: "No TV";
-    in property <string> tv-status: "pick a TV";
+    in property <string> tv-name: @tr("No TV");
+    in property <string> tv-status-code: "pick-tv";
+    in property <string> tv-status-detail;
     in property <bool> online;
     in property <[string]> apps;
     in property <[string]> themes;
@@ -43,13 +44,15 @@ export component AppWindow inherits Window {
     in-out property <string> fb-email;
     in-out property <string> fb-title;
     in-out property <string> fb-message;
-    in property <string> fb-status;
+    in property <string> fb-status-code;
+    in property <string> fb-status-detail;
     in property <bool> fb-sending;
 
     // The air conditioner (when the current device is one).
     in property <bool> current-is-ac;
     in property <string> ac-name;
     in property <string> ac-status;
+    in property <bool> ac-status-error;
     in property <bool> ac-custom-code;
     in property <bool> ac-power;
     in property <int> ac-temp: 22;
@@ -58,6 +61,7 @@ export component AppWindow inherits Window {
     in property <bool> ac-swing;
     in property <bool> ac-sleep;
     in property <string> ac-setup-protocol;
+    in property <string> ac-setup-error;
     in property <int> ac-setup-index;
     in property <int> ac-setup-count: 10;
     in property <bool> ac-setup-tested;
@@ -117,7 +121,8 @@ export component AppWindow inherits Window {
         }
         if root.page == 1: RemotePage {
             tv-name: root.tv-name;
-            tv-status: root.tv-status;
+            tv-status-code: root.tv-status-code;
+            tv-status-detail: root.tv-status-detail;
             online: root.online;
             menu => { root.open-menu(); }
             press(k) => { root.press(k); }
@@ -147,6 +152,7 @@ export component AppWindow inherits Window {
         if root.page == 4: AcPage {
             name: root.ac-name;
             status: root.ac-status;
+            status-error: root.ac-status-error;
             custom-code: root.ac-custom-code;
             power: root.ac-power;
             temp: root.ac-temp;
@@ -160,6 +166,7 @@ export component AppWindow inherits Window {
         }
         if root.page == 5: AcSetupPage {
             protocol: root.ac-setup-protocol;
+            setup-error: root.ac-setup-error;
             index: root.ac-setup-index;
             count: root.ac-setup-count;
             tested: root.ac-setup-tested;
@@ -193,7 +200,8 @@ export component AppWindow inherits Window {
             fb-email <=> root.fb-email;
             fb-title <=> root.fb-title;
             fb-message <=> root.fb-message;
-            fb-status: root.fb-status;
+            fb-status-code: root.fb-status-code;
+            fb-status-detail: root.fb-status-detail;
             fb-sending: root.fb-sending;
             send-feedback => { root.send-feedback(); }
             kb-height: root.virtual-keyboard-size.height;

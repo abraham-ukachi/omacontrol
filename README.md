@@ -136,7 +136,7 @@ cargo install --locked --path app
 
 Without an active Omarchy `colors.toml`, the desktop app keeps its built-in theme picker and uses Tokyo Night by default. When the file is available, **Omarchy (live)** follows its colors without a restart.
 
-The first localization bundle follows the system locale and translates the AC setup and NEC scan flow into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese. Other screens remain in English for this staged rollout.
+OmaControl follows the Android system language on phones and the desktop locale on Linux. All app screens and built-in prompts are translated into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese; English is used for English and unsupported locales. Operating-system and protocol diagnostic details may retain the language supplied by the underlying service.
 
 The NEC sweep is an OmaControl-defined candidate set, not IrCode Finder's verified sequence. It begins with `00FF40BF`; because a phone cannot receive IR, watch the AC and tap **Found it** when it reacts.
 
@@ -172,7 +172,8 @@ The [GitHub 1.0 milestone](https://github.com/abraham-ukachi/omacontrol/mileston
 - [ ] 🎮 **Xbox and PlayStation 5**: provide supported control integrations; validate each console's available interfaces and document model- and capability-specific limits.
 - [ ] ⏲️ **AC timers** and 📚 **broader IR code support**: timer controls plus practical Pronto import and IR database code lookup/import.
 - [ ] ✅ **1.0 release gates**: document supported devices and limitations; validate pairing, recovery, responsiveness and core flows on real hardware; publish repeatable desktop and Android builds signed with the permanent release key.
-- [ ] 🌍 **Localization**: select the system language automatically, complete the initial 10-language rollout, then expand toward 50 languages.
+- [x] 🌍 **Localization foundation**: select the system language automatically and translate all screens into the initial 10 languages.
+- [ ] 🌍 **Localization expansion**: review translations and expand toward 50 languages.
 
 The phone/host connection is deliberately local and user-approved in 1.0. Console and media-device integrations must use supported interfaces or documented IR codes; any device-specific limitations must be visible rather than implied to work universally.
 

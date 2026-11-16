@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: OmaControl 0.3.4\n"
+"Project-Id-Version: OmaControl 0.3.5\n"
 "PO-Revision-Date: 2026-11-16 00:00+0000\n"
 "Last-Translator: OmaControl contributors\n"
 "Language-Team: Italian\n"
@@ -77,3 +77,243 @@ msgstr "Annulla scansione"
 
 msgid "Done"
 msgstr "Fine"
+
+msgid "+ save"
+msgstr "+ salva"
+
+msgid "6 characters, 0-9 and A-F. It stays on the TV for a minute."
+msgstr "6 caratteri, da 0 a 9 e da A a F. Il codice resta sul TV per un minuto."
+
+msgid "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."
+msgstr "Un telecomando semplice per TV e condizionatori, nei colori di Omarchy."
+
+msgid "About"
+msgstr "Informazioni"
+
+msgid "Add"
+msgstr "Aggiungi"
+
+msgid "Add a title"
+msgstr "Aggiungi un titolo"
+
+msgid "Air conditioner · IR"
+msgstr "Condizionatore · IR"
+
+msgid "An idea, or something broken? It goes straight to Abraham's inbox."
+msgstr "Un'idea o qualcosa non funziona? Il messaggio arriverà direttamente ad Abraham."
+
+msgid "Asking the TV for a code…"
+msgstr "Richiesta di un codice al TV…"
+
+msgid "Auto"
+msgstr "Auto"
+
+msgid "BFMTV, France 2…"
+msgstr "BFMTV, France 2…"
+
+msgid "Cancel"
+msgstr "Annulla"
+
+msgid "Channel"
+msgstr "Canale"
+
+msgid "Channel {} won't be saved anymore. You can always save it again."
+msgstr "Il canale {} non verrà più salvato. Puoi salvarlo di nuovo quando vuoi."
+
+msgid "Channels & apps"
+msgstr "Canali e app"
+
+msgid "Code {} of {}"
+msgstr "Codice {} di {}"
+
+msgid "Code · IR"
+msgstr "Codice · IR"
+
+msgid "Connected · {}"
+msgstr "Connesso · {}"
+
+msgid "Connecting · {}"
+msgstr "Connessione a · {}"
+
+msgid "Cool"
+msgstr "Freddo"
+
+msgid "Delete"
+msgstr "Elimina"
+
+msgid "Delete {}?"
+msgstr "Eliminare {}?"
+
+msgid "Devices"
+msgstr "Dispositivi"
+
+msgid "Dry"
+msgstr "Deumidificazione"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Error: {}"
+msgstr "Errore: {}"
+
+msgid "Fan"
+msgstr "Ventola"
+
+msgid "Feedback"
+msgstr "Feedback"
+
+msgid "GO"
+msgstr "VAI"
+
+msgid "Heat"
+msgstr "Caldo"
+
+msgid "High"
+msgstr "Alta"
+
+msgid "IR · tap to set up"
+msgstr "IR · tocca per configurare"
+
+msgid "IR · {}"
+msgstr "IR · {}"
+
+msgid "Invalid infrared code: {}"
+msgstr "Codice a infrarossi non valido: {}"
+
+msgid "Issue"
+msgstr "Problema"
+
+msgid "License"
+msgstr "Licenza"
+
+msgid "Looking for the TV…"
+msgstr "Ricerca del TV…"
+
+msgid "Low"
+msgstr "Bassa"
+
+msgid "MOTTO: We'll always do more"
+msgstr "MOTTO: Faremo sempre di più"
+
+msgid "Made by"
+msgstr "Creato da"
+
+msgid "Medium"
+msgstr "Media"
+
+msgid "Name for {}"
+msgstr "Nome per {}"
+
+msgid "No TV"
+msgstr "Nessun TV"
+
+msgid "Not paired"
+msgstr "Non associato"
+
+msgid "Not sent: {}"
+msgstr "Non inviato: {}"
+
+msgid "Not set up yet"
+msgstr "Non ancora configurato"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Off"
+msgstr "Spento"
+
+msgid "Pair"
+msgstr "Associa"
+
+msgid "Pairing…"
+msgstr "Associazione…"
+
+msgid "Pick a TV first"
+msgstr "Scegli prima un TV"
+
+msgid "Remote"
+msgstr "Telecomando"
+
+msgid "Rename {}"
+msgstr "Rinomina {}"
+
+msgid "Rescan"
+msgstr "Ripeti scansione"
+
+msgid "SAVE"
+msgstr "SALVA"
+
+msgid "Say yes on the TV…"
+msgstr "Premi «Sì» sul TV…"
+
+msgid "Scanning"
+msgstr "Scansione"
+
+msgid "Scanning {}"
+msgstr "Scansione di {}"
+
+msgid "Send"
+msgstr "Invia"
+
+msgid "Sending…"
+msgstr "Invio…"
+
+msgid "Sent. Thank you!"
+msgstr "Inviato. Grazie!"
+
+msgid "Settings"
+msgstr "Impostazioni"
+
+msgid "Source"
+msgstr "Sorgente"
+
+msgid "Tell me more…"
+msgstr "Dimmi di più…"
+
+msgid "That email address doesn't look right"
+msgstr "Questo indirizzo email non sembra corretto"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Title"
+msgstr "Titolo"
+
+msgid "Type a number, then + save"
+msgstr "Digita un numero, poi tocca + salva"
+
+msgid "Type the code on the TV"
+msgstr "Inserisci il codice sul TV"
+
+msgid "Type the code your TV shows"
+msgstr "Inserisci il codice mostrato sul TV"
+
+msgid "Type to TV…"
+msgstr "Scrivi sul TV…"
+
+msgid "Version"
+msgstr "Versione"
+
+msgid "What broke?"
+msgstr "Cosa si è rotto?"
+
+msgid "What happened, and on which TV or AC?"
+msgstr "Cosa è successo e su quale TV o condizionatore?"
+
+msgid "Write a few more words"
+msgstr "Scrivi qualche parola in più"
+
+msgid "Your email (optional, for a reply)"
+msgstr "La tua email (facoltativa, per una risposta)"
+
+msgid "Your network"
+msgstr "La tua rete"
+
+msgid "{} found"
+msgstr "{} trovati"
+
+msgid "{} · fan {}"
+msgstr "{} · ventola {}"
+
+msgid "{} · tap the name to try again"
+msgstr "{} · tocca il nome per riprovare"

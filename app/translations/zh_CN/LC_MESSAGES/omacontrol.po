@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: OmaControl 0.3.4\n"
+"Project-Id-Version: OmaControl 0.3.5\n"
 "PO-Revision-Date: 2026-11-16 00:00+0000\n"
 "Last-Translator: OmaControl contributors\n"
 "Language-Team: Simplified Chinese\n"
@@ -77,3 +77,243 @@ msgstr "取消扫描"
 
 msgid "Done"
 msgstr "完成"
+
+msgid "+ save"
+msgstr "+ 保存"
+
+msgid "6 characters, 0-9 and A-F. It stays on the TV for a minute."
+msgstr "6 个字符（0-9、A-F）。代码会在电视上显示一分钟。"
+
+msgid "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."
+msgstr "采用 Omarchy 配色的简易电视和空调遥控器。"
+
+msgid "About"
+msgstr "关于"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Add a title"
+msgstr "请填写标题"
+
+msgid "Air conditioner · IR"
+msgstr "空调 · 红外"
+
+msgid "An idea, or something broken? It goes straight to Abraham's inbox."
+msgstr "有想法或发现问题？消息会直接发送给 Abraham。"
+
+msgid "Asking the TV for a code…"
+msgstr "正在向电视请求配对码…"
+
+msgid "Auto"
+msgstr "自动"
+
+msgid "BFMTV, France 2…"
+msgstr "BFMTV、France 2…"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Channel"
+msgstr "频道"
+
+msgid "Channel {} won't be saved anymore. You can always save it again."
+msgstr "频道 {} 将不再保存。您随时可以重新保存。"
+
+msgid "Channels & apps"
+msgstr "频道和应用"
+
+msgid "Code {} of {}"
+msgstr "代码 {} / {}"
+
+msgid "Code · IR"
+msgstr "代码 · 红外"
+
+msgid "Connected · {}"
+msgstr "已连接 · {}"
+
+msgid "Connecting · {}"
+msgstr "正在连接 · {}"
+
+msgid "Cool"
+msgstr "制冷"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete {}?"
+msgstr "删除 {}？"
+
+msgid "Devices"
+msgstr "设备"
+
+msgid "Dry"
+msgstr "除湿"
+
+msgid "Email"
+msgstr "电子邮件"
+
+msgid "Error: {}"
+msgstr "错误：{}"
+
+msgid "Fan"
+msgstr "送风"
+
+msgid "Feedback"
+msgstr "反馈"
+
+msgid "GO"
+msgstr "前往"
+
+msgid "Heat"
+msgstr "制热"
+
+msgid "High"
+msgstr "高"
+
+msgid "IR · tap to set up"
+msgstr "红外 · 点击设置"
+
+msgid "IR · {}"
+msgstr "红外 · {}"
+
+msgid "Invalid infrared code: {}"
+msgstr "红外代码无效：{}"
+
+msgid "Issue"
+msgstr "问题"
+
+msgid "License"
+msgstr "许可证"
+
+msgid "Looking for the TV…"
+msgstr "正在查找电视…"
+
+msgid "Low"
+msgstr "低"
+
+msgid "MOTTO: We'll always do more"
+msgstr "座右铭：我们始终做得更多"
+
+msgid "Made by"
+msgstr "作者"
+
+msgid "Medium"
+msgstr "中"
+
+msgid "Name for {}"
+msgstr "{} 的名称"
+
+msgid "No TV"
+msgstr "无电视"
+
+msgid "Not paired"
+msgstr "未配对"
+
+msgid "Not sent: {}"
+msgstr "发送失败：{}"
+
+msgid "Not set up yet"
+msgstr "尚未设置"
+
+msgid "OK"
+msgstr "确定"
+
+msgid "Off"
+msgstr "关闭"
+
+msgid "Pair"
+msgstr "配对"
+
+msgid "Pairing…"
+msgstr "正在配对…"
+
+msgid "Pick a TV first"
+msgstr "请先选择电视"
+
+msgid "Remote"
+msgstr "遥控器"
+
+msgid "Rename {}"
+msgstr "重命名 {}"
+
+msgid "Rescan"
+msgstr "重新扫描"
+
+msgid "SAVE"
+msgstr "保存"
+
+msgid "Say yes on the TV…"
+msgstr "请在电视上选择“是”…"
+
+msgid "Scanning"
+msgstr "正在扫描"
+
+msgid "Scanning {}"
+msgstr "正在扫描 {}"
+
+msgid "Send"
+msgstr "发送"
+
+msgid "Sending…"
+msgstr "正在发送…"
+
+msgid "Sent. Thank you!"
+msgstr "已发送，谢谢！"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Source"
+msgstr "源代码"
+
+msgid "Tell me more…"
+msgstr "详细说明…"
+
+msgid "That email address doesn't look right"
+msgstr "电子邮件地址似乎不正确"
+
+msgid "Theme"
+msgstr "主题"
+
+msgid "Title"
+msgstr "标题"
+
+msgid "Type a number, then + save"
+msgstr "输入号码，然后点按“+ 保存”"
+
+msgid "Type the code on the TV"
+msgstr "在电视上输入代码"
+
+msgid "Type the code your TV shows"
+msgstr "输入电视上显示的代码"
+
+msgid "Type to TV…"
+msgstr "在电视上输入…"
+
+msgid "Version"
+msgstr "版本"
+
+msgid "What broke?"
+msgstr "哪里出问题了？"
+
+msgid "What happened, and on which TV or AC?"
+msgstr "发生了什么？涉及哪台电视或空调？"
+
+msgid "Write a few more words"
+msgstr "请再多写几句话"
+
+msgid "Your email (optional, for a reply)"
+msgstr "您的电子邮件（选填，用于回复）"
+
+msgid "Your network"
+msgstr "您的网络"
+
+msgid "{} found"
+msgstr "找到 {} 个"
+
+msgid "{} · fan {}"
+msgstr "{} · 送风 {}"
+
+msgid "{} · tap the name to try again"
+msgstr "{} · 点按名称重试"

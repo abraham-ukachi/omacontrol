@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: OmaControl 0.3.4\n"
+"Project-Id-Version: OmaControl 0.3.5\n"
 "PO-Revision-Date: 2026-11-16 00:00+0000\n"
 "Last-Translator: OmaControl contributors\n"
 "Language-Team: Japanese\n"
@@ -77,3 +77,243 @@ msgstr "スキャンを停止"
 
 msgid "Done"
 msgstr "完了"
+
+msgid "+ save"
+msgstr "+ 保存"
+
+msgid "6 characters, 0-9 and A-F. It stays on the TV for a minute."
+msgstr "6 文字（0～9、A～F）。コードはテレビに1分間表示されます。"
+
+msgid "A dead-simple remote for TVs and air conditioners, in Omarchy's colors."
+msgstr "Omarchyカラーの、テレビとエアコン用シンプルリモコン。"
+
+msgid "About"
+msgstr "アプリ情報"
+
+msgid "Add"
+msgstr "追加"
+
+msgid "Add a title"
+msgstr "タイトルを入力してください"
+
+msgid "Air conditioner · IR"
+msgstr "エアコン · IR"
+
+msgid "An idea, or something broken? It goes straight to Abraham's inbox."
+msgstr "アイデアや不具合を送ると、Abrahamに直接届きます。"
+
+msgid "Asking the TV for a code…"
+msgstr "テレビにコードを要求しています…"
+
+msgid "Auto"
+msgstr "自動"
+
+msgid "BFMTV, France 2…"
+msgstr "BFMTV、France 2…"
+
+msgid "Cancel"
+msgstr "キャンセル"
+
+msgid "Channel"
+msgstr "チャンネル"
+
+msgid "Channel {} won't be saved anymore. You can always save it again."
+msgstr "チャンネル {} は保存されなくなります。いつでも再び保存できます。"
+
+msgid "Channels & apps"
+msgstr "チャンネルとアプリ"
+
+msgid "Code {} of {}"
+msgstr "コード {} / {}"
+
+msgid "Code · IR"
+msgstr "コード · IR"
+
+msgid "Connected · {}"
+msgstr "接続済み · {}"
+
+msgid "Connecting · {}"
+msgstr "接続中 · {}"
+
+msgid "Cool"
+msgstr "冷房"
+
+msgid "Delete"
+msgstr "削除"
+
+msgid "Delete {}?"
+msgstr "{} を削除しますか？"
+
+msgid "Devices"
+msgstr "デバイス"
+
+msgid "Dry"
+msgstr "除湿"
+
+msgid "Email"
+msgstr "メール"
+
+msgid "Error: {}"
+msgstr "エラー: {}"
+
+msgid "Fan"
+msgstr "ファン"
+
+msgid "Feedback"
+msgstr "フィードバック"
+
+msgid "GO"
+msgstr "実行"
+
+msgid "Heat"
+msgstr "暖房"
+
+msgid "High"
+msgstr "強"
+
+msgid "IR · tap to set up"
+msgstr "IR · タップして設定"
+
+msgid "IR · {}"
+msgstr "IR · {}"
+
+msgid "Invalid infrared code: {}"
+msgstr "無効な赤外線コード: {}"
+
+msgid "Issue"
+msgstr "問題"
+
+msgid "License"
+msgstr "ライセンス"
+
+msgid "Looking for the TV…"
+msgstr "テレビを検索しています…"
+
+msgid "Low"
+msgstr "弱"
+
+msgid "MOTTO: We'll always do more"
+msgstr "モットー：いつもさらに良く"
+
+msgid "Made by"
+msgstr "制作"
+
+msgid "Medium"
+msgstr "中"
+
+msgid "Name for {}"
+msgstr "{} の名前"
+
+msgid "No TV"
+msgstr "テレビなし"
+
+msgid "Not paired"
+msgstr "ペアリングされていません"
+
+msgid "Not sent: {}"
+msgstr "送信できませんでした: {}"
+
+msgid "Not set up yet"
+msgstr "未設定"
+
+msgid "OK"
+msgstr "決定"
+
+msgid "Off"
+msgstr "オフ"
+
+msgid "Pair"
+msgstr "ペアリング"
+
+msgid "Pairing…"
+msgstr "ペアリング中…"
+
+msgid "Pick a TV first"
+msgstr "先にテレビを選択してください"
+
+msgid "Remote"
+msgstr "リモコン"
+
+msgid "Rename {}"
+msgstr "{} の名前を変更"
+
+msgid "Rescan"
+msgstr "再スキャン"
+
+msgid "SAVE"
+msgstr "保存"
+
+msgid "Say yes on the TV…"
+msgstr "テレビで「許可」を選択…"
+
+msgid "Scanning"
+msgstr "スキャン中"
+
+msgid "Scanning {}"
+msgstr "{} をスキャン中"
+
+msgid "Send"
+msgstr "送信"
+
+msgid "Sending…"
+msgstr "送信中…"
+
+msgid "Sent. Thank you!"
+msgstr "送信しました。ありがとうございます！"
+
+msgid "Settings"
+msgstr "設定"
+
+msgid "Source"
+msgstr "ソース"
+
+msgid "Tell me more…"
+msgstr "詳しく教えてください…"
+
+msgid "That email address doesn't look right"
+msgstr "メールアドレスが正しくないようです"
+
+msgid "Theme"
+msgstr "テーマ"
+
+msgid "Title"
+msgstr "タイトル"
+
+msgid "Type a number, then + save"
+msgstr "番号を入力してから「+ 保存」をタップ"
+
+msgid "Type the code on the TV"
+msgstr "テレビにコードを入力してください"
+
+msgid "Type the code your TV shows"
+msgstr "テレビに表示されたコードを入力してください"
+
+msgid "Type to TV…"
+msgstr "テレビに入力…"
+
+msgid "Version"
+msgstr "バージョン"
+
+msgid "What broke?"
+msgstr "どこが壊れましたか？"
+
+msgid "What happened, and on which TV or AC?"
+msgstr "何が起きましたか？どのテレビまたはエアコンですか？"
+
+msgid "Write a few more words"
+msgstr "もう少し詳しく入力してください"
+
+msgid "Your email (optional, for a reply)"
+msgstr "メールアドレス（任意、返信用）"
+
+msgid "Your network"
+msgstr "ネットワーク"
+
+msgid "{} found"
+msgstr "{} 件見つかりました"
+
+msgid "{} · fan {}"
+msgstr "{} · ファン {}"
+
+msgid "{} · tap the name to try again"
+msgstr "{} · 名前をタップして再試行"

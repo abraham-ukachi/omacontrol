@@ -16,8 +16,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: System libraries (Slint desktop backend)
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
-      - name: Test the core
-        run: cargo test -p omacontrol-core
+      - name: Test the workspace
+        run: cargo test --workspace
       - name: Check the app
         run: cargo check -p omacontrol
       - name: Clippy
