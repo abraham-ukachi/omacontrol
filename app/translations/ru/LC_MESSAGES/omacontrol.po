@@ -317,3 +317,75 @@ msgstr "{} · вентилятор {}"
 
 msgid "{} · tap the name to try again"
 msgstr "{} · нажмите на название, чтобы повторить попытку"
+
+msgid "Allow microphone access, then press and hold again"
+msgstr "Разрешите доступ к микрофону и снова нажмите и удерживайте"
+
+msgid "Archive"
+msgstr "В архив"
+
+msgid "Archived"
+msgstr "В архиве"
+
+msgid "Candidate {} of {}"
+msgstr "Код {} из {}"
+
+msgid "Connecting to voice assistant…"
+msgstr "Подключение к голосовому помощнику…"
+
+msgid "Language"
+msgstr "Язык"
+
+msgid "Listening · release to send"
+msgstr "Слушаю · отпустите, чтобы отправить"
+
+msgid "Move"
+msgstr "Переместить"
+
+msgid "Move mode"
+msgstr "Режим перемещения"
+
+msgid "No archived devices"
+msgstr "В архиве нет устройств"
+
+msgid "No devices found"
+msgstr "Устройства не найдены"
+
+msgid "Previous"
+msgstr "Назад"
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Remove {}?"
+msgstr "Удалить {}?"
+
+msgid "Rename"
+msgstr "Переименовать"
+
+msgid "Restore"
+msgstr "Восстановить"
+
+msgid "Review NEC codes"
+msgstr "Просмотр кодов NEC"
+
+msgid "Review codes"
+msgstr "Просмотреть коды"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "System default"
+msgstr "Язык системы"
+
+msgid "Use this"
+msgstr "Использовать"
+
+msgid "Use Previous or Next to replay a code, then choose Use this to save it."
+msgstr "Используйте «Назад» или «Далее», чтобы повторить код, затем выберите «Использовать», чтобы сохранить его."
+
+msgid "Voice unavailable: {}"
+msgstr "Голосовой ввод недоступен: {}"
+
+msgid "{} will be removed from OmaControl. You can add it again later."
+msgstr "{} будет удалён из OmaControl. Вы сможете добавить его позже."

@@ -317,3 +317,75 @@ msgstr "{} · fan {}"
 
 msgid "{} · tap the name to try again"
 msgstr "{} · tekrar denemek için ada dokunun"
+
+msgid "Allow microphone access, then press and hold again"
+msgstr "Mikrofon erişimine izin verin, ardından tekrar basılı tutun"
+
+msgid "Archive"
+msgstr "Arşivle"
+
+msgid "Archived"
+msgstr "Arşivlendi"
+
+msgid "Candidate {} of {}"
+msgstr "{} / {} kod"
+
+msgid "Connecting to voice assistant…"
+msgstr "Sesli asistana bağlanıyor…"
+
+msgid "Language"
+msgstr "Dil"
+
+msgid "Listening · release to send"
+msgstr "Dinleniyor · göndermek için bırakın"
+
+msgid "Move"
+msgstr "Taşı"
+
+msgid "Move mode"
+msgstr "Taşıma modu"
+
+msgid "No archived devices"
+msgstr "Arşivlenmiş cihaz yok"
+
+msgid "No devices found"
+msgstr "Cihaz bulunamadı"
+
+msgid "Previous"
+msgstr "Önceki"
+
+msgid "Remove"
+msgstr "Kaldır"
+
+msgid "Remove {}?"
+msgstr "{} kaldırılsın mı?"
+
+msgid "Rename"
+msgstr "Yeniden adlandır"
+
+msgid "Restore"
+msgstr "Geri yükle"
+
+msgid "Review NEC codes"
+msgstr "NEC kodlarını incele"
+
+msgid "Review codes"
+msgstr "Kodları incele"
+
+msgid "Save"
+msgstr "Kaydet"
+
+msgid "System default"
+msgstr "Sistem varsayılanı"
+
+msgid "Use this"
+msgstr "Bunu kullan"
+
+msgid "Use Previous or Next to replay a code, then choose Use this to save it."
+msgstr "Bir kodu yeniden göndermek için Önceki veya Sonraki'ni kullanın, kaydetmek için Bunu kullan'ı seçin."
+
+msgid "Voice unavailable: {}"
+msgstr "Ses kullanılamıyor: {}"
+
+msgid "{} will be removed from OmaControl. You can add it again later."
+msgstr "{} OmaControl'den kaldırılacak. Daha sonra tekrar ekleyebilirsiniz."

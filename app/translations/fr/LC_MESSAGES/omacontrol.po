@@ -317,3 +317,75 @@ msgstr "{} · ventilateur {}"
 
 msgid "{} · tap the name to try again"
 msgstr "{} · touchez le nom pour réessayer"
+
+msgid "Allow microphone access, then press and hold again"
+msgstr "Autorisez l’accès au micro, puis maintenez à nouveau"
+
+msgid "Archive"
+msgstr "Archiver"
+
+msgid "Archived"
+msgstr "Archivés"
+
+msgid "Candidate {} of {}"
+msgstr "Code {} sur {}"
+
+msgid "Connecting to voice assistant…"
+msgstr "Connexion à l’assistant vocal…"
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "Listening · release to send"
+msgstr "Écoute · relâchez pour envoyer"
+
+msgid "Move"
+msgstr "Déplacer"
+
+msgid "Move mode"
+msgstr "Mode déplacement"
+
+msgid "No archived devices"
+msgstr "Aucun appareil archivé"
+
+msgid "No devices found"
+msgstr "Aucun appareil trouvé"
+
+msgid "Previous"
+msgstr "Précédent"
+
+msgid "Remove"
+msgstr "Supprimer"
+
+msgid "Remove {}?"
+msgstr "Supprimer {} ?"
+
+msgid "Rename"
+msgstr "Renommer"
+
+msgid "Restore"
+msgstr "Restaurer"
+
+msgid "Review NEC codes"
+msgstr "Examiner les codes NEC"
+
+msgid "Review codes"
+msgstr "Examiner les codes"
+
+msgid "Save"
+msgstr "Enregistrer"
+
+msgid "System default"
+msgstr "Langue du système"
+
+msgid "Use this"
+msgstr "Utiliser ce code"
+
+msgid "Use Previous or Next to replay a code, then choose Use this to save it."
+msgstr "Utilisez Précédent ou Suivant pour rejouer un code, puis choisissez Utiliser ce code pour l’enregistrer."
+
+msgid "Voice unavailable: {}"
+msgstr "Voix indisponible : {}"
+
+msgid "{} will be removed from OmaControl. You can add it again later."
+msgstr "{} sera supprimé d’OmaControl. Vous pourrez l’ajouter à nouveau plus tard."

@@ -317,3 +317,75 @@ msgstr "{} · 送风 {}"
 
 msgid "{} · tap the name to try again"
 msgstr "{} · 点按名称重试"
+
+msgid "Allow microphone access, then press and hold again"
+msgstr "请允许麦克风访问，然后再次长按"
+
+msgid "Archive"
+msgstr "归档"
+
+msgid "Archived"
+msgstr "已归档"
+
+msgid "Candidate {} of {}"
+msgstr "第 {} 个，共 {} 个代码"
+
+msgid "Connecting to voice assistant…"
+msgstr "正在连接语音助手…"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Listening · release to send"
+msgstr "正在聆听 · 松开发送"
+
+msgid "Move"
+msgstr "移动"
+
+msgid "Move mode"
+msgstr "移动模式"
+
+msgid "No archived devices"
+msgstr "没有已归档的设备"
+
+msgid "No devices found"
+msgstr "未找到设备"
+
+msgid "Previous"
+msgstr "上一个"
+
+msgid "Remove"
+msgstr "移除"
+
+msgid "Remove {}?"
+msgstr "移除 {}？"
+
+msgid "Rename"
+msgstr "重命名"
+
+msgid "Restore"
+msgstr "恢复"
+
+msgid "Review NEC codes"
+msgstr "查看 NEC 代码"
+
+msgid "Review codes"
+msgstr "查看代码"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "System default"
+msgstr "系统默认"
+
+msgid "Use this"
+msgstr "使用此代码"
+
+msgid "Use Previous or Next to replay a code, then choose Use this to save it."
+msgstr "使用“上一个”或“下一个”重发代码，然后选择“使用此代码”进行保存。"
+
+msgid "Voice unavailable: {}"
+msgstr "语音不可用：{}"
+
+msgid "{} will be removed from OmaControl. You can add it again later."
+msgstr "{} 将从 OmaControl 中移除。之后可以重新添加。"

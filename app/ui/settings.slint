@@ -55,10 +55,13 @@ component Link inherits Rectangle {
 // 07 · Settings: the Omarchy theme, About, and Feedback (straight to the maintainer's inbox).
 export component SettingsPage inherits VerticalLayout {
     in property <[string]> themes;
+    in property <[string]> languages;
+    in-out property <string> language: "system";
     in property <string> version;
     in-out property <int> tab: 0;
     callback menu;
     callback pick-theme(string);
+    callback pick-language(string);
     callback open-url(string);
 
     // Feedback form (two-way, so the app can clear it once it's sent).
@@ -83,6 +86,21 @@ export component SettingsPage inherits VerticalLayout {
         return "";
     }
 
+    function language-name(code: string) -> string {
+        if code == "system" { return @tr("System default"); }
+        if code == "en" { return "English"; }
+        if code == "de" { return "Deutsch"; }
+        if code == "es" { return "Español"; }
+        if code == "fr" { return "Français"; }
+        if code == "hi" { return "हिन्दी"; }
+        if code == "it" { return "Italiano"; }
+        if code == "ja" { return "日本語"; }
+        if code == "pt" { return "Português"; }
+        if code == "ru" { return "Русский"; }
+        if code == "tr" { return "Türkçe"; }
+        return "简体中文";
+    }
+
     spacing: Theme.gap;
     Header { title: @tr("Settings"); subtitle: "v" + root.version; menu => { root.menu(); } }
     HorizontalLayout {
@@ -101,6 +119,21 @@ export component SettingsPage inherits VerticalLayout {
         vertical-stretch: 1;
         VerticalLayout {
             alignment: start;
+            Text { x: 8px; text: @tr("Language"); color: Theme.muted; font-size: 19px; }
+            for l in root.languages: Rectangle {
+                height: 44px;
+                border-radius: Theme.radius;
+                background: l == root.language ? Theme.operator : transparent;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 16px;
+                    Text { text: root.language-name(l); color: Theme.fg; font-size: 16px; vertical-alignment: center; }
+                    if l == root.language: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
+                }
+                TouchArea { clicked => { root.language = l; root.pick-language(l); } }
+            }
+            Divider { }
+            Text { x: 8px; text: @tr("Theme"); color: Theme.muted; font-size: 19px; }
             for t in root.themes: Rectangle {
                 height: 44px;
                 border-radius: Theme.radius;

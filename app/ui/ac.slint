@@ -116,11 +116,14 @@ export component AcSetupPage inherits Rectangle {
     in property <bool> scan-cancelled;
     in property <int> scan-count;
     in property <int> scan-total;
+    in-out property <int> scan-index;
+    in-out property <bool> scan-review;
     in property <string> scan-code;
     in property <string> scan-result;
     callback menu;
     callback setup(string);
     callback scan-cancel();
+    callback scan-navigate(int);
     callback code-changed(string);
     // The on-screen keyboard, in window coordinates; while pasting a code, its row rides just above it.
     in property <length> kb-top;
@@ -225,7 +228,7 @@ export component AcSetupPage inherits Rectangle {
         confirmed => { root.scan-warning = false; root.setup("scan-confirm"); }
         cancelled => { root.scan-warning = false; }
     }
-    if root.scan-active || root.scan-finished: Rectangle {
+    if root.scan-active || root.scan-finished || root.scan-review: Rectangle {
         background: Theme.bg.with-alpha(0.82);
         TouchArea { }
         card := Rectangle {
@@ -242,7 +245,8 @@ export component AcSetupPage inherits Rectangle {
                 padding: 20px;
                 spacing: 14px;
                 Text {
-                    text: root.scan-active ? @tr("Scanning NEC codes")
+                    text: root.scan-review ? @tr("Review NEC codes")
+                        : root.scan-active ? @tr("Scanning NEC codes")
                         : root.scan-cancelled ? @tr("NEC scan stopped")
                         : root.scan-result != "" ? @tr("NEC scan failed")
                         : @tr("NEC scan complete");
@@ -250,12 +254,17 @@ export component AcSetupPage inherits Rectangle {
                     font-size: 22px;
                     wrap: word-wrap;
                 }
-                if root.scan-active: Text {
+                if root.scan-active && !root.scan-review: Text {
                     text: root.scan-count + " / " + root.scan-total;
                     color: Theme.muted;
                     font-size: 16px;
                 }
-                Rectangle {
+                if root.scan-review: Text {
+                    text: @tr("Candidate {} of {}", root.scan-index + 1, root.scan-total);
+                    color: Theme.muted;
+                    font-size: 15px;
+                }
+                if !root.scan-review: Rectangle {
                     height: 8px;
                     border-radius: 4px;
                     background: Theme.operator;
@@ -264,6 +273,8 @@ export component AcSetupPage inherits Rectangle {
                 if root.scan-code != "": Text { text: root.scan-code; color: Theme.fg; font-size: 14px; }
                 Text {
                     text: root.scan-result != "" ? @tr("Error: {}", root.scan-result)
+                        : root.scan-review
+                            ? @tr("Use Previous or Next to replay a code, then choose Use this to save it.")
                         : root.scan-active
                             ? @tr("Your phone cannot detect an IR response. Watch the AC and tap Found it when it reacts.")
                             : root.scan-cancelled
@@ -273,11 +284,23 @@ export component AcSetupPage inherits Rectangle {
                     font-size: 15px;
                     wrap: word-wrap;
                 }
-                HorizontalLayout {
+                if root.scan-review: HorizontalLayout {
                     height: 56px;
                     spacing: Theme.gap;
-                    if root.scan-active && root.scan-count > 0: Key {
-                        label: @tr("Found it");
+                    Key { label: @tr("Previous"); kind: KeyKind.operator; font-size: 15px; clicked => { root.scan-navigate(-1); } }
+                    Key { label: @tr("Next"); kind: KeyKind.operator; font-size: 15px; clicked => { root.scan-navigate(1); } }
+                }
+                if root.scan-review: HorizontalLayout {
+                    height: 56px;
+                    spacing: Theme.gap;
+                    Key { label: @tr("Done"); kind: KeyKind.operator; font-size: 15px; clicked => { root.setup("scan-dismiss"); } }
+                    Key { label: @tr("Use this"); kind: KeyKind.primary; font-size: 15px; clicked => { root.setup("scan-save"); } }
+                }
+                if !root.scan-review: HorizontalLayout {
+                    height: 56px;
+                    spacing: Theme.gap;
+                    if root.scan-count > 0 && (root.scan-active || root.scan-finished): Key {
+                        label: root.scan-active ? @tr("Found it") : @tr("Review codes");
                         kind: KeyKind.primary;
                         font-size: 16px;
                         clicked => { root.setup("scan-found"); }

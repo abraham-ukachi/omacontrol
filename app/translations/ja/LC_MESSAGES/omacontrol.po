@@ -317,3 +317,75 @@ msgstr "{} · ファン {}"
 
 msgid "{} · tap the name to try again"
 msgstr "{} · 名前をタップして再試行"
+
+msgid "Allow microphone access, then press and hold again"
+msgstr "マイクへのアクセスを許可してから、もう一度長押ししてください"
+
+msgid "Archive"
+msgstr "アーカイブ"
+
+msgid "Archived"
+msgstr "アーカイブ済み"
+
+msgid "Candidate {} of {}"
+msgstr "{} / {} 件目のコード"
+
+msgid "Connecting to voice assistant…"
+msgstr "音声アシスタントに接続中…"
+
+msgid "Language"
+msgstr "言語"
+
+msgid "Listening · release to send"
+msgstr "聞き取り中 · 指を離すと送信"
+
+msgid "Move"
+msgstr "移動"
+
+msgid "Move mode"
+msgstr "移動モード"
+
+msgid "No archived devices"
+msgstr "アーカイブ済みのデバイスはありません"
+
+msgid "No devices found"
+msgstr "デバイスが見つかりません"
+
+msgid "Previous"
+msgstr "前へ"
+
+msgid "Remove"
+msgstr "削除"
+
+msgid "Remove {}?"
+msgstr "{}を削除しますか？"
+
+msgid "Rename"
+msgstr "名前を変更"
+
+msgid "Restore"
+msgstr "復元"
+
+msgid "Review NEC codes"
+msgstr "NECコードを確認"
+
+msgid "Review codes"
+msgstr "コードを確認"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "System default"
+msgstr "システムのデフォルト"
+
+msgid "Use this"
+msgstr "このコードを使用"
+
+msgid "Use Previous or Next to replay a code, then choose Use this to save it."
+msgstr "前へ・次へでコードを再送し、保存するには「このコードを使用」を選択します。"
+
+msgid "Voice unavailable: {}"
+msgstr "音声を利用できません: {}"
+
+msgid "{} will be removed from OmaControl. You can add it again later."
+msgstr "{}はOmaControlから削除されます。後で再度追加できます。"

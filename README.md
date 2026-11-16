@@ -44,13 +44,13 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 
 | No. | Screen | What it does |
 |:----|:-------|:-------------|
-| 1 | *`Devices`* | Scans your network (SSDP + mDNS) behind an ASCII radar, lists every TV and air conditioner found, **Add** by IP or over IR, **Rescan** |
-| 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, keyboard & number pad shortcuts. Android TVs ask for their **pairing code** here, once |
+| 1 | *`Devices`* | Scans your network (SSDP + mDNS) behind an ASCII radar; **Add** by IP or over IR; swipe to remove after confirmation; long-press for rename, archive, move or remove; reorder in Move mode |
+| 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, keyboard & number pad shortcuts. Android TVs ask for their **pairing code** here, once; compatible TVs also offer press-and-hold voice search |
 | 3 | *`Channels & apps`* | A big monospace channel display, **saved channels** (`4002` → **BFMTV**: type the number, **+ save**, name it; tap to tune, **long-press** to rename, **swipe up** to delete), streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
 | 4 | *`Menu`* | Devices, Remote, Channels & apps, Settings |
 | 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, sleep & swing |
-| 6 | *`AC setup`* | Tries each protocol or a pasted IR code; long-press **Test** for a warned, cancellable 675-candidate NEC sweep |
-| 7 | *`Settings`* | **Theme** (all 23 Omarchy themes), **About** (version, author, links) and **Feedback** (an idea or an issue, sent straight to the maintainer's inbox) |
+| 6 | *`AC setup`* | Tries each protocol or a pasted IR code; long-press **Test** for a warned, cancellable 675-candidate NEC sweep; review a match with **Previous**/**Next** to replay candidates before saving |
+| 7 | *`Settings`* | **Language** (system default or a supported language), **Theme** (all 23 Omarchy themes), **About** and **Feedback** |
 
 > TIP: Tap the device's name at the top of the Remote, Channels or AC screen to jump back to your devices.
 
@@ -136,9 +136,9 @@ cargo install --locked --path app
 
 Without an active Omarchy `colors.toml`, the desktop app keeps its built-in theme picker and uses Tokyo Night by default. When the file is available, **Omarchy (live)** follows its colors without a restart.
 
-OmaControl follows the Android system language on phones and the desktop locale on Linux. All app screens and built-in prompts are translated into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese; English is used for English and unsupported locales. Operating-system and protocol diagnostic details may retain the language supplied by the underlying service.
+OmaControl follows the Android system language on phones and the desktop locale on Linux by default; choose a different language in **Settings** to override it. All app screens and built-in prompts are translated into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese; English is used for English and unsupported locales. Operating-system and protocol diagnostic details may retain the language supplied by the underlying service.
 
-The NEC sweep is an OmaControl-defined candidate set, not IrCode Finder's verified sequence. It begins with `00FF40BF`; because a phone cannot receive IR, watch the AC and tap **Found it** when it reacts.
+The NEC sweep is an OmaControl-defined candidate set, not IrCode Finder's verified sequence. It begins with `00FF40BF`; because a phone cannot receive IR, watch the AC and tap **Found it** when it reacts, then replay adjacent candidates with **Previous**/**Next** before choosing **Use this**.
 
 After backing up the keystore and password in your vault, configure the repository secrets without printing either value:
 
@@ -160,6 +160,9 @@ The [GitHub 1.0 milestone](https://github.com/abraham-ukachi/omacontrol/mileston
 - [x] ❄️ Air conditioners over IR: power, mode, temperature, fan, swing and sleep
 - [x] 📺 Channels saved by name
 - [x] ⚙️ Settings: theme, About and Feedback
+- [x] 🗂️ Device management: swipe to confirm removal, long-press actions, archive and reorder
+- [x] 🎙️ Android TV voice search: press and hold the microphone on compatible paired TVs
+- [x] 🌍 Selectable language: system default or one of the bundled translations
 
 ### Required for 1.0
 

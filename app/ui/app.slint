@@ -19,6 +19,7 @@ export component AppWindow inherits Window {
 
     in-out property <int> page: 0;
     property <int> back-page: 0;
+    in-out property <bool> archived-view: false;
     in property <length> inset-top: 0px;
     in property <length> inset-bottom: 0px;
 
@@ -29,8 +30,14 @@ export component AppWindow inherits Window {
     in property <string> tv-status-code: "pick-tv";
     in property <string> tv-status-detail;
     in property <bool> online;
+    in property <bool> voice-supported;
+    in-out property <bool> voice-active;
+    in-out property <string> voice-status-code;
+    in-out property <string> voice-status-detail;
     in property <[string]> apps;
     in property <[string]> themes;
+    in property <[string]> languages;
+    in-out property <string> language: "system";
     in property <string> version;
     in property <bool> has-ir;
 
@@ -70,21 +77,25 @@ export component AppWindow inherits Window {
     in property <bool> ac-scan-cancelled;
     in property <int> ac-scan-count;
     in property <int> ac-scan-total;
+    in-out property <int> ac-scan-index;
+    in-out property <bool> ac-scan-review;
     in property <string> ac-scan-code;
     in property <string> ac-scan-result;
 
     callback rescan;
-    callback pick(int);
+    callback pick(string);
     callback add-ip(string);
     callback add-ir(string);
     callback press(string);
     callback launch(string);
     callback send-text(string);
     callback pick-theme(string);
+    callback pick-language(string);
     callback add-ac();
     callback ac-action(string);
     callback ac-setup(string);
     callback ac-scan-cancel();
+    callback ac-scan-navigate(int);
     callback ac-code-changed(string);
     callback tune(string);
     callback save-channel(string, string);
@@ -93,6 +104,13 @@ export component AppWindow inherits Window {
     callback cancel-pair();
     callback open-url(string);
     callback send-feedback();
+    callback set-archived-view(bool);
+    callback archive-device(string, bool);
+    callback remove-device(string);
+    callback rename-device(string, string);
+    callback move-device(string, int);
+    callback voice-start();
+    callback voice-stop();
 
     function open-menu() {
         root.back-page = root.page;
@@ -111,6 +129,9 @@ export component AppWindow inherits Window {
             devices: root.devices;
             scanning: root.scanning;
             subnet: root.subnet;
+            archived-view <=> root.archived-view;
+            kb-top: root.virtual-keyboard-position.y;
+            kb-height: root.virtual-keyboard-size.height;
             menu => { root.open-menu(); }
             pick(i) => { root.pick(i); }
             rescan => { root.rescan(); }
@@ -118,16 +139,27 @@ export component AppWindow inherits Window {
             has-ir: root.has-ir;
             add-ir(b) => { root.add-ir(b); }
             add-ac => { root.add-ac(); }
+            set-archived-view(value) => { root.set-archived-view(value); }
+            archive-device(id, archived) => { root.archive-device(id, archived); }
+            remove-device(id) => { root.remove-device(id); }
+            rename-device(id, name) => { root.rename-device(id, name); }
+            move-device(id, steps) => { root.move-device(id, steps); }
         }
         if root.page == 1: RemotePage {
             tv-name: root.tv-name;
             tv-status-code: root.tv-status-code;
             tv-status-detail: root.tv-status-detail;
             online: root.online;
+            voice-supported: root.voice-supported;
+            voice-active: root.voice-active;
+            voice-status-code: root.voice-status-code;
+            voice-status-detail: root.voice-status-detail;
             menu => { root.open-menu(); }
             press(k) => { root.press(k); }
             keypad => { root.page = 2; }
             keyboard => { root.page = 2; }
+            voice-start => { root.voice-start(); }
+            voice-stop => { root.voice-stop(); }
             devices => { root.page = 0; }
             pairing: root.pairing;
             pair(c) => { root.pair(c); }
@@ -175,11 +207,14 @@ export component AppWindow inherits Window {
             scan-cancelled: root.ac-scan-cancelled;
             scan-count: root.ac-scan-count;
             scan-total: root.ac-scan-total;
+            scan-index <=> root.ac-scan-index;
+            scan-review <=> root.ac-scan-review;
             scan-code: root.ac-scan-code;
             scan-result: root.ac-scan-result;
             menu => { root.open-menu(); }
             setup(s) => { root.ac-setup(s); }
             scan-cancel => { root.ac-scan-cancel(); }
+            scan-navigate(i) => { root.ac-scan-navigate(i); }
             code-changed(t) => { root.ac-code-changed(t); }
             kb-top: root.virtual-keyboard-position.y;
             kb-height: root.virtual-keyboard-size.height;
@@ -191,10 +226,13 @@ export component AppWindow inherits Window {
         }
         if root.page == 6: SettingsPage {
             themes: root.themes;
+            languages: root.languages;
+            language <=> root.language;
             version: root.version;
             tab <=> root.settings-tab;
             menu => { root.open-menu(); }
             pick-theme(t) => { root.pick-theme(t); }
+            pick-language(l) => { root.pick-language(l); }
             open-url(u) => { root.open-url(u); }
             fb-kind <=> root.fb-kind;
             fb-email <=> root.fb-email;

@@ -33,8 +33,10 @@ const PAIRING_PORT: u16 = 6467;
 const REMOTE_PORT: u16 = 6466;
 const STATUS_OK: u64 = 200;
 const SHORT: u64 = 3;
-/// PING | KEY | POWER | VOLUME | APP_LINK.
-const FEATURES: u64 = 1 | 2 | 32 | 64 | 512;
+/// PING | KEY | VOICE | POWER | VOLUME | APP_LINK.
+const FEATURE_VOICE: u64 = 8;
+const FEATURES: u64 = 1 | 2 | FEATURE_VOICE | 32 | 64 | 512;
+const KEYCODE_SEARCH: u64 = 84;
 
 type Tls = StreamOwned<ClientConnection, TcpStream>;
 
@@ -50,28 +52,44 @@ impl Identity {
     /// A fresh 2048-bit RSA key and a self-signed certificate (a second or so on a phone).
     pub fn generate() -> Result<Identity> {
         use rsa::pkcs8::EncodePrivateKey;
-        let key = rsa::RsaPrivateKey::new(&mut rand::thread_rng(), 2048).map_err(|e| Error::Protocol(format!("key: {e}")))?;
-        let pkcs8 = key.to_pkcs8_der().map_err(|e| Error::Protocol(format!("key: {e}")))?;
+        let key = rsa::RsaPrivateKey::new(&mut rand::thread_rng(), 2048)
+            .map_err(|e| Error::Protocol(format!("key: {e}")))?;
+        let pkcs8 = key
+            .to_pkcs8_der()
+            .map_err(|e| Error::Protocol(format!("key: {e}")))?;
         let der = rustls::pki_types::PrivatePkcs8KeyDer::from(pkcs8.as_bytes().to_vec());
-        let pair = rcgen::KeyPair::from_pkcs8_der_and_sign_algo(&der, &rcgen::PKCS_RSA_SHA256).map_err(|e| Error::Protocol(format!("cert: {e}")))?;
-        let mut params = rcgen::CertificateParams::new(vec!["omacontrol".to_string()]).map_err(|e| Error::Protocol(format!("cert: {e}")))?;
-        params.distinguished_name.push(rcgen::DnType::CommonName, "OmaControl");
+        let pair = rcgen::KeyPair::from_pkcs8_der_and_sign_algo(&der, &rcgen::PKCS_RSA_SHA256)
+            .map_err(|e| Error::Protocol(format!("cert: {e}")))?;
+        let mut params = rcgen::CertificateParams::new(vec!["omacontrol".to_string()])
+            .map_err(|e| Error::Protocol(format!("cert: {e}")))?;
+        params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, "OmaControl");
         params.not_before = rcgen::date_time_ymd(2024, 1, 1);
         params.not_after = rcgen::date_time_ymd(2044, 1, 1);
-        let cert = params.self_signed(&pair).map_err(|e| Error::Protocol(format!("cert: {e}")))?;
-        Ok(Identity { cert: B64.encode(cert.der()), key: B64.encode(pkcs8.as_bytes()) })
+        let cert = params
+            .self_signed(&pair)
+            .map_err(|e| Error::Protocol(format!("cert: {e}")))?;
+        Ok(Identity {
+            cert: B64.encode(cert.der()),
+            key: B64.encode(pkcs8.as_bytes()),
+        })
     }
 
     fn der(&self) -> Result<(Vec<u8>, Vec<u8>)> {
         let bad = |_| Error::Protocol("the saved Android TV certificate is damaged".into());
-        Ok((B64.decode(&self.cert).map_err(bad)?, B64.decode(&self.key).map_err(bad)?))
+        Ok((
+            B64.decode(&self.cert).map_err(bad)?,
+            B64.decode(&self.key).map_err(bad)?,
+        ))
     }
 }
 
 /// The RSA modulus and exponent of a certificate, as minimal big-endian bytes.
 fn rsa_numbers(cert_der: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
     use x509_parser::prelude::*;
-    let (_, cert) = X509Certificate::from_der(cert_der).map_err(|e| Error::Protocol(format!("certificate: {e}")))?;
+    let (_, cert) = X509Certificate::from_der(cert_der)
+        .map_err(|e| Error::Protocol(format!("certificate: {e}")))?;
     match cert.public_key().parsed() {
         Ok(x509_parser::public_key::PublicKey::RSA(k)) => Ok((trim(k.modulus), trim(k.exponent))),
         _ => Err(Error::Protocol("the TV's certificate is not RSA".into())),
@@ -84,13 +102,23 @@ fn trim(b: &[u8]) -> Vec<u8> {
 }
 
 /// The pairing secret for a 6-hex-character code, or an error when the code can't be right.
-pub(crate) fn secret(client: &(Vec<u8>, Vec<u8>), server: &(Vec<u8>, Vec<u8>), code: &str) -> Result<Vec<u8>> {
+pub(crate) fn secret(
+    client: &(Vec<u8>, Vec<u8>),
+    server: &(Vec<u8>, Vec<u8>),
+    code: &str,
+) -> Result<Vec<u8>> {
     let code = code.trim().to_ascii_uppercase();
-    let wrong = || Error::Protocol("that's not the code on the TV (6 characters, 0-9 and A-F)".into());
+    let wrong =
+        || Error::Protocol("that's not the code on the TV (6 characters, 0-9 and A-F)".into());
     if code.len() != 6 || !code.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(wrong());
     }
-    let hex = |s: &str| (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<std::result::Result<Vec<u8>, _>>();
+    let hex = |s: &str| {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect::<std::result::Result<Vec<u8>, _>>()
+    };
     let check = hex(&code[..2]).map_err(|_| wrong())?[0];
     let tail = hex(&code[2..]).map_err(|_| wrong())?;
     let mut h = ring::digest::Context::new(&ring::digest::SHA256);
@@ -106,17 +134,27 @@ pub(crate) fn secret(client: &(Vec<u8>, Vec<u8>), server: &(Vec<u8>, Vec<u8>), c
 
 fn open(ip: &str, port: u16, identity: &Identity, remote: bool) -> Result<Tls> {
     let (cert, key) = identity.der()?;
-    let config = tls::local_tv_config_with_identity(&cert, &key).map_err(|e| Error::Protocol(e.to_string()))?;
-    let addr: SocketAddr = format!("{ip}:{port}").parse().map_err(|_| Error::Protocol(format!("bad address {ip}")))?;
+    let config = tls::local_tv_config_with_identity(&cert, &key)
+        .map_err(|e| Error::Protocol(e.to_string()))?;
+    let addr: SocketAddr = format!("{ip}:{port}")
+        .parse()
+        .map_err(|_| Error::Protocol(format!("bad address {ip}")))?;
     let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(3))?;
     tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
     tcp.set_nodelay(true)?;
-    let name = rustls::pki_types::ServerName::try_from(ip.to_string()).map_err(|e| Error::Protocol(e.to_string()))?;
+    let name = rustls::pki_types::ServerName::try_from(ip.to_string())
+        .map_err(|e| Error::Protocol(e.to_string()))?;
     let conn = ClientConnection::new(config, name).map_err(|e| Error::Protocol(e.to_string()))?;
     let mut stream = StreamOwned::new(conn, tcp);
     // Finish the handshake now: an unknown certificate is refused here, on the remote port.
     while stream.conn.is_handshaking() {
-        stream.conn.complete_io(&mut stream.sock).map_err(|e| if remote { Error::NotPaired } else { Error::Io(e) })?;
+        stream.conn.complete_io(&mut stream.sock).map_err(|e| {
+            if remote {
+                Error::NotPaired
+            } else {
+                Error::Io(e)
+            }
+        })?;
     }
     Ok(stream)
 }
@@ -159,14 +197,22 @@ impl Pairing {
         Pairing::start_on(ip, PAIRING_PORT, identity, client_name)
     }
 
-    pub(crate) fn start_on(ip: &str, port: u16, identity: &Identity, client_name: &str) -> Result<Pairing> {
+    pub(crate) fn start_on(
+        ip: &str,
+        port: u16,
+        identity: &Identity,
+        client_name: &str,
+    ) -> Result<Pairing> {
         let (cert, _) = identity.der()?;
         let client = rsa_numbers(&cert)?;
         let mut stream = open(ip, port, identity, false)?;
         let mut buf = Vec::new();
         let hex6 = || Msg::new().int(1, 3).int(2, 6);
         let steps = [
-            (polo().msg(10, Msg::new().str(1, "atvremote").str(2, client_name)), 11),
+            (
+                polo().msg(10, Msg::new().str(1, "atvremote").str(2, client_name)),
+                11,
+            ),
             (polo().msg(20, Msg::new().msg(1, hex6()).int(3, 1)), 20),
             (polo().msg(30, Msg::new().msg(1, hex6()).int(2, 1)), 31),
         ];
@@ -175,10 +221,16 @@ impl Pairing {
             let reply = recv(&mut stream, &mut buf)?;
             check_status(&reply)?;
             if proto::sub(&reply, expect).is_none() && !(expect == 31 && has_field(&reply, 31)) {
-                return Err(Error::Protocol(format!("unexpected pairing reply (wanted field {expect})")));
+                return Err(Error::Protocol(format!(
+                    "unexpected pairing reply (wanted field {expect})"
+                )));
             }
         }
-        Ok(Pairing { stream, buf, client })
+        Ok(Pairing {
+            stream,
+            buf,
+            client,
+        })
     }
 
     /// Checks a code against both certificates without sending anything: a typo is caught
@@ -198,7 +250,10 @@ impl Pairing {
     /// Sends the secret made from the code the TV shows. Ok means the TV now knows our certificate.
     pub fn finish(mut self, code: &str) -> Result<()> {
         let secret = self.check(code)?;
-        send(&mut self.stream, &polo().msg(40, Msg::new().bytes(1, &secret)))?;
+        send(
+            &mut self.stream,
+            &polo().msg(40, Msg::new().bytes(1, &secret)),
+        )?;
         let reply = recv(&mut self.stream, &mut self.buf)?;
         check_status(&reply).map_err(|_| Error::PairingRefused)?;
         if has_field(&reply, 41) {
@@ -217,8 +272,30 @@ fn check_status(reply: &[u8]) -> Result<()> {
     match proto::int(reply, 2) {
         Some(STATUS_OK) => Ok(()),
         Some(s) => Err(Error::Protocol(format!("the TV answered status {s}"))),
-        None => Err(Error::Protocol("the TV sent an empty pairing message".into())),
+        None => Err(Error::Protocol(
+            "the TV sent an empty pairing message".into(),
+        )),
     }
+}
+
+fn config_supports_voice(config: &[u8]) -> bool {
+    proto::int(config, 1).is_some_and(|features| features & FEATURE_VOICE != 0)
+}
+
+fn voice_payload(session: u64, samples: &[u8]) -> Msg {
+    Msg::new().msg(31, Msg::new().int(1, session).bytes(2, samples))
+}
+
+fn voice_begin(session: u64) -> Msg {
+    Msg::new().msg(30, Msg::new().int(1, session))
+}
+
+fn voice_end(session: u64) -> Msg {
+    Msg::new().msg(32, Msg::new().int(1, session))
+}
+
+fn voice_session_id(message: &[u8]) -> Option<u64> {
+    proto::sub(message, 30).and_then(|begin| proto::int(begin, 1))
 }
 
 /// The remote, once paired. A reader thread answers the TV's pings so it keeps us connected.
@@ -232,6 +309,8 @@ pub(crate) struct AndroidTv {
 struct Link {
     stream: Arc<Mutex<Tls>>,
     alive: Arc<AtomicBool>,
+    voice_supported: bool,
+    voice_session: Arc<Mutex<Option<u64>>>,
 }
 
 impl Drop for Link {
@@ -241,16 +320,31 @@ impl Drop for Link {
 }
 
 /// Answers one message from the TV; `Some(true)` once the remote has started.
-fn answer(stream: &mut Tls, msg: &[u8]) -> Result<Option<bool>> {
+fn answer(
+    stream: &mut Tls,
+    msg: &[u8],
+    voice_session: &Mutex<Option<u64>>,
+) -> Result<Option<bool>> {
     if let Some(cfg) = proto::sub(msg, 1) {
         let theirs = proto::int(cfg, 1).unwrap_or(FEATURES);
-        let info = Msg::new().str(1, "OmaControl").str(2, "OmaControl").int(3, 1).str(4, "1").str(5, "atvremote").str(6, env!("CARGO_PKG_VERSION"));
-        send(stream, &Msg::new().msg(1, Msg::new().int(1, FEATURES & theirs).msg(2, info)))?;
+        let info = Msg::new()
+            .str(1, "OmaControl")
+            .str(2, "OmaControl")
+            .int(3, 1)
+            .str(4, "1")
+            .str(5, "atvremote")
+            .str(6, env!("CARGO_PKG_VERSION"));
+        send(
+            stream,
+            &Msg::new().msg(1, Msg::new().int(1, FEATURES & theirs).msg(2, info)),
+        )?;
     } else if proto::sub(msg, 2).is_some() || has_field(msg, 2) {
         send(stream, &Msg::new().msg(2, Msg::new().int(1, FEATURES)))?;
     } else if let Some(ping) = proto::sub(msg, 8) {
         let val = proto::int(ping, 1).unwrap_or(0);
         send(stream, &Msg::new().msg(9, Msg::new().int(1, val)))?;
+    } else if let Some(session) = voice_session_id(msg) {
+        *voice_session.lock().unwrap() = Some(session);
     } else if has_field(msg, 40) {
         return Ok(Some(true));
     }
@@ -260,28 +354,49 @@ fn answer(stream: &mut Tls, msg: &[u8]) -> Result<Option<bool>> {
 fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
     let mut stream = open(ip, port, identity, true)?;
     let mut buf = Vec::new();
+    let voice_session = Arc::new(Mutex::new(None));
     let deadline = Instant::now() + Duration::from_secs(6);
     // configure → set_active → start (the TV may skip start while it sleeps).
     let mut configured = false;
+    let mut voice_supported = false;
     while Instant::now() < deadline {
         let msg = match recv(&mut stream, &mut buf) {
             Ok(m) => m,
-            Err(Error::Io(e)) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) && configured => break,
-            Err(Error::Io(e)) if matches!(e.kind(), ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof | ErrorKind::InvalidData) => return Err(Error::NotPaired),
+            Err(Error::Io(e))
+                if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)
+                    && configured =>
+            {
+                break
+            }
+            Err(Error::Io(e))
+                if matches!(
+                    e.kind(),
+                    ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof | ErrorKind::InvalidData
+                ) =>
+            {
+                return Err(Error::NotPaired)
+            }
             Err(e) => return Err(e),
         };
-        configured |= proto::sub(&msg, 1).is_some();
-        if answer(&mut stream, &msg)? == Some(true) {
+        if let Some(config) = proto::sub(&msg, 1) {
+            configured = true;
+            voice_supported = config_supports_voice(config);
+        }
+        if answer(&mut stream, &msg, &voice_session)? == Some(true) {
             break;
         }
     }
     if !configured {
-        return Err(Error::Protocol("the TV didn't start the remote session".into()));
+        return Err(Error::Protocol(
+            "the TV didn't start the remote session".into(),
+        ));
     }
-    stream.sock.set_read_timeout(Some(Duration::from_millis(80)))?;
+    stream
+        .sock
+        .set_read_timeout(Some(Duration::from_millis(80)))?;
     let stream = Arc::new(Mutex::new(stream));
     let alive = Arc::new(AtomicBool::new(true));
-    let (s, a) = (stream.clone(), alive.clone());
+    let (s, a, voice) = (stream.clone(), alive.clone(), voice_session.clone());
     thread::spawn(move || {
         let mut buf = buf;
         while a.load(Ordering::Relaxed) {
@@ -295,7 +410,7 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
                     Err(_) => break,
                 }
                 for msg in proto::drain_frames(&mut buf) {
-                    if answer(&mut st, &msg).is_err() {
+                    if answer(&mut st, &msg, &voice).is_err() {
                         a.store(false, Ordering::Relaxed);
                     }
                 }
@@ -304,7 +419,12 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
         }
         a.store(false, Ordering::Relaxed);
     });
-    Ok(Link { stream, alive })
+    Ok(Link {
+        stream,
+        alive,
+        voice_supported,
+        voice_session,
+    })
 }
 
 impl AndroidTv {
@@ -315,13 +435,23 @@ impl AndroidTv {
 
     pub(crate) fn connect_on(ip: &str, port: u16, identity: &Identity) -> Result<AndroidTv> {
         let link = link(ip, port, identity)?;
-        Ok(AndroidTv { ip: ip.to_string(), port, identity: identity.clone(), link: Some(link) })
+        Ok(AndroidTv {
+            ip: ip.to_string(),
+            port,
+            identity: identity.clone(),
+            link: Some(link),
+        })
     }
 
     /// Sends one message, reconnecting once when the TV dropped us (it does after sleep).
     fn send(&mut self, msg: Msg) -> Result<()> {
         for attempt in 0..2 {
-            if self.link.as_ref().is_none_or(|l| !l.alive.load(Ordering::Relaxed)) || attempt == 1 {
+            if self
+                .link
+                .as_ref()
+                .is_none_or(|l| !l.alive.load(Ordering::Relaxed))
+                || attempt == 1
+            {
                 self.link = None;
                 self.link = Some(link(&self.ip, self.port, &self.identity)?);
             }
@@ -405,7 +535,9 @@ impl Remote for AndroidTv {
 
     fn type_text(&mut self, text: &str) -> Result<()> {
         for c in text.chars() {
-            let Some((code, shift)) = char_keycode(c) else { continue };
+            let Some((code, shift)) = char_keycode(c) else {
+                continue;
+            };
             if shift {
                 // SHIFT_LEFT down, the letter, SHIFT_LEFT up.
                 self.send(Msg::new().msg(10, Msg::new().int(1, 59).int(2, 1)))?;
@@ -420,6 +552,59 @@ impl Remote for AndroidTv {
 
     fn launch(&mut self, app: App) -> Result<()> {
         self.send(Msg::new().msg(90, Msg::new().str(1, app_link(app))))
+    }
+
+    fn supports_voice(&self) -> bool {
+        self.link.as_ref().is_some_and(|link| link.voice_supported)
+    }
+
+    fn voice_start(&mut self) -> Result<()> {
+        let link = self
+            .link
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("the Android TV remote is disconnected".into()))?;
+        if !link.voice_supported {
+            return Err(Error::Unsupported(
+                "voice search (not supported by this TV)".into(),
+            ));
+        }
+        let voice_session = link.voice_session.clone();
+        *voice_session.lock().unwrap() = None;
+        self.key(KEYCODE_SEARCH)?;
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            if let Some(session) = *voice_session.lock().unwrap() {
+                return self.send(voice_begin(session));
+            }
+            if Instant::now() >= deadline {
+                return Err(Error::Protocol(
+                    "the TV did not start a voice-search session".into(),
+                ));
+            }
+            thread::sleep(Duration::from_millis(25));
+        }
+    }
+
+    fn voice_audio(&mut self, samples: &[u8]) -> Result<()> {
+        let session = self
+            .link
+            .as_ref()
+            .and_then(|link| *link.voice_session.lock().unwrap())
+            .ok_or_else(|| {
+                Error::Protocol("no Android TV voice-search session is active".into())
+            })?;
+        self.send(voice_payload(session, samples))
+    }
+
+    fn voice_stop(&mut self) -> Result<()> {
+        let session = self
+            .link
+            .as_ref()
+            .and_then(|link| link.voice_session.lock().unwrap().take())
+            .ok_or_else(|| {
+                Error::Protocol("no Android TV voice-search session is active".into())
+            })?;
+        self.send(voice_end(session))
     }
 
     fn token(&self) -> Option<String> {
@@ -437,13 +622,22 @@ mod tests {
         let server = (vec![0xD2; 256], vec![1, 0, 1]);
         // Work out the right first byte for the tail "ABCD", then try it and a wrong one.
         let mut h = ring::digest::Context::new(&ring::digest::SHA256);
-        for part in [&client.0, &client.1, &server.0, &server.1, &vec![0xAB, 0xCD]] {
+        for part in [
+            &client.0,
+            &client.1,
+            &server.0,
+            &server.1,
+            &vec![0xAB, 0xCD],
+        ] {
             h.update(part);
         }
         let digest = h.finish().as_ref().to_vec();
         let good = format!("{:02X}ABCD", digest[0]);
         assert_eq!(secret(&client, &server, &good).unwrap(), digest);
-        assert_eq!(secret(&client, &server, &good.to_lowercase()).unwrap(), digest);
+        assert_eq!(
+            secret(&client, &server, &good.to_lowercase()).unwrap(),
+            digest
+        );
         let bad = format!("{:02X}ABCD", digest[0].wrapping_add(1));
         assert!(secret(&client, &server, &bad).is_err());
         assert!(secret(&client, &server, "12345").is_err());
@@ -467,6 +661,24 @@ mod tests {
     }
 
     #[test]
+    fn voice_messages_use_negotiated_features_and_the_tv_session_id() {
+        assert!(config_supports_voice(&Msg::new().int(1, FEATURE_VOICE).0));
+        assert!(!config_supports_voice(&Msg::new().int(1, 2).0));
+
+        let begin = Msg::new().msg(30, Msg::new().int(1, 17));
+        assert_eq!(voice_session_id(&begin.0), Some(17));
+        assert_eq!(proto::int(proto::sub(&voice_begin(17).0, 30).unwrap(), 1), Some(17));
+
+        let payload = voice_payload(17, &[1, 2, 3]);
+        let message = proto::sub(&payload.0, 31).unwrap();
+        assert_eq!(proto::int(message, 1), Some(17));
+        assert_eq!(proto::sub(message, 2), Some(&[1, 2, 3][..]));
+
+        let end = voice_end(17);
+        assert_eq!(proto::int(proto::sub(&end.0, 32).unwrap(), 1), Some(17));
+    }
+
+    #[test]
     #[ignore = "slow in debug builds (RSA key generation)"]
     fn generated_identity_is_rsa_65537() {
         let id = Identity::generate().unwrap();
@@ -484,7 +696,9 @@ mod tests {
 mod fake_tv {
     use super::*;
     use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
-    use rustls::{DigitallySignedStruct, DistinguishedName, ServerConfig, ServerConnection, SignatureScheme};
+    use rustls::{
+        DigitallySignedStruct, DistinguishedName, ServerConfig, ServerConnection, SignatureScheme,
+    };
     use std::net::TcpListener;
 
     #[derive(Debug)]
@@ -494,14 +708,41 @@ mod fake_tv {
         fn root_hint_subjects(&self) -> &[DistinguishedName] {
             &[]
         }
-        fn verify_client_cert(&self, _: &rustls::pki_types::CertificateDer<'_>, _: &[rustls::pki_types::CertificateDer<'_>], _: rustls::pki_types::UnixTime) -> std::result::Result<ClientCertVerified, rustls::Error> {
+        fn verify_client_cert(
+            &self,
+            _: &rustls::pki_types::CertificateDer<'_>,
+            _: &[rustls::pki_types::CertificateDer<'_>],
+            _: rustls::pki_types::UnixTime,
+        ) -> std::result::Result<ClientCertVerified, rustls::Error> {
             Ok(ClientCertVerified::assertion())
         }
-        fn verify_tls12_signature(&self, m: &[u8], c: &rustls::pki_types::CertificateDer<'_>, d: &DigitallySignedStruct) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-            rustls::crypto::verify_tls12_signature(m, c, d, &self.0.signature_verification_algorithms)
+        fn verify_tls12_signature(
+            &self,
+            m: &[u8],
+            c: &rustls::pki_types::CertificateDer<'_>,
+            d: &DigitallySignedStruct,
+        ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+        {
+            rustls::crypto::verify_tls12_signature(
+                m,
+                c,
+                d,
+                &self.0.signature_verification_algorithms,
+            )
         }
-        fn verify_tls13_signature(&self, m: &[u8], c: &rustls::pki_types::CertificateDer<'_>, d: &DigitallySignedStruct) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-            rustls::crypto::verify_tls13_signature(m, c, d, &self.0.signature_verification_algorithms)
+        fn verify_tls13_signature(
+            &self,
+            m: &[u8],
+            c: &rustls::pki_types::CertificateDer<'_>,
+            d: &DigitallySignedStruct,
+        ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+        {
+            rustls::crypto::verify_tls13_signature(
+                m,
+                c,
+                d,
+                &self.0.signature_verification_algorithms,
+            )
         }
         fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
             self.0.signature_verification_algorithms.supported_schemes()
@@ -515,7 +756,10 @@ mod fake_tv {
             .with_safe_default_protocol_versions()
             .unwrap()
             .with_client_cert_verifier(Arc::new(AnyClient(provider)))
-            .with_single_cert(vec![cert.into()], rustls::pki_types::PrivateKeyDer::Pkcs8(key.into()))
+            .with_single_cert(
+                vec![cert.into()],
+                rustls::pki_types::PrivateKeyDer::Pkcs8(key.into()),
+            )
             .unwrap();
         Arc::new(config)
     }
@@ -553,7 +797,10 @@ mod fake_tv {
         let config = server_config(&tv);
         let pairing_port = TcpListener::bind("127.0.0.1:0").unwrap();
         let remote_port = TcpListener::bind("127.0.0.1:0").unwrap();
-        let (pp, rp) = (pairing_port.local_addr().unwrap().port(), remote_port.local_addr().unwrap().port());
+        let (pp, rp) = (
+            pairing_port.local_addr().unwrap().port(),
+            remote_port.local_addr().unwrap().port(),
+        );
         let code = Arc::new(Mutex::new(String::new()));
 
         let (cfg, shown) = (config.clone(), code.clone());
@@ -563,11 +810,20 @@ mod fake_tv {
             let mut s = accept(&pairing_port, &cfg);
             let mut buf = Vec::new();
             let req = read(&mut s, &mut buf);
-            assert_eq!(proto::sub(proto::sub(&req, 10).unwrap(), 2), Some(&b"OmaControl test"[..]));
+            assert_eq!(
+                proto::sub(proto::sub(&req, 10).unwrap(), 2),
+                Some(&b"OmaControl test"[..])
+            );
             write(&mut s, polo().msg(11, Msg::new().str(1, "Fake TV")));
             let opts = read(&mut s, &mut buf);
             assert!(proto::sub(&opts, 20).is_some());
-            write(&mut s, polo().msg(20, Msg::new().msg(1, Msg::new().int(1, 3).int(2, 6)).int(3, 1)));
+            write(
+                &mut s,
+                polo().msg(
+                    20,
+                    Msg::new().msg(1, Msg::new().int(1, 3).int(2, 6)).int(3, 1),
+                ),
+            );
             let conf = read(&mut s, &mut buf);
             assert!(proto::sub(&conf, 30).is_some());
             // The TV "shows" a code made from both certificates.
@@ -575,7 +831,13 @@ mod fake_tv {
             let client_numbers = rsa_numbers(&client_cert).unwrap();
             let digest = {
                 let mut h = ring::digest::Context::new(&ring::digest::SHA256);
-                for part in [&client_numbers.0, &client_numbers.1, &tv_numbers.0, &tv_numbers.1, &vec![0x12, 0x34]] {
+                for part in [
+                    &client_numbers.0,
+                    &client_numbers.1,
+                    &tv_numbers.0,
+                    &tv_numbers.1,
+                    &vec![0x12, 0x34],
+                ] {
                     h.update(part);
                 }
                 h.finish().as_ref().to_vec()
@@ -583,15 +845,29 @@ mod fake_tv {
             *shown.lock().unwrap() = format!("{:02x}1234", digest[0]);
             write(&mut s, polo().msg(31, Msg::new()));
             let secret = read(&mut s, &mut buf);
-            assert_eq!(proto::sub(proto::sub(&secret, 40).unwrap(), 1), Some(&digest[..]));
+            assert_eq!(
+                proto::sub(proto::sub(&secret, 40).unwrap(), 1),
+                Some(&digest[..])
+            );
             write(&mut s, polo().msg(41, Msg::new().bytes(1, &digest)));
 
             // Remote session.
             let mut s = accept(&remote_port, &cfg);
             let mut buf = Vec::new();
-            write(&mut s, Msg::new().msg(1, Msg::new().int(1, 639).msg(2, Msg::new().str(1, "Fake").str(2, "Free"))));
+            write(
+                &mut s,
+                Msg::new().msg(
+                    1,
+                    Msg::new()
+                        .int(1, 639)
+                        .msg(2, Msg::new().str(1, "Fake").str(2, "Free")),
+                ),
+            );
             let cfg_reply = read(&mut s, &mut buf);
-            assert_eq!(proto::int(proto::sub(&cfg_reply, 1).unwrap(), 1), Some(FEATURES & 639));
+            assert_eq!(
+                proto::int(proto::sub(&cfg_reply, 1).unwrap(), 1),
+                Some(FEATURES & 639)
+            );
             write(&mut s, Msg::new().msg(2, Msg::new().int(1, 639)));
             let active = read(&mut s, &mut buf);
             assert!(proto::sub(&active, 2).is_some());

@@ -317,3 +317,75 @@ msgstr "{} · पंखा {}"
 
 msgid "{} · tap the name to try again"
 msgstr "{} · फिर से कोशिश करने के लिए नाम पर टैप करें"
+
+msgid "Allow microphone access, then press and hold again"
+msgstr "माइक्रोफ़ोन की अनुमति दें, फिर दोबारा दबाकर रखें"
+
+msgid "Archive"
+msgstr "संग्रहित करें"
+
+msgid "Archived"
+msgstr "संग्रहित"
+
+msgid "Candidate {} of {}"
+msgstr "कोड {} / {}"
+
+msgid "Connecting to voice assistant…"
+msgstr "वॉइस असिस्टेंट से कनेक्ट हो रहा है…"
+
+msgid "Language"
+msgstr "भाषा"
+
+msgid "Listening · release to send"
+msgstr "सुन रहा है · भेजने के लिए छोड़ें"
+
+msgid "Move"
+msgstr "स्थानांतरित करें"
+
+msgid "Move mode"
+msgstr "स्थानांतरण मोड"
+
+msgid "No archived devices"
+msgstr "कोई संग्रहित डिवाइस नहीं"
+
+msgid "No devices found"
+msgstr "कोई डिवाइस नहीं मिला"
+
+msgid "Previous"
+msgstr "पिछला"
+
+msgid "Remove"
+msgstr "हटाएँ"
+
+msgid "Remove {}?"
+msgstr "{} हटाएँ?"
+
+msgid "Rename"
+msgstr "नाम बदलें"
+
+msgid "Restore"
+msgstr "पुनर्स्थापित करें"
+
+msgid "Review NEC codes"
+msgstr "NEC कोड देखें"
+
+msgid "Review codes"
+msgstr "कोड देखें"
+
+msgid "Save"
+msgstr "सहेजें"
+
+msgid "System default"
+msgstr "सिस्टम डिफ़ॉल्ट"
+
+msgid "Use this"
+msgstr "इसे इस्तेमाल करें"
+
+msgid "Use Previous or Next to replay a code, then choose Use this to save it."
+msgstr "कोड दोबारा चलाने के लिए पिछला या अगला चुनें, फिर इसे सहेजने के लिए इसका उपयोग करें चुनें।"
+
+msgid "Voice unavailable: {}"
+msgstr "वॉइस उपलब्ध नहीं: {}"
+
+msgid "{} will be removed from OmaControl. You can add it again later."
+msgstr "{} को OmaControl से हटा दिया जाएगा। आप इसे बाद में फिर जोड़ सकते हैं।"

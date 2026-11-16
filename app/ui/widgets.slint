@@ -43,6 +43,8 @@ export component Key inherits Rectangle {
     in property <bool> long-press-enabled: false;
     callback clicked;
     callback long-pressed;
+    callback pressed;
+    callback released;
     property <bool> pulsing;
     property <duration> pulse-start;
     property <bool> long-press-fired;
@@ -75,10 +77,13 @@ export component Key inherits Rectangle {
             if e.kind == PointerEventKind.down {
                 root.long-press-fired = false;
                 Feedback.tap();
+                root.pressed();
                 if Feedback.ir {
                     root.pulse-start = animation-tick();
                     root.pulsing = true;
                 }
+            } else if e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel {
+                root.released();
             }
         }
         clicked => {

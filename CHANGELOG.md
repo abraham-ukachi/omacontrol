@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.3.7] - 2026-11-16
+
+### Added
+- :iphone: Device list actions: swipe to remove with confirmation, long-press to rename/archive/move/remove, restore archived devices, and reorder in Move mode.
+- :microphone: Press-and-hold voice search on Android TVs that negotiate microphone support; Android requests microphone permission before capture.
+- :mag: NEC scan review: move to previous or next candidates and replay each one before saving the selected code.
+- :earth_americas: A Settings language picker for system default or any of the ten bundled languages.
+
+### Improved
+- :keyboard: Keep Add-by-IP controls above the on-screen keyboard while entering an address.
+- :globe_with_meridians: Translate the new device, voice-search, and NEC review UI into all ten bundled languages.
+
 ## [0.3.6] - 2026-11-16
 
 ### Fixed

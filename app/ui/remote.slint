@@ -7,10 +7,16 @@ export component RemotePage inherits VerticalLayout {
     in property <string> tv-status-code;
     in property <string> tv-status-detail;
     in property <bool> online;
+    in property <bool> voice-supported;
+    in property <bool> voice-active;
+    in property <string> voice-status-code;
+    in property <string> voice-status-detail;
     callback menu;
     callback press(string);
     callback keypad;
     callback keyboard;
+    callback voice-start;
+    callback voice-stop;
     callback devices;
     // Android TV pairing: the TV shows a 6-character code, typed here.
     in property <bool> pairing;
@@ -31,6 +37,14 @@ export component RemotePage inherits VerticalLayout {
         if root.tv-status-code == "pair-error" { return @tr("{} · tap the name to try again", root.tv-status-detail); }
         if root.tv-status-code == "error" { return @tr("Error: {}", root.tv-status-detail); }
         return root.tv-status-detail;
+    }
+
+    function localized-voice-status() -> string {
+        if root.voice-status-code == "permission" { return @tr("Allow microphone access, then press and hold again"); }
+        if root.voice-status-code == "starting" { return @tr("Connecting to voice assistant…"); }
+        if root.voice-status-code == "active" { return @tr("Listening · release to send"); }
+        if root.voice-status-code == "error" { return @tr("Voice unavailable: {}", root.voice-status-detail); }
+        return "";
     }
 
     spacing: Theme.gap;
@@ -82,6 +96,13 @@ export component RemotePage inherits VerticalLayout {
         Key { has-icon: true; icon: @image-url("icons/mute.svg"); clicked => { root.press("mute"); } }
         Key { has-icon: true; icon: @image-url("icons/grid.svg"); kind: KeyKind.operator; clicked => { root.keypad(); } }
     }
+    if root.voice-status-code != "": Text {
+        x: 8px;
+        text: root.localized-voice-status();
+        color: root.voice-active ? Theme.accent : Theme.muted;
+        font-size: 13px;
+        wrap: word-wrap;
+    }
     GridLayout {
         spacing: Theme.gap;
         padding-top: 10px;
@@ -125,7 +146,20 @@ export component RemotePage inherits VerticalLayout {
                 Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/ff.svg"); clicked => { root.press("ff"); } }
             }
             Row {
-                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/kbd.svg"); clicked => { root.keyboard(); } }
+                if root.voice-supported: Key {
+                    has-icon: true;
+                    icon-size: 22px;
+                    icon: @image-url("icons/mic.svg");
+                    kind: root.voice-active ? KeyKind.primary : KeyKind.operator;
+                    pressed => { root.voice-start(); }
+                    released => { root.voice-stop(); }
+                }
+                if !root.voice-supported: Key {
+                    has-icon: true;
+                    icon-size: 22px;
+                    icon: @image-url("icons/kbd.svg");
+                    clicked => { root.keyboard(); }
+                }
                 Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/home.svg"); clicked => { root.press("home"); } }
                 Key { label: "123"; clicked => { root.keypad(); } }
             }

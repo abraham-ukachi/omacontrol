@@ -1,8 +1,9 @@
 import { Theme } from "theme.slint";
-import { Key, KeyKind, Header, Divider } from "widgets.slint";
+import { Key, KeyKind, Header, Divider, Confirm } from "widgets.slint";
 import { AsciiScan } from "scanner.slint";
 
 export struct DeviceRow {
+    id: string,
     name: string,
     meta: string,
     ip: string,
@@ -10,116 +11,402 @@ export struct DeviceRow {
     ac: bool,
 }
 
+component DeviceItem inherits Rectangle {
+    in property <DeviceRow> device;
+    in property <bool> archived-view;
+    in property <bool> drag-mode;
+    callback picked(string);
+    callback long-pressed(string, string);
+    callback swiped(string, string);
+    callback moved(string, int);
+
+    property <int> gesture: 0;
+    property <length> swipe-distance;
+    property <length> start-x;
+    property <length> start-y;
+
+    height: 72px;
+    border-radius: Theme.radius;
+    background: device.current ? Theme.operator : (touch.pressed ? Theme.key-pressed : Theme.key);
+    border-width: device.current ? 0px : 1px;
+    border-color: Theme.key-border;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 18px;
+        spacing: 14px;
+        if root.drag-mode: Image {
+            source: @image-url("icons/move.svg");
+            colorize: Theme.muted;
+            width: 18px;
+            height: 24px;
+        }
+        VerticalLayout {
+            alignment: center;
+            Image {
+                source: root.device.ac ? @image-url("icons/ac.svg") : @image-url("icons/tv.svg");
+                colorize: Theme.fg;
+                width: 28px;
+                height: 28px;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 5px;
+            Text { text: root.device.name; color: Theme.fg; font-size: 17px; overflow: elide; }
+            Text {
+                text: root.device.meta == "IR · tap to set up" ? @tr("IR · tap to set up")
+                    : root.device.meta == "code · IR" ? @tr("Code · IR")
+                    : root.device.meta;
+                color: Theme.muted;
+                font-size: 13px;
+                overflow: elide;
+            }
+        }
+        if root.device.current: VerticalLayout {
+            alignment: center;
+            Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; }
+        }
+        if !root.device.current: Text {
+            text: root.device.ip;
+            color: Theme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.gesture = 0;
+                root.swipe-distance = 0px;
+                root.start-x = self.mouse-x;
+                root.start-y = self.mouse-y;
+            } else if e.kind == PointerEventKind.up {
+                if root.gesture == 1 && abs(root.swipe-distance) > 48px {
+                    root.swiped(root.device.id, root.device.name);
+                } else if root.gesture == 2 && root.drag-mode {
+                    let delta = self.mouse-y - root.start-y;
+                    let steps = Math.floor(abs(delta) / 84px) * (delta > 0px ? 1 : -1);
+                    if steps != 0 { root.moved(root.device.id, steps); }
+                } else if root.gesture == 0 && !root.drag-mode && !root.archived-view {
+                    root.picked(root.device.id);
+                }
+                root.gesture = 0;
+            } else if e.kind == PointerEventKind.cancel {
+                root.gesture = 0;
+            }
+        }
+        moved => {
+            let dx = self.mouse-x - root.start-x;
+            let dy = self.mouse-y - root.start-y;
+            if root.drag-mode {
+                if abs(dy) > 18px { root.gesture = 2; }
+            } else if abs(dx) > 18px && abs(dx) > abs(dy) {
+                root.gesture = 1;
+                root.swipe-distance = dx;
+            } else if abs(dy) > 18px {
+                root.gesture = 3;
+            }
+        }
+    }
+
+    Timer {
+        interval: 480ms;
+        running: touch.pressed && root.gesture == 0 && !root.drag-mode;
+        triggered => {
+            root.gesture = 4;
+            root.long-pressed(root.device.id, root.device.name);
+        }
+    }
+}
+
 // 01 · Devices: the TVs and air conditioners we know about.
-export component DevicesPage inherits VerticalLayout {
+export component DevicesPage inherits Rectangle {
     in property <[DeviceRow]> devices;
     in property <bool> scanning;
     in property <string> subnet;
+    in property <bool> has-ir;
+    in property <bool> archived-view;
+    in property <length> kb-top;
+    in property <length> kb-height;
     callback menu;
-    callback pick(int);
+    callback pick(string);
     callback rescan;
     callback add-ip(string);
     callback add-ir(string);
     callback add-ac();
-    in property <bool> has-ir;
+    callback set-archived-view(bool);
+    callback archive-device(string, bool);
+    callback remove-device(string);
+    callback rename-device(string, string);
+    callback move-device(string, int);
 
     property <bool> adding: false;
+    property <bool> drag-mode: false;
+    property <bool> drawer-open: false;
+    property <bool> renaming: false;
+    property <string> selected-id;
+    property <string> selected-name;
+    property <string> deleting-id;
+    property <string> deleting-name;
+    property <length> footer-height: root.adding && root.has-ir && root.kb-height == 0px ? 280px : root.adding ? 136px : 64px;
+    property <length> footer-y: root.adding && root.kb-height > 0px
+        ? max(0px, min(root.height - self.footer-height, root.kb-top - root.absolute-position.y - self.footer-height))
+        : root.height - self.footer-height;
 
-    spacing: Theme.gap;
-    Header { title: @tr("Devices"); menu => { root.menu(); } }
-    if !root.scanning: VerticalLayout {
-        padding: 8px;
-        padding-top: 22px;
-        spacing: 8px;
-        Text { text: root.subnet == "your network" ? @tr("Your network") : root.subnet; color: Theme.muted; font-size: 19px; }
-        Text { text: @tr("{} found", root.devices.length); color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
-    }
-    // While scanning: the ASCII radar on the left, the running count on the right.
-    if root.scanning: HorizontalLayout {
-        padding: 8px;
-        padding-top: 14px;
-        spacing: 12px;
-        AsciiScan { label: @tr("Scanning {}", root.subnet); size: 15px; }
-        Text {
-            text: root.devices.length == 0 ? "" : root.devices.length + "";
-            color: Theme.fg; font-size: 64px; horizontal-alignment: right; vertical-alignment: center;
+    background: Theme.bg;
+
+    VerticalLayout {
+        spacing: Theme.gap;
+        Header { title: @tr("Devices"); menu => { root.menu(); } }
+        if !root.scanning: VerticalLayout {
+            padding: 8px;
+            padding-top: 22px;
+            spacing: 8px;
+            Text { text: root.subnet == "your network" ? @tr("Your network") : root.subnet; color: Theme.muted; font-size: 19px; }
+            Text { text: @tr("{} found", root.devices.length); color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
         }
-    }
-    Divider { }
-    Flickable {
-        vertical-stretch: 1;
-        VerticalLayout {
-            alignment: start;
+        if root.scanning: HorizontalLayout {
+            padding: 8px;
+            padding-top: 14px;
+            spacing: 12px;
+            AsciiScan { label: @tr("Scanning {}", root.subnet); size: 15px; }
+            Text {
+                text: root.devices.length == 0 ? "" : root.devices.length + "";
+                color: Theme.fg;
+                font-size: 64px;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+        }
+        HorizontalLayout {
+            height: 48px;
             spacing: Theme.gap;
-            for d[i] in root.devices: Rectangle {
-                height: 72px;
-                border-radius: Theme.radius;
-                background: d.current ? Theme.operator : (row.pressed ? Theme.key-pressed : Theme.key);
-                border-width: d.current ? 0px : 1px;
-                border-color: Theme.key-border;
-                HorizontalLayout {
-                    padding-left: 14px;
-                    padding-right: 18px;
-                    spacing: 14px;
-                    VerticalLayout { alignment: center; Image { source: d.ac ? @image-url("icons/ac.svg") : @image-url("icons/tv.svg"); colorize: Theme.fg; width: 28px; height: 28px; } }
-                    VerticalLayout {
-                        alignment: center;
-                        spacing: 5px;
-                        Text { text: d.name; color: Theme.fg; font-size: 17px; overflow: elide; }
-                        Text {
-                            text: d.meta == "IR · tap to set up" ? @tr("IR · tap to set up")
-                                : d.meta == "code · IR" ? @tr("Code · IR")
-                                : d.meta;
-                            color: Theme.muted;
-                            font-size: 13px;
-                            overflow: elide;
-                        }
-                    }
-                    if d.current: VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.accent; } }
-                    if !d.current: Text { text: d.ip; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            Key {
+                label: @tr("Devices");
+                kind: root.archived-view ? KeyKind.operator : KeyKind.primary;
+                font-size: 15px;
+                clicked => { root.drag-mode = false; root.set-archived-view(false); }
+            }
+            Key {
+                label: @tr("Archived");
+                kind: root.archived-view ? KeyKind.primary : KeyKind.operator;
+                font-size: 15px;
+                clicked => { root.drag-mode = false; root.set-archived-view(true); }
+            }
+        }
+        Divider { }
+        Flickable {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                spacing: Theme.gap;
+                if root.devices.length == 0: Text {
+                    text: root.archived-view ? @tr("No archived devices") : @tr("No devices found");
+                    color: Theme.muted;
+                    font-size: 15px;
+                    horizontal-alignment: center;
                 }
-                row := TouchArea { clicked => { root.pick(i); } }
+                for d in root.devices: DeviceItem {
+                    device: d;
+                    archived-view: root.archived-view;
+                    drag-mode: root.drag-mode;
+                    picked(id) => { root.pick(id); }
+                    long-pressed(id, name) => {
+                        root.selected-id = id;
+                        root.selected-name = name;
+                        root.renaming = false;
+                        root.drawer-open = true;
+                    }
+                    swiped(id, name) => {
+                        root.deleting-id = id;
+                        root.deleting-name = name;
+                    }
+                    moved(id, steps) => { root.move-device(id, steps); }
+                }
             }
         }
     }
-    // With an IR blaster, air conditioners and Samsung, LG or Sony TVs work, even without Wi-Fi.
-    if root.adding && root.has-ir: Key {
-        height: 52px;
-        label: @tr("Air conditioner · IR");
-        kind: KeyKind.operator;
-        font-size: 15px;
-        clicked => { root.add-ac(); root.adding = false; }
-    }
-    if root.adding && root.has-ir: HorizontalLayout {
-        height: 52px;
-        spacing: Theme.gap;
-        for b in ["Samsung", "LG", "Sony"]: Key {
-            label: @tr("IR · {}", b);
-            kind: KeyKind.operator;
-            font-size: 15px;
-            clicked => { root.add-ir(b); root.adding = false; }
+
+    footer := Rectangle {
+        x: 0px;
+        y: root.footer-y;
+        width: root.width;
+        height: root.footer-height;
+        background: Theme.bg;
+        animate y { duration: 160ms; easing: ease-out; }
+        VerticalLayout {
+            spacing: Theme.gap;
+            if root.adding && root.has-ir && root.kb-height == 0px: Key {
+                height: 52px;
+                label: @tr("Air conditioner · IR");
+                kind: KeyKind.operator;
+                font-size: 15px;
+                clicked => { root.add-ac(); root.adding = false; }
+            }
+            if root.adding && root.has-ir && root.kb-height == 0px: HorizontalLayout {
+                height: 52px;
+                spacing: Theme.gap;
+                for b in ["Samsung", "LG", "Sony"]: Key {
+                    label: @tr("IR · {}", b);
+                    kind: KeyKind.operator;
+                    font-size: 15px;
+                    clicked => { root.add-ir(b); root.adding = false; }
+                }
+            }
+            if root.adding: Rectangle {
+                height: 64px;
+                border-radius: Theme.radius;
+                background: Theme.key;
+                border-width: 1px;
+                border-color: root.kb-height > 0px ? Theme.accent : Theme.key-border;
+                ip := TextInput {
+                    x: 18px;
+                    width: parent.width - 36px;
+                    color: Theme.fg;
+                    font-size: 18px;
+                    vertical-alignment: center;
+                    accepted => { root.add-ip(self.text); root.adding = false; }
+                }
+                if ip.text == "": Text { x: 18px; text: "192.168.1.…"; color: Theme.muted; font-size: 18px; }
+            }
+            HorizontalLayout {
+                height: 64px;
+                spacing: Theme.gap;
+                if root.drag-mode: Key {
+                    label: @tr("Done");
+                    kind: KeyKind.primary;
+                    font-size: 17px;
+                    clicked => { root.drag-mode = false; }
+                }
+                if !root.drag-mode: Key {
+                    label: root.adding ? @tr("Cancel") : @tr("Add");
+                    font-size: 17px;
+                    clicked => {
+                        root.adding = !root.adding;
+                    }
+                }
+                Key {
+                    label: root.drag-mode ? @tr("Move mode")
+                        : root.archived-view ? @tr("Devices") : @tr("Rescan");
+                    kind: KeyKind.primary;
+                    font-size: 17px;
+                    clicked => {
+                        if root.drag-mode {
+                            root.drag-mode = false;
+                        } else if root.archived-view {
+                            root.set-archived-view(false);
+                        } else {
+                            root.rescan();
+                        }
+                    }
+                }
+            }
         }
     }
-    if root.adding: Rectangle {
-        height: 64px;
-        border-radius: Theme.radius;
-        background: Theme.key;
-        border-width: 1px;
-        border-color: Theme.key-border;
-        ip := TextInput {
-            x: 18px;
-            width: parent.width - 36px;
-            color: Theme.fg;
-            font-size: 18px;
-            vertical-alignment: center;
-                        accepted => { root.add-ip(self.text); root.adding = false; }
+
+    Rectangle {
+        visible: root.drawer-open;
+        background: Theme.bg.with-alpha(root.drawer-open ? 0.82 : 0);
+        animate background { duration: 180ms; }
+        TouchArea { clicked => { root.drawer-open = false; root.renaming = false; } }
+        drawer := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: root.drawer-open ? parent.height - self.height : parent.height;
+            width: min(parent.width - 24px, 460px);
+            height: body.preferred-height;
+            border-radius: Theme.radius;
+            background: Theme.bg;
+            border-width: 1px;
+            border-color: Theme.divider;
+            animate y { duration: 220ms; easing: ease-out; }
+            TouchArea { }
+            body := VerticalLayout {
+                padding: 20px;
+                spacing: 12px;
+                Text { text: root.selected-name; color: Theme.fg; font-size: 22px; overflow: elide; }
+                if root.renaming: Rectangle {
+                    height: 56px;
+                    border-radius: Theme.radius;
+                    background: Theme.key;
+                    border-width: 1px;
+                    border-color: rename-field.has-focus ? Theme.accent : Theme.key-border;
+                    rename-field := TextInput {
+                        x: 14px;
+                        width: parent.width - 28px;
+                        color: Theme.fg;
+                        font-size: 17px;
+                        vertical-alignment: center;
+                        text <=> root.selected-name;
+                        accepted => {
+                            root.rename-device(root.selected-id, self.text);
+                            root.drawer-open = false;
+                            root.renaming = false;
+                        }
+                    }
+                    init => { rename-field.focus(); }
+                }
+                HorizontalLayout {
+                    height: 56px;
+                    spacing: Theme.gap;
+                    Key {
+                        label: root.renaming ? @tr("Save") : @tr("Rename");
+                        kind: KeyKind.operator;
+                        font-size: 16px;
+                        clicked => {
+                            if root.renaming {
+                                root.rename-device(root.selected-id, root.selected-name);
+                                root.drawer-open = false;
+                                root.renaming = false;
+                            } else {
+                                root.selected-name = root.selected-name;
+                                root.renaming = true;
+                            }
+                        }
+                    }
+                    Key {
+                        label: root.archived-view ? @tr("Restore") : @tr("Archive");
+                        kind: KeyKind.operator;
+                        font-size: 16px;
+                        clicked => {
+                            root.archive-device(root.selected-id, !root.archived-view);
+                            root.drawer-open = false;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    height: 56px;
+                    spacing: Theme.gap;
+                    Key {
+                        label: @tr("Move");
+                        kind: KeyKind.operator;
+                        font-size: 16px;
+                        clicked => { root.drawer-open = false; root.drag-mode = true; }
+                    }
+                    Key {
+                        label: @tr("Remove");
+                        kind: KeyKind.primary;
+                        font-size: 16px;
+                        clicked => {
+                            root.deleting-id = root.selected-id;
+                            root.deleting-name = root.selected-name;
+                            root.drawer-open = false;
+                        }
+                    }
+                }
+            }
         }
-        if ip.text == "": Text { x: 18px; text: "192.168.1.…"; color: Theme.muted; font-size: 18px; }
     }
-    HorizontalLayout {
-        height: 64px;
-        spacing: Theme.gap;
-        Key { label: root.adding ? @tr("Cancel") : @tr("Add"); font-size: 17px; clicked => { root.adding = !root.adding; } }
-        Key { label: @tr("Rescan"); kind: KeyKind.primary; font-size: 17px; clicked => { root.rescan(); } }
+
+    if root.deleting-id != "": Confirm {
+        title: @tr("Remove {}?", root.deleting-name);
+        message: @tr("{} will be removed from OmaControl. You can add it again later.", root.deleting-name);
+        action: @tr("Remove");
+        confirmed => {
+            root.remove-device(root.deleting-id);
+            root.deleting-id = "";
+        }
+        cancelled => { root.deleting-id = ""; }
     }
 }

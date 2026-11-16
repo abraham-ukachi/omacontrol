@@ -26,6 +26,9 @@ pub struct Store {
     pub current: Option<String>,
     /// Name of the Omarchy theme.
     pub theme: Option<String>,
+    /// A selected translation code, or `None` to follow the system locale.
+    #[serde(default)]
+    pub language: Option<String>,
     /// Our certificate for Android TV / Google TV (made on first pairing, shared by every such TV).
     #[serde(default)]
     pub android_tv_identity: Option<crate::tv::androidtv::Identity>,
@@ -42,7 +45,11 @@ impl Store {
     pub fn load(dir: &Path) -> Store {
         let path = dir.join(FILE);
         let backup = dir.join(BACKUP);
-        let read = |p: &Path| fs::read_to_string(p).ok().and_then(|s| serde_json::from_str::<Store>(&s).ok());
+        let read = |p: &Path| {
+            fs::read_to_string(p)
+                .ok()
+                .and_then(|s| serde_json::from_str::<Store>(&s).ok())
+        };
 
         let mut store = match read(&path) {
             Some(store) => store,
@@ -50,7 +57,10 @@ impl Store {
                 if path.exists() {
                     let aside = dir.join(CORRUPT);
                     let _ = fs::rename(&path, &aside);
-                    log::warn!("store: {FILE} was unreadable, moved it to {}", aside.display());
+                    log::warn!(
+                        "store: {FILE} was unreadable, moved it to {}",
+                        aside.display()
+                    );
                 }
                 match read(&backup) {
                     Some(store) => {
@@ -91,6 +101,7 @@ impl Store {
             if device.token.is_none() {
                 device.token = old.token.take();
             }
+            device.archived = old.archived;
             // A rescan knows nothing about the channels saved on this TV: keep them.
             if device.channels.is_empty() {
                 device.channels = std::mem::take(&mut old.channels);
@@ -103,6 +114,78 @@ impl Store {
 
     pub fn device(&self, ip: &str) -> Option<&Device> {
         self.devices.iter().find(|d| d.ip == ip)
+    }
+
+    pub fn rename_device(&mut self, ip: &str, name: &str) -> bool {
+        let name = name.trim();
+        if name.is_empty() {
+            return false;
+        }
+        let Some(device) = self.devices.iter_mut().find(|d| d.ip == ip) else {
+            return false;
+        };
+        device.name = name.to_string();
+        true
+    }
+
+    pub fn archive_device(&mut self, ip: &str, archived: bool) -> bool {
+        let Some(device) = self.devices.iter_mut().find(|d| d.ip == ip) else {
+            return false;
+        };
+        device.archived = archived;
+        if archived && self.current.as_deref() == Some(ip) {
+            self.current = None;
+        }
+        true
+    }
+
+    pub fn remove_device(&mut self, ip: &str) -> bool {
+        let before = self.devices.len();
+        self.devices.retain(|d| d.ip != ip);
+        if self.devices.len() == before {
+            return false;
+        }
+        if self.current.as_deref() == Some(ip) {
+            self.current = None;
+        }
+        true
+    }
+
+    /// Moves a device relative to other devices in its active/archived group.
+    pub fn move_device(&mut self, ip: &str, offset: isize) -> bool {
+        let Some(source_index) = self.devices.iter().position(|d| d.ip == ip) else {
+            return false;
+        };
+        let archived = self.devices[source_index].archived;
+        let group: Vec<usize> = self
+            .devices
+            .iter()
+            .enumerate()
+            .filter_map(|(i, d)| (d.archived == archived).then_some(i))
+            .collect();
+        let Some(group_position) = group.iter().position(|&i| i == source_index) else {
+            return false;
+        };
+        let new_position = (group_position as isize + offset)
+            .clamp(0, group.len().saturating_sub(1) as isize) as usize;
+        if new_position == group_position {
+            return false;
+        }
+
+        let device = self.devices.remove(source_index);
+        let remaining: Vec<usize> = self
+            .devices
+            .iter()
+            .enumerate()
+            .filter_map(|(i, d)| (d.archived == archived).then_some(i))
+            .collect();
+        let insert_index = if new_position < remaining.len() {
+            remaining[new_position]
+        } else {
+            remaining.last().map_or(self.devices.len(), |i| i + 1)
+        };
+        self.devices.insert(insert_index, device);
+        true
     }
 }
 
@@ -117,7 +200,12 @@ mod tests {
         let mut tv = Device::new("Freebox", "", Brand::AndroidTv, "192.168.1.20");
         tv.save_channel("4002", "BFMTV");
         s.upsert(tv);
-        s.upsert(Device::new("Freebox Player", "", Brand::AndroidTv, "192.168.1.20"));
+        s.upsert(Device::new(
+            "Freebox Player",
+            "",
+            Brand::AndroidTv,
+            "192.168.1.20",
+        ));
         assert_eq!(s.devices[0].name, "Freebox Player");
         assert_eq!(s.devices[0].channels.len(), 1);
     }
@@ -125,8 +213,12 @@ mod tests {
 
     /// A fresh directory per test (tests run in parallel, so the pid alone isn't enough).
     fn dir() -> PathBuf {
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let dir = std::env::temp_dir().join(format!("omacontrol-store-{}-{nanos}", std::process::id()));
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("omacontrol-store-{}-{nanos}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -143,9 +235,46 @@ mod tests {
         let mut tv = Device::new("Living Room", "QN90", Brand::Samsung, "192.168.1.24");
         tv.token = Some("abc".into());
         s.upsert(tv);
-        s.upsert(Device::new("Living Room", "QN90", Brand::Samsung, "192.168.1.24"));
+        s.upsert(Device::new(
+            "Living Room",
+            "QN90",
+            Brand::Samsung,
+            "192.168.1.24",
+        ));
         assert_eq!(s.devices.len(), 1);
         assert_eq!(s.devices[0].token.as_deref(), Some("abc"));
+    }
+
+    #[test]
+    fn device_actions_preserve_group_order_and_current_selection() {
+        let mut s = Store::default();
+        for (name, ip) in [("A", "a"), ("B", "b"), ("C", "c")] {
+            s.upsert(Device::new(name, "", Brand::Roku, ip));
+        }
+        s.current = Some("b".into());
+
+        assert!(s.rename_device("b", "  Renamed  "));
+        assert_eq!(s.device("b").unwrap().name, "Renamed");
+        assert!(!s.rename_device("b", " "));
+        assert!(s.move_device("c", -2));
+        assert_eq!(
+            s.devices.iter().map(|d| d.ip.as_str()).collect::<Vec<_>>(),
+            ["c", "a", "b"]
+        );
+        assert!(s.archive_device("b", true));
+        assert_eq!(s.current, None);
+        assert!(s.move_device("a", -1));
+        assert_eq!(
+            s.devices
+                .iter()
+                .filter(|d| !d.archived)
+                .map(|d| d.ip.as_str())
+                .collect::<Vec<_>>(),
+            ["a", "c"]
+        );
+        assert!(s.archive_device("b", false));
+        assert!(s.remove_device("b"));
+        assert!(!s.remove_device("b"));
     }
 
     #[test]
@@ -157,13 +286,24 @@ mod tests {
     }
 
     #[test]
+    fn saves_and_loads_language_preference() {
+        let dir = dir();
+        let mut s = Store::load(&dir);
+        s.language = Some("fr".into());
+        s.save().unwrap();
+        assert_eq!(Store::load(&dir).language.as_deref(), Some("fr"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn saving_keeps_the_previous_file_as_the_backup() {
         let dir = dir();
         store(&dir, "Gruvbox").save().unwrap();
         store(&dir, "Nord").save().unwrap();
         // The main file is the new one, the backup the one before it.
         assert_eq!(Store::load(&dir).theme.as_deref(), Some("Nord"));
-        let backup: Store = serde_json::from_str(&fs::read_to_string(dir.join(BACKUP)).unwrap()).unwrap();
+        let backup: Store =
+            serde_json::from_str(&fs::read_to_string(dir.join(BACKUP)).unwrap()).unwrap();
         assert_eq!(backup.theme.as_deref(), Some("Gruvbox"));
         assert!(!dir.join(TEMP).exists(), "the temp file is renamed away");
         let _ = fs::remove_dir_all(dir);
@@ -177,8 +317,14 @@ mod tests {
         fs::write(dir.join(FILE), "{\"devices\": [ truncated").unwrap();
 
         assert_eq!(Store::load(&dir).theme.as_deref(), Some("Gruvbox"));
-        assert!(dir.join(CORRUPT).exists(), "the unreadable file is moved aside");
-        assert!(!dir.join(FILE).exists(), "the unreadable file is no longer the main one");
+        assert!(
+            dir.join(CORRUPT).exists(),
+            "the unreadable file is moved aside"
+        );
+        assert!(
+            !dir.join(FILE).exists(),
+            "the unreadable file is no longer the main one"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -199,7 +345,10 @@ mod tests {
         let s = Store::load(&dir);
         assert!(s.devices.is_empty());
         assert!(s.theme.is_none());
-        assert_eq!(fs::read_to_string(dir.join(CORRUPT)).unwrap(), "not json at all");
+        assert_eq!(
+            fs::read_to_string(dir.join(CORRUPT)).unwrap(),
+            "not json at all"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 }

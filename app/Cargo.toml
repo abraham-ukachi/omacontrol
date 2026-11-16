@@ -60,6 +60,9 @@ name = "android.permission.TRANSMIT_IR"
 [[package.metadata.android.uses_permission]]
 name = "android.permission.VIBRATE"
 
+[[package.metadata.android.uses_permission]]
+name = "android.permission.RECORD_AUDIO"
+
 [[package.metadata.android.uses_feature]]
 name = "android.hardware.consumerir"
 required = false

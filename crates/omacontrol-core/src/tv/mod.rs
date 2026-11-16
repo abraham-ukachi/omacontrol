@@ -10,8 +10,8 @@
 
 pub mod androidtv;
 mod infrared;
-mod proto;
 mod lg;
+mod proto;
 mod roku;
 mod samsung;
 mod tls;
@@ -78,6 +78,9 @@ pub struct Device {
     pub ip: String,
     /// The pairing token (Samsung) or client key (LG) the TV gave us.
     pub token: Option<String>,
+    /// Hidden from the active devices list until it is restored.
+    #[serde(default)]
+    pub archived: bool,
     #[serde(default)]
     pub kind: DeviceKind,
     #[serde(default)]
@@ -106,25 +109,56 @@ pub struct Channel {
 
 impl Device {
     pub fn new(name: &str, model: &str, brand: Brand, ip: &str) -> Device {
-        Device { name: name.into(), model: model.into(), brand, ip: ip.into(), token: None, kind: DeviceKind::Tv, transport: Transport::Network, ac_protocol: None, ac_code: None, ac_state: Default::default(), channels: Vec::new() }
+        Device {
+            name: name.into(),
+            model: model.into(),
+            brand,
+            ip: ip.into(),
+            token: None,
+            archived: false,
+            kind: DeviceKind::Tv,
+            transport: Transport::Network,
+            ac_protocol: None,
+            ac_code: None,
+            ac_state: Default::default(),
+            channels: Vec::new(),
+        }
     }
 
     /// A TV driven by the IR blaster. Its `ip` is a stable id (`ir:samsung`), not an address.
     pub fn infrared_tv(brand: Brand) -> Device {
         let id = format!("ir:{}", format!("{brand:?}").to_lowercase());
         let name = format!("{} TV", brand.label().split(' ').next().unwrap_or("IR"));
-        Device { name, model: "infrared".into(), brand, ip: id, token: None, kind: DeviceKind::Tv, transport: Transport::Infrared, ac_protocol: None, ac_code: None, ac_state: Default::default(), channels: Vec::new() }
+        Device {
+            name,
+            model: "infrared".into(),
+            brand,
+            ip: id,
+            token: None,
+            archived: false,
+            kind: DeviceKind::Tv,
+            transport: Transport::Infrared,
+            ac_protocol: None,
+            ac_code: None,
+            ac_state: Default::default(),
+            channels: Vec::new(),
+        }
     }
 
     /// An air conditioner driven by the IR blaster. `n` keeps several ACs apart (`ir:ac:2`).
     pub fn infrared_ac(n: usize) -> Device {
-        let name = if n <= 1 { "Air conditioner".to_string() } else { format!("Air conditioner {n}") };
+        let name = if n <= 1 {
+            "Air conditioner".to_string()
+        } else {
+            format!("Air conditioner {n}")
+        };
         Device {
             name,
             model: "air conditioner".into(),
             brand: Brand::Unknown,
             ip: format!("ir:ac:{n}"),
             token: None,
+            archived: false,
             kind: DeviceKind::AirConditioner,
             transport: Transport::Infrared,
             ac_protocol: None,
@@ -141,14 +175,20 @@ impl Device {
     /// Saves a channel by name. The same number again renames it; an empty name or number does nothing.
     /// Returns whether anything changed.
     pub fn save_channel(&mut self, number: &str, name: &str) -> bool {
-        let number: String = number.chars().filter(|c| c.is_ascii_digit() || *c == '-').collect();
+        let number: String = number
+            .chars()
+            .filter(|c| c.is_ascii_digit() || *c == '-')
+            .collect();
         let name = name.trim();
         if number.is_empty() || name.is_empty() {
             return false;
         }
         match self.channels.iter_mut().find(|c| c.number == number) {
             Some(c) => c.name = name.to_string(),
-            None => self.channels.push(Channel { number, name: name.to_string() }),
+            None => self.channels.push(Channel {
+                number,
+                name: name.to_string(),
+            }),
         }
         true
     }
@@ -169,6 +209,22 @@ pub trait Remote: Send {
     fn type_text(&mut self, text: &str) -> Result<()>;
     /// Opens a streaming app.
     fn launch(&mut self, app: App) -> Result<()>;
+    /// Whether this TV negotiated support for microphone voice search.
+    fn supports_voice(&self) -> bool {
+        false
+    }
+    /// Begins a microphone voice-search session.
+    fn voice_start(&mut self) -> Result<()> {
+        Err(crate::Error::Unsupported("voice search".into()))
+    }
+    /// Sends one chunk of mono 16-bit PCM audio.
+    fn voice_audio(&mut self, _samples: &[u8]) -> Result<()> {
+        Err(crate::Error::Unsupported("voice search".into()))
+    }
+    /// Ends the current microphone voice-search session.
+    fn voice_stop(&mut self) -> Result<()> {
+        Err(crate::Error::Unsupported("voice search".into()))
+    }
     /// The pairing token, once the TV gave us one (to save it).
     fn token(&self) -> Option<String> {
         None
@@ -179,7 +235,9 @@ pub trait Remote: Send {
 /// `ir` is the phone's IR blaster, when it has one.
 pub fn connect(device: &Device, ir: Option<Arc<dyn IrTransmitter>>) -> Result<Box<dyn Remote>> {
     if device.transport == Transport::Infrared {
-        let ir = ir.filter(|t| t.has_emitter()).ok_or_else(|| crate::Error::Unsupported("IR (this phone has no IR blaster)".into()))?;
+        let ir = ir
+            .filter(|t| t.has_emitter())
+            .ok_or_else(|| crate::Error::Unsupported("IR (this phone has no IR blaster)".into()))?;
         return Ok(Box::new(infrared::Infrared::new(device.brand, ir)));
     }
     Ok(match device.brand {
@@ -188,7 +246,9 @@ pub fn connect(device: &Device, ir: Option<Arc<dyn IrTransmitter>>) -> Result<Bo
         Brand::Roku => Box::new(roku::Roku::new(&device.ip)),
         // Android TV pairs our certificate: see [`connect_android_tv`] and [`androidtv::Pairing`].
         Brand::AndroidTv => return Err(crate::Error::NotPaired),
-        Brand::Sony | Brand::Unknown => return Err(crate::Error::Unsupported("this TV over Wi-Fi".into())),
+        Brand::Sony | Brand::Unknown => {
+            return Err(crate::Error::Unsupported("this TV over Wi-Fi".into()))
+        }
     })
 }
 
@@ -210,7 +270,19 @@ mod tests {
         assert!(tv.save_channel("2", "France 2"));
         assert!(!tv.save_channel("", "Nothing"));
         assert!(!tv.save_channel("7", "  "));
-        assert_eq!(tv.channels, vec![Channel { number: "4002".into(), name: "BFM TV".into() }, Channel { number: "2".into(), name: "France 2".into() }]);
+        assert_eq!(
+            tv.channels,
+            vec![
+                Channel {
+                    number: "4002".into(),
+                    name: "BFM TV".into()
+                },
+                Channel {
+                    number: "2".into(),
+                    name: "France 2".into()
+                }
+            ]
+        );
         assert!(tv.remove_channel("4002"));
         assert!(!tv.remove_channel("4002"));
         assert_eq!(tv.channels.len(), 1);
