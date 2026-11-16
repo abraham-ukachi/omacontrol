@@ -623,7 +623,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 ui.set_page(if d.ac_protocol.is_some() || d.ac_code.is_some() { 4 } else { 0 });
             } else {
                 ui.set_tv_name(d.name.clone().into());
-                show_tv_magic(&ui, &d);
+                show_tv_magic(&ui, d);
                 ui.set_page(1);
                 ui.set_voice_supported(false);
             }
