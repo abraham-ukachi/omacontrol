@@ -106,6 +106,11 @@ impl Default for AcState {
 pub const MIN_TEMP: u8 = 17;
 pub const MAX_TEMP: u8 = 30;
 
+/// Per-key (NEC) remotes: the range of the user's Cecotec, 16 °C to 31 °C. The protocol
+/// encoders keep MIN_TEMP/MAX_TEMP, their frames can't carry anything outside it.
+pub const NEC_MIN_TEMP: u8 = 16;
+pub const NEC_MAX_TEMP: u8 = 31;
+
 /// The state setup sends to find the protocol: on, cool, 22 °C, low fan.
 pub const TEST_STATE: AcState = AcState { power: true, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false };
 
@@ -115,6 +120,10 @@ impl AcState {
     }
     pub fn cooler(&mut self) {
         self.temp = self.temp.saturating_sub(1).max(MIN_TEMP);
+    }
+    /// One degree up or down within `min..=max` (per-key remotes have their own range).
+    pub fn step_temp(&mut self, up: bool, min: u8, max: u8) {
+        self.temp = if up { self.temp.saturating_add(1) } else { self.temp.saturating_sub(1) }.clamp(min, max);
     }
 }
 
@@ -229,7 +238,7 @@ pub fn nec_parts(code: &str) -> Option<(u8, u8)> {
 }
 
 /// The keys of the AC remote that can be learned once the power key is a NEC code.
-pub const NEC_LEARNABLE_KEYS: [&str; 6] = ["mode", "fan", "cooler", "warmer", "sleep", "swing"];
+pub const NEC_LEARNABLE_KEYS: [&str; 7] = ["mode", "fan", "cooler", "warmer", "timer", "sleep", "swing"];
 
 /// Candidates for learning one more key of a per-key NEC remote: every other command on the
 /// power key's address, starting just after the power command (remotes number their keys

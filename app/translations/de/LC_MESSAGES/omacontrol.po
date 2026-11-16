@@ -390,8 +390,8 @@ msgstr "Spracheingabe nicht verfügbar: {}"
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} wird aus OmaControl entfernt. Du kannst es später wieder hinzufügen."
 
-msgid "Auto-find"
-msgstr "Automatisch suchen"
+msgid "Auto scan"
+msgstr "Auto-Scan"
 
 msgid "Find the {} key"
 msgstr "Taste {} suchen"
@@ -416,3 +416,6 @@ msgstr "Schwenken"
 
 msgid "{} archived"
 msgstr "{} archiviert"
+
+msgid "timer"
+msgstr "Timer"

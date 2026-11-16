@@ -7,6 +7,7 @@ export struct AcLearned {
     fan: bool,
     cooler: bool,
     warmer: bool,
+    timer: bool,
     sleep: bool,
     swing: bool,
 }
@@ -249,6 +250,7 @@ export component AcPage inherits Rectangle {
         if !root.power-only: HorizontalLayout {
             height: 72px;
             spacing: Theme.gap;
+            if root.nec: LearnKey { unlearned: !root.learned.timer; kind: KeyKind.operator; has-icon: true; icon: @image-url("icons/timer.svg"); clicked => { root.action("timer"); } }
             Toggle { unlearned: root.nec && !root.learned.sleep; has-icon: true; icon: @image-url("icons/sleep.svg"); on: root.sleep; clicked => { root.action("sleep"); } }
             Toggle { unlearned: root.nec && !root.learned.swing; has-icon: true; icon: @image-url("icons/swing.svg"); on: root.swing; clicked => { root.action("swing"); } }
         }
@@ -258,6 +260,7 @@ export component AcPage inherits Rectangle {
             : root.learning == "fan" ? @tr("fan")
             : root.learning == "cooler" ? "−"
             : root.learning == "warmer" ? "+"
+            : root.learning == "timer" ? @tr("timer")
             : root.learning == "sleep" ? @tr("sleep")
             : root.learning == "swing" ? @tr("swing")
             : root.learning;
@@ -339,7 +342,7 @@ export component AcSetupPage inherits Rectangle {
             spacing: Theme.gap;
             Key { label: @tr("Test"); font-size: 19px; clicked => { root.setup("test"); } }
             Key { label: @tr("Next"); kind: KeyKind.operator; font-size: 19px; clicked => { root.setup("next"); } }
-            Key { label: @tr("Auto-find"); kind: KeyKind.operator; font-size: 17px; clicked => { root.scan-warning = true; } }
+            Key { label: @tr("Auto scan"); kind: KeyKind.operator; font-size: 17px; clicked => { root.scan-warning = true; } }
         }
         // Where the pasted-code row sits until the keyboard lifts it.
         slot := Rectangle { height: 56px; }

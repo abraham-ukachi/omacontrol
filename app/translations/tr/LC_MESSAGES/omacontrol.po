@@ -390,8 +390,8 @@ msgstr "Ses kullanılamıyor: {}"
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} OmaControl'den kaldırılacak. Daha sonra tekrar ekleyebilirsiniz."
 
-msgid "Auto-find"
-msgstr "Otomatik bul"
+msgid "Auto scan"
+msgstr "Otomatik tarama"
 
 msgid "Find the {} key"
 msgstr "{} tuşunu bul"
@@ -416,3 +416,6 @@ msgstr "salınım"
 
 msgid "{} archived"
 msgstr "{} arşivlendi"
+
+msgid "timer"
+msgstr "zamanlayıcı"

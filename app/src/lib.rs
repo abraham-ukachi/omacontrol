@@ -265,7 +265,8 @@ enum Job {
 /// Shows an air conditioner on the AC page.
 /// Applies one AC key to the state we show. Per-key (NEC) remotes never report back, so this
 /// is our own count of what the AC should be doing.
-fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str) -> Option<AcChange> {
+fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str, per_key: bool) -> Option<AcChange> {
+    use omacontrol_core::ac::{NEC_MAX_TEMP, NEC_MIN_TEMP};
     Some(match action {
         "power" => {
             state.power = !state.power;
@@ -279,6 +280,14 @@ fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str) -> Optio
             state.fan = state.fan.next();
             AcChange::State
         }
+        "warmer" if per_key => {
+            state.step_temp(true, NEC_MIN_TEMP, NEC_MAX_TEMP);
+            AcChange::State
+        }
+        "cooler" if per_key => {
+            state.step_temp(false, NEC_MIN_TEMP, NEC_MAX_TEMP);
+            AcChange::State
+        }
         "warmer" => {
             state.warmer();
             AcChange::State
@@ -287,6 +296,8 @@ fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str) -> Optio
             state.cooler();
             AcChange::State
         }
+        // The AC keeps its own timer (each press steps it); we only send the key.
+        "timer" if per_key => AcChange::State,
         "swing" => {
             state.swing = !state.swing;
             AcChange::Swing
@@ -367,6 +378,7 @@ fn show_ac(ui: &AppWindow, d: &Device) {
         fan: has("fan"),
         cooler: has("cooler"),
         warmer: has("warmer"),
+        timer: has("timer"),
         sleep: has("sleep"),
         swing: has("swing"),
     });
@@ -592,7 +604,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         if let Some(d) = s.current.as_deref().and_then(|ip| s.device(ip)) {
             if d.is_ac() {
                 show_ac(&ui, d);
-                ui.set_page(if d.ac_protocol.is_some() { 4 } else { 0 });
+                ui.set_page(if d.ac_protocol.is_some() || d.ac_code.is_some() { 4 } else { 0 });
             } else {
                 ui.set_tv_name(d.name.clone().into());
                 ui.set_page(1);
@@ -707,7 +719,8 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 ui.set_devices(rows(&s, ui.get_archived_view()));
                 ui.set_voice_supported(false);
                 show_ac(&ui, &d);
-                if d.ac_protocol.is_some() {
+                // Set up once (a protocol, a NEC power code or a pasted code): straight to its keys.
+                if d.ac_protocol.is_some() || d.ac_code.is_some() {
                     ui.set_page(4);
                 } else {
                     show_ac_setup(&ui, 0, false);
@@ -957,7 +970,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 } else {
                     // The AC just reacted to this code, so count the key as pressed once.
                     d.ac_keys.insert(learning.clone(), code);
-                    apply_ac_key(&mut d.ac_state, &learning);
+                    apply_ac_key(&mut d.ac_state, &learning, true);
                 }
                 let d = d.clone();
                 let _ = s.save();
@@ -1063,7 +1076,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                     frames
                 }
             };
-            apply_ac_key(&mut d.ac_state, &action);
+            apply_ac_key(&mut d.ac_state, &action, true);
             let d = d.clone();
             let _ = s.save();
             drop(s);
@@ -1075,7 +1088,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             return;
         };
         let state = &mut d.ac_state;
-        let Some(change) = apply_ac_key(state, &action) else { return };
+        let Some(change) = apply_ac_key(state, &action, false) else { return };
         let frames = protocol.frames(state, change);
         let d = d.clone();
         let _ = s.save();

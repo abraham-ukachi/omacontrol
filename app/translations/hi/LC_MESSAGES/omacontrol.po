@@ -390,8 +390,8 @@ msgstr "वॉइस उपलब्ध नहीं: {}"
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} को OmaControl से हटा दिया जाएगा। आप इसे बाद में फिर जोड़ सकते हैं।"
 
-msgid "Auto-find"
-msgstr "स्वतः खोजें"
+msgid "Auto scan"
+msgstr "ऑटो स्कैन"
 
 msgid "Find the {} key"
 msgstr "{} कुंजी खोजें"
@@ -416,3 +416,6 @@ msgstr "स्विंग"
 
 msgid "{} archived"
 msgstr "{} संग्रहीत"
+
+msgid "timer"
+msgstr "टाइमर"

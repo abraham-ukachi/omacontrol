@@ -390,8 +390,8 @@ msgstr "语音不可用：{}"
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} 将从 OmaControl 中移除。之后可以重新添加。"
 
-msgid "Auto-find"
-msgstr "自动查找"
+msgid "Auto scan"
+msgstr "自动扫描"
 
 msgid "Find the {} key"
 msgstr "查找 {} 键"
@@ -416,3 +416,6 @@ msgstr "摆风"
 
 msgid "{} archived"
 msgstr "已归档 {} 个"
+
+msgid "timer"
+msgstr "定时"

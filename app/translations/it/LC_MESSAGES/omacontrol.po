@@ -390,8 +390,8 @@ msgstr "Voce non disponibile: {}"
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} verrà rimosso da OmaControl. Potrai aggiungerlo di nuovo in seguito."
 
-msgid "Auto-find"
-msgstr "Ricerca auto"
+msgid "Auto scan"
+msgstr "Scansione auto"
 
 msgid "Find the {} key"
 msgstr "Trova il tasto {}"
@@ -416,3 +416,6 @@ msgstr "oscillazione"
 
 msgid "{} archived"
 msgstr "{} archiviati"
+
+msgid "timer"
+msgstr "timer"

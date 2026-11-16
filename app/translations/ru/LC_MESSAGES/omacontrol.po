@@ -390,8 +390,8 @@ msgstr "Голосовой ввод недоступен: {}"
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{} будет удалён из OmaControl. Вы сможете добавить его позже."
 
-msgid "Auto-find"
-msgstr "Автопоиск"
+msgid "Auto scan"
+msgstr "Автоскан"
 
 msgid "Find the {} key"
 msgstr "Поиск кнопки {}"
@@ -416,3 +416,6 @@ msgstr "качание"
 
 msgid "{} archived"
 msgstr "В архиве: {}"
+
+msgid "timer"
+msgstr "таймер"

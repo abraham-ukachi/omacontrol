@@ -390,8 +390,8 @@ msgstr "音声を利用できません: {}"
 msgid "{} will be removed from OmaControl. You can add it again later."
 msgstr "{}はOmaControlから削除されます。後で再度追加できます。"
 
-msgid "Auto-find"
-msgstr "自動検索"
+msgid "Auto scan"
+msgstr "自動スキャン"
 
 msgid "Find the {} key"
 msgstr "{}キーを探す"
@@ -416,3 +416,6 @@ msgstr "スイング"
 
 msgid "{} archived"
 msgstr "アーカイブ {} 件"
+
+msgid "timer"
+msgstr "タイマー"

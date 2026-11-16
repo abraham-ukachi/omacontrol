@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.4.0-beta.2] - 2026-11-16
+
+### Added
+- :alarm_clock: A Timer key on NEC ACs, left of Sleep and Swing; learn it like any other key.
+
+### Changed
+- :thermometer: NEC ACs now go from 16 °C to 31 °C.
+- :pencil2: "Auto-find" is now "Auto scan".
+
+### Fixed
+- :bug: Opening an AC that's already set up (NEC or pasted code) goes straight to its keys instead of the new-AC setup.
+
 ## [0.4.0-beta.1] - 2026-11-16
 
 ### Added
