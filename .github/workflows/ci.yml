@@ -16,6 +16,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: System libraries (Slint desktop backend)
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
+      - name: Check the translations
+        run: python3 scripts/check_translations.py
       - name: Test the workspace
         run: cargo test --workspace
       - name: Check the app
