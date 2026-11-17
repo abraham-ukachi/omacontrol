@@ -14,6 +14,7 @@ The long-term goal: **one app for anything with an IR receiver or a network remo
 5. 📴 Never block the UI thread: everything that touches the network or the IR blaster goes through the worker thread (`app/src/lib.rs`).
 6. 🔖 **Bump, then always tag.** Set `[workspace.package] version` in `Cargo.toml` (and `Cargo.lock`), commit, then push the `vX.Y.Z` tag in the same breath — a bump without its tag is not a release. Pick patch/minor/major from the size of the change, and keep the `-beta` suffix unless the release is explicitly stable/latest, so `0.6.1-beta`, never `0.6.0-beta.2`. The Android workflow refuses a tag that doesn't match.
 7. ✍️ Gitmoji commits, a CHANGELOG entry per version.
+8. 🖥️ **A release is not tested until it runs on this machine.** The tag only produces artifacts; it never updates the copy you launch. After pushing it, wait for the "Android and Linux" run, then install its `omacontrol-linux-x86_64.tar.gz` (from the GitHub release) to `~/.local/bin/omacontrol`, `~/.local/share/icons/hicolor/512x512/apps/omacontrol.png` and `~/.local/share/applications/io.github.abraham_ukachi.omacontrol.desktop`, and confirm the installed binary's SHA-256 matches the one in the tarball.
 
 ## Where things are
 
