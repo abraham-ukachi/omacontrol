@@ -15,14 +15,18 @@ component MicKey inherits Rectangle {
     property <bool> held;
 
     clip: true;
+    property <length> icon-size: 22px;
     border-radius: Theme.radius;
     background: root.active ? (touch.pressed ? Theme.primary-pressed : Theme.fg) : (touch.pressed ? Theme.operator-pressed : Theme.operator);
     animate background { duration: 90ms; }
-    Image {
+    // Materialized conditionally on purpose: a fixed-size child caps this key's maximum
+    // height, which would take the whole row down with it (the playback row above would
+    // then swallow the freed space).
+    if root.icon-size > 0px: Image {
         source: @image-url("icons/mic.svg");
         colorize: root.active ? Theme.bg : Theme.fg;
-        width: 22px;
-        height: 22px;
+        width: root.icon-size;
+        height: root.icon-size;
     }
     touch := TouchArea {
         pointer-event(e) => {

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.6.1-beta] - 2026-11-17
+
+### Fixed
+- :bug: The remote's lower rows keep even heights on an Android TV: the mic key carried a fixed-size icon, which capped the whole key row at the icon's 22 px and let the playback row grow into the space it freed. The icon is now sized by a property and only built when it has a size, so the mic, trackpad, magic and 123 keys stay level with the keys above.
+
 ## [0.6.0-beta.2] - 2026-11-17
 
 ### Added
