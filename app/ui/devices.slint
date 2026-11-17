@@ -197,12 +197,21 @@ export component DevicesPage inherits Rectangle {
     VerticalLayout {
         spacing: Theme.gap;
         Header { title: @tr("Devices"); menu => { root.menu(); } }
-        if !root.scanning: VerticalLayout {
+        if !root.scanning && !root.archived-view: VerticalLayout {
             padding: 8px;
             padding-top: 22px;
             spacing: 8px;
             Text { text: root.subnet == "your network" ? @tr("Your network") : root.subnet; color: Theme.muted; font-size: 19px; }
-            Text { text: root.archived-view ? @tr("{} archived", root.devices.length) : @tr("{} found", root.devices.length); color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
+            Text { text: @tr("{} found", root.devices.length); color: Theme.fg; font-size: 64px; horizontal-alignment: right; }
+        }
+        // Archived: no big title, just how many, small.
+        if !root.scanning && root.archived-view: Text {
+            x: 8px;
+            width: parent.width - 16px;
+            text: root.devices.length;
+            color: Theme.muted;
+            font-size: 15px;
+            horizontal-alignment: right;
         }
         if root.scanning: HorizontalLayout {
             padding: 8px;
