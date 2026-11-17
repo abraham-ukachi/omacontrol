@@ -3487,7 +3487,7 @@ dependencies = [
 
 [[package]]
 name = "omacontrol"
-version = "0.6.1-beta"
+version = "0.6.2-beta"
 dependencies = [
  "android-build",
  "android_logger",
@@ -3501,7 +3501,7 @@ dependencies = [
 
 [[package]]
 name = "omacontrol-core"
-version = "0.6.1-beta"
+version = "0.6.2-beta"
 dependencies = [
  "base64 0.22.1",
  "log",

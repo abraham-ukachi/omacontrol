@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.6.2-beta] - 2026-11-17
+
+### Added
+- :mag: `omacontrol --version` (or `-V`) prints the build it is and exits before any window opens, so an installed copy can be identified without guessing from file dates.
+- :inbox_tray: `scripts/install_release.sh` installs the newest Linux release in one command: binary, icon and desktop entry into `~/.local`, with the installed digest checked against the tarball's. It takes the newest release even when it is a prerelease, which GitHub's "latest" link skips.
+
 ## [0.6.1-beta] - 2026-11-17
 
 ### Fixed
