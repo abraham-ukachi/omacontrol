@@ -37,11 +37,21 @@ const SHORT: u64 = 3;
 const FEATURE_IME: u64 = 4;
 const FEATURE_VOICE: u64 = 8;
 const FEATURES: u64 = 1 | 2 | FEATURE_IME | FEATURE_VOICE | 32 | 64 | 512;
-/// Voice payloads: 16-bit PCM, 8 kHz, mono, sent in pieces of 8–20 KiB (smaller ones get dropped).
-const VOICE_CHUNK_MAX: usize = 20 * 1024;
-const VOICE_CHUNK_MIN: usize = 8 * 1024;
+/// Voice payloads: 16-bit PCM, 8 kHz, mono, always sent as full 20 KiB messages (1.28 s of
+/// audio). TVs take 8 KiB messages too, but recognize them as silence (androidtvremote2 #49/#51:
+/// Sharp and Sony; the Freebox behaved the same), so the phone's 8 KiB reads are gathered first.
+const VOICE_CHUNK: usize = 20 * 1024;
+/// How long one full voice message plays: 20 KiB at 16 000 bytes a second.
+const VOICE_CHUNK_TIME: Duration = Duration::from_millis(1280);
+/// How long the TV gets to open its voice session after the Search key.
+const VOICE_BEGIN_TIMEOUT: Duration = Duration::from_secs(3);
+/// After the phone stops listening: silence until the TV says it heard the end of speech (at most
+/// this long), then a beat before ending the session (ending it sooner cancels the search).
+const VOICE_TAIL_MAX: Duration = Duration::from_secs(5);
+const VOICE_END_DELAY: Duration = Duration::from_millis(2500);
+/// How long the search screen gets to focus its text field before we type anyway.
+const SEARCH_FIELD_TIMEOUT: Duration = Duration::from_millis(2500);
 const KEYCODE_ENTER: u64 = 66;
-const KEYCODE_ASSIST: u64 = 219;
 const KEYCODE_SEARCH: u64 = 84;
 
 type Tls = StreamOwned<ClientConnection, TcpStream>;
@@ -288,6 +298,17 @@ fn config_supports_voice(config: &[u8]) -> bool {
     proto::int(config, 1).is_some_and(|features| features & FEATURE_VOICE != 0)
 }
 
+/// The voice session with the TV, shared with the reader thread (it sees the TV's side).
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+struct Voice {
+    /// The session the TV opened (`remote_voice_begin`), until it or we end it.
+    session: Option<u64>,
+    /// The TV sent a payload back: it heard the end of speech and is searching.
+    heard_end: bool,
+    /// Bumped by every new session, so the tail of an old one leaves the new one alone.
+    generation: u64,
+}
+
 fn voice_payload(session: u64, samples: &[u8]) -> Msg {
     Msg::new().msg(31, Msg::new().int(1, session).bytes(2, samples))
 }
@@ -312,6 +333,8 @@ struct ImeField {
     field_counter: u64,
     /// Whether the TV told us about a field at all; without it, text goes as key presses.
     known: bool,
+    /// Counts the TV's field reports, to notice a newly focused field.
+    updates: u64,
 }
 
 /// Reads the IME counters from `remote_ime_key_inject` (20), `remote_ime_show_request` (22)
@@ -325,6 +348,7 @@ fn ime_update(message: &[u8], ime: &mut ImeField) -> bool {
             ime.field_counter = proto::int(field, 1).unwrap_or(0);
         }
         ime.known = true;
+        ime.updates += 1;
         return true;
     }
     if let Some(show) = proto::sub(message, 22) {
@@ -332,12 +356,14 @@ fn ime_update(message: &[u8], ime: &mut ImeField) -> bool {
             ime.field_counter = proto::int(field, 1).unwrap_or(0);
         }
         ime.known = true;
+        ime.updates += 1;
         return true;
     }
     if let Some(edit) = proto::sub(message, 21) {
         ime.ime_counter = proto::int(edit, 1).unwrap_or(ime.ime_counter);
         ime.field_counter = proto::int(edit, 2).unwrap_or(ime.field_counter);
         ime.known = true;
+        ime.updates += 1;
         return true;
     }
     false
@@ -357,18 +383,81 @@ fn ime_batch_edit(ime: ImeField, text: &str) -> Msg {
     )
 }
 
-/// Splits captured audio into payloads the TV accepts, padding short ones with silence.
-fn voice_chunks(samples: &[u8]) -> Vec<Vec<u8>> {
-    samples
-        .chunks(VOICE_CHUNK_MAX)
-        .map(|piece| {
-            let mut piece = piece.to_vec();
-            if piece.len() < VOICE_CHUNK_MIN {
-                piece.resize(VOICE_CHUNK_MIN, 0);
+/// Takes every full 20 KiB voice message off the front of `pending`; with `flush`, the rest too,
+/// padded with silence to a full message.
+fn voice_chunks(pending: &mut Vec<u8>, flush: bool) -> Vec<Vec<u8>> {
+    let mut out = Vec::new();
+    while pending.len() >= VOICE_CHUNK {
+        out.push(pending.drain(..VOICE_CHUNK).collect());
+    }
+    if flush && !pending.is_empty() {
+        let mut last = std::mem::take(pending);
+        last.resize(VOICE_CHUNK, 0);
+        out.push(last);
+    }
+    out
+}
+
+/// Notes what a TV message says about the voice session; true when it was a voice message.
+fn voice_update(msg: &[u8], voice: &mut Voice) -> bool {
+    if let Some(session) = voice_session_id(msg) {
+        voice.session = Some(session);
+        voice.heard_end = false;
+        true
+    } else if proto::sub(msg, 31).is_some() {
+        // The TV echoes a payload once it heard the end of speech.
+        voice.heard_end = true;
+        true
+    } else if proto::sub(msg, 32).is_some() {
+        // The TV closed the session (it gave up, or the search ran).
+        voice.session = None;
+        true
+    } else {
+        false
+    }
+}
+
+/// The end of a voice session, in the background: silence in real time until the TV says it
+/// heard the end of speech, a beat for the search to run, then `remote_voice_end`.
+fn finish_voice(stream: Arc<Mutex<Tls>>, voice: Arc<Mutex<Voice>>, session: u64, generation: u64) {
+    let ours = |v: &Voice| v.generation == generation && v.session == Some(session);
+    let started = Instant::now();
+    let mut next_silence = started + VOICE_CHUNK_TIME;
+    loop {
+        {
+            let v = voice.lock().unwrap();
+            if !ours(&v) {
+                return;
             }
-            piece
-        })
-        .collect()
+            if v.heard_end {
+                break;
+            }
+        }
+        if started.elapsed() >= VOICE_TAIL_MAX {
+            break;
+        }
+        if Instant::now() >= next_silence {
+            let silence = voice_payload(session, &[0u8; VOICE_CHUNK]);
+            if send(&mut stream.lock().unwrap(), &silence).is_err() {
+                return;
+            }
+            next_silence += VOICE_CHUNK_TIME;
+        }
+        thread::sleep(Duration::from_millis(40));
+    }
+    let wait_until = Instant::now() + VOICE_END_DELAY;
+    while Instant::now() < wait_until {
+        if !ours(&voice.lock().unwrap()) {
+            return;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    let mut v = voice.lock().unwrap();
+    if ours(&v) {
+        v.session = None;
+        drop(v);
+        let _ = send(&mut stream.lock().unwrap(), &voice_end(session));
+    }
 }
 
 /// The remote, once paired. A reader thread answers the TV's pings so it keeps us connected.
@@ -377,14 +466,19 @@ pub(crate) struct AndroidTv {
     port: u16,
     identity: Identity,
     link: Option<Link>,
+    /// Captured audio not yet sent (the TV wants full 20 KiB messages).
+    voice_pending: Vec<u8>,
+    /// When a voice start left the TV's search screen open without a session.
+    search_opened: Option<Instant>,
 }
 
 struct Link {
     stream: Arc<Mutex<Tls>>,
     alive: Arc<AtomicBool>,
-    voice_supported: bool,
+    /// Both sides agreed on the voice feature: the TV takes the phone's audio.
+    voice_granted: bool,
     ime_supported: bool,
-    voice_session: Arc<Mutex<Option<u64>>>,
+    voice: Arc<Mutex<Voice>>,
     ime: Arc<Mutex<ImeField>>,
 }
 
@@ -398,11 +492,11 @@ impl Drop for Link {
 fn answer(
     stream: &mut Tls,
     msg: &[u8],
-    voice_session: &Mutex<Option<u64>>,
+    voice: &Mutex<Voice>,
     ime: &Mutex<ImeField>,
     active: &AtomicU64,
 ) -> Result<Option<bool>> {
-    if ime_update(msg, &mut ime.lock().unwrap()) {
+    if ime_update(msg, &mut ime.lock().unwrap()) || voice_update(msg, &mut voice.lock().unwrap()) {
         return Ok(None);
     }
     if let Some(cfg) = proto::sub(msg, 1) {
@@ -426,11 +520,6 @@ fn answer(
     } else if let Some(ping) = proto::sub(msg, 8) {
         let val = proto::int(ping, 1).unwrap_or(0);
         send(stream, &Msg::new().msg(9, Msg::new().int(1, val)))?;
-    } else if let Some(session) = voice_session_id(msg) {
-        *voice_session.lock().unwrap() = Some(session);
-    } else if proto::sub(msg, 32).is_some() {
-        // The TV closed the voice session (it heard a pause, or gave up).
-        *voice_session.lock().unwrap() = None;
     } else if has_field(msg, 40) {
         return Ok(Some(true));
     }
@@ -440,13 +529,13 @@ fn answer(
 fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
     let mut stream = open(ip, port, identity, true)?;
     let mut buf = Vec::new();
-    let voice_session = Arc::new(Mutex::new(None));
+    let voice = Arc::new(Mutex::new(Voice::default()));
     let ime = Arc::new(Mutex::new(ImeField::default()));
     let active = Arc::new(AtomicU64::new(FEATURES));
     let deadline = Instant::now() + Duration::from_secs(6);
     // configure → set_active → start (the TV may skip start while it sleeps).
     let mut configured = false;
-    let mut voice_supported = false;
+    let mut voice_offered = false;
     while Instant::now() < deadline {
         let msg = match recv(&mut stream, &mut buf) {
             Ok(m) => m,
@@ -468,9 +557,9 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
         };
         if let Some(config) = proto::sub(&msg, 1) {
             configured = true;
-            voice_supported = config_supports_voice(config);
+            voice_offered = config_supports_voice(config);
         }
-        if answer(&mut stream, &msg, &voice_session, &ime, &active)? == Some(true) {
+        if answer(&mut stream, &msg, &voice, &ime, &active)? == Some(true) {
             break;
         }
     }
@@ -484,10 +573,10 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
         .set_read_timeout(Some(Duration::from_millis(80)))?;
     let stream = Arc::new(Mutex::new(stream));
     let alive = Arc::new(AtomicBool::new(true));
-    let (s, a, voice, ime2, active2) = (
+    let (s, a, voice2, ime2, active2) = (
         stream.clone(),
         alive.clone(),
-        voice_session.clone(),
+        voice.clone(),
         ime.clone(),
         active.clone(),
     );
@@ -504,7 +593,7 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
                     Err(_) => break,
                 }
                 for msg in proto::drain_frames(&mut buf) {
-                    if answer(&mut st, &msg, &voice, &ime2, &active2).is_err() {
+                    if answer(&mut st, &msg, &voice2, &ime2, &active2).is_err() {
                         a.store(false, Ordering::Relaxed);
                     }
                 }
@@ -513,13 +602,16 @@ fn link(ip: &str, port: u16, identity: &Identity) -> Result<Link> {
         }
         a.store(false, Ordering::Relaxed);
     });
-    let ime_supported = active.load(Ordering::Relaxed) & FEATURE_IME != 0;
+    let agreed = active.load(Ordering::Relaxed);
+    let ime_supported = agreed & FEATURE_IME != 0;
+    // Voice only when the TV offered it in its configure and kept it in what we agreed on.
+    let voice_granted = voice_offered && agreed & FEATURE_VOICE != 0;
     Ok(Link {
         stream,
         alive,
-        voice_supported,
+        voice_granted,
         ime_supported,
-        voice_session,
+        voice,
         ime,
     })
 }
@@ -537,7 +629,27 @@ impl AndroidTv {
             port,
             identity: identity.clone(),
             link: Some(link),
+            voice_pending: Vec::new(),
+            search_opened: None,
         })
+    }
+
+    /// The live link, reconnecting first when the TV dropped us.
+    fn ensure_link(&mut self) -> Result<&Link> {
+        if self
+            .link
+            .as_ref()
+            .is_none_or(|l| !l.alive.load(Ordering::Relaxed))
+        {
+            self.link = None;
+            self.link = Some(link(&self.ip, self.port, &self.identity)?);
+        }
+        Ok(self.link.as_ref().unwrap())
+    }
+
+    /// The voice state of the current link (fetched after any reconnect).
+    fn voice(&self) -> Option<Arc<Mutex<Voice>>> {
+        self.link.as_ref().map(|l| l.voice.clone())
     }
 
     /// Sends one message, reconnecting once when the TV dropped us (it does after sleep).
@@ -682,58 +794,111 @@ impl Remote for AndroidTv {
     }
 
     fn supports_voice(&self) -> bool {
-        // Every Android TV gets the mic: without the voice feature it opens the Assistant there.
+        // Every Android TV gets the mic: the phone's audio when the TV takes it, otherwise the
+        // phone's own speech recognizer and the text.
         self.link.is_some()
     }
 
-    fn voice_start(&mut self) -> Result<()> {
-        let link = self
-            .link
-            .as_ref()
-            .ok_or_else(|| Error::Protocol("the Android TV remote is disconnected".into()))?;
-        if !link.voice_supported {
-            // No phone-mic streaming on this TV: open its Google Assistant instead.
-            self.key(KEYCODE_ASSIST)?;
-            return Err(Error::Unsupported(super::ASSISTANT_ON_TV.into()));
+    fn voice_streams(&self) -> bool {
+        self.link.as_ref().is_some_and(|l| l.voice_granted)
+    }
+
+    fn search_text(&mut self, text: &str) -> Result<()> {
+        let link = self.ensure_link()?;
+        let ime = link.ime.clone();
+        let before = ime.lock().unwrap().updates;
+        // A voice start that timed out already opened the search screen: don't toggle it shut.
+        let open = self
+            .search_opened
+            .take()
+            .is_some_and(|at| at.elapsed() < Duration::from_secs(60));
+        if !open {
+            self.key(KEYCODE_SEARCH)?;
+            // Wait for the search box to report its field, so the text lands in it.
+            let ime = self.link.as_ref().map(|l| l.ime.clone()).unwrap_or(ime);
+            let deadline = Instant::now() + SEARCH_FIELD_TIMEOUT;
+            while Instant::now() < deadline && ime.lock().unwrap().updates == before {
+                thread::sleep(Duration::from_millis(40));
+            }
         }
-        let voice_session = link.voice_session.clone();
-        *voice_session.lock().unwrap() = None;
+        self.type_text(text)
+    }
+
+    fn voice_start(&mut self) -> Result<()> {
+        let link = self.ensure_link()?;
+        if !link.voice_granted {
+            // The TV won't take the phone's audio: the app recognizes speech on the phone.
+            return Err(Error::Unsupported(super::VOICE_ON_PHONE.into()));
+        }
+        // A session still finishing ends now; its tail sees the new generation and stops.
+        let old = {
+            let mut v = link.voice.lock().unwrap();
+            v.generation += 1;
+            v.heard_end = false;
+            v.session.take()
+        };
+        if let Some(old) = old {
+            self.send(voice_end(old))?;
+        }
+        self.voice_pending.clear();
+        self.search_opened = None;
         self.key(KEYCODE_SEARCH)?;
-        let deadline = Instant::now() + Duration::from_secs(3);
+        // Read the state after the key: sending it may have reconnected.
+        let voice = self
+            .voice()
+            .ok_or_else(|| Error::Protocol("the Android TV remote is disconnected".into()))?;
+        let deadline = Instant::now() + VOICE_BEGIN_TIMEOUT;
         loop {
-            if let Some(session) = *voice_session.lock().unwrap() {
+            if let Some(session) = voice.lock().unwrap().session {
                 return self.send(voice_begin(session));
             }
             if Instant::now() >= deadline {
-                // The Search key opened the Assistant, but it listens to its own remote.
-                return Err(Error::Unsupported(super::ASSISTANT_ON_TV.into()));
+                // The Search key opened the search screen but no voice session: the phone
+                // listens instead, and its text goes into that screen.
+                self.search_opened = Some(Instant::now());
+                return Err(Error::Unsupported(super::VOICE_ON_PHONE.into()));
             }
             thread::sleep(Duration::from_millis(25));
         }
     }
 
     fn voice_audio(&mut self, samples: &[u8]) -> Result<()> {
-        let session = self
-            .link
-            .as_ref()
-            .and_then(|link| *link.voice_session.lock().unwrap());
-        // The TV ends the session itself once it has heard enough: drop the rest.
-        let Some(session) = session else { return Ok(()) };
-        for chunk in voice_chunks(samples) {
+        let session = self.voice().and_then(|v| v.lock().unwrap().session);
+        // The TV ended the session itself (it heard enough): drop the rest.
+        let Some(session) = session else {
+            self.voice_pending.clear();
+            return Ok(());
+        };
+        self.voice_pending.extend_from_slice(samples);
+        for chunk in voice_chunks(&mut self.voice_pending, false) {
             self.send(voice_payload(session, &chunk))?;
         }
         Ok(())
     }
 
     fn voice_stop(&mut self) -> Result<()> {
-        let session = self
-            .link
-            .as_ref()
-            .and_then(|link| link.voice_session.lock().unwrap().take());
-        match session {
-            Some(session) => self.send(voice_end(session)),
-            None => Ok(()),
+        let Some(voice) = self.voice() else {
+            self.voice_pending.clear();
+            return Ok(());
+        };
+        let (session, generation) = {
+            let v = voice.lock().unwrap();
+            (v.session, v.generation)
+        };
+        let Some(session) = session else {
+            self.voice_pending.clear();
+            return Ok(());
+        };
+        for chunk in voice_chunks(&mut self.voice_pending, true) {
+            self.send(voice_payload(session, &chunk))?;
         }
+        // Ending the session right after the last word cancels the search: let the TV finish
+        // hearing in the background, so keys keep working meanwhile.
+        if let Some(link) = self.link.as_ref() {
+            let stream = link.stream.clone();
+            thread::spawn(move || finish_voice(stream, voice, session, generation));
+        }
+        Ok(())
     }
 
     fn token(&self) -> Option<String> {
@@ -796,12 +961,38 @@ mod tests {
     }
 
     #[test]
-    fn voice_audio_is_split_and_padded_for_the_tv() {
-        let chunks = voice_chunks(&vec![1u8; 25 * 1024]);
-        assert_eq!(chunks.len(), 2);
-        assert_eq!(chunks[0].len(), VOICE_CHUNK_MAX);
-        assert_eq!(chunks[1].len(), VOICE_CHUNK_MIN);
-        assert_eq!(voice_chunks(&[7u8; 100])[0].len(), VOICE_CHUNK_MIN);
+    fn voice_audio_goes_out_in_full_20_kib_messages() {
+        // The phone reads 8 KiB at a time: nothing goes out until a full message is there.
+        let mut pending = Vec::new();
+        pending.extend_from_slice(&[1u8; 8192]);
+        assert!(voice_chunks(&mut pending, false).is_empty());
+        pending.extend_from_slice(&[2u8; 8192]);
+        assert!(voice_chunks(&mut pending, false).is_empty());
+        pending.extend_from_slice(&[3u8; 8192]);
+        let chunks = voice_chunks(&mut pending, false);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].len(), VOICE_CHUNK);
+        assert_eq!(pending.len(), 3 * 8192 - VOICE_CHUNK);
+        // The last piece is padded with silence, never sent short.
+        let last = voice_chunks(&mut pending, true);
+        assert_eq!(last.len(), 1);
+        assert_eq!(last[0].len(), VOICE_CHUNK);
+        assert!(last[0][3 * 8192 - VOICE_CHUNK..].iter().all(|&b| b == 0));
+        assert!(pending.is_empty());
+        assert!(voice_chunks(&mut pending, true).is_empty());
+    }
+
+    #[test]
+    fn the_tv_side_of_a_voice_session_is_tracked() {
+        let mut voice = Voice::default();
+        assert!(voice_update(&Msg::new().msg(30, Msg::new().int(1, 4)).0, &mut voice));
+        assert_eq!((voice.session, voice.heard_end), (Some(4), false));
+        // The TV's payload echo: it heard the end of speech.
+        assert!(voice_update(&Msg::new().msg(31, Msg::new().int(1, 4)).0, &mut voice));
+        assert!(voice.heard_end);
+        assert!(voice_update(&Msg::new().msg(32, Msg::new().int(1, 4)).0, &mut voice));
+        assert_eq!(voice.session, None);
+        assert!(!voice_update(&Msg::new().msg(8, Msg::new().int(1, 1)).0, &mut voice));
     }
 
     #[test]
@@ -965,6 +1156,110 @@ mod fake_tv {
     fn write(s: &mut Server, m: Msg) {
         s.write_all(&m.framed()).unwrap();
         s.flush().unwrap();
+    }
+
+    /// A remote session on a TV that already knows `phone` (the fake skips the certificate check).
+    fn remote_session(listener: TcpListener, config: Arc<ServerConfig>, voice: bool) -> Server {
+        let mut s = accept(&listener, &config);
+        let mut buf = Vec::new();
+        let features = if voice { 639 } else { 639 & !FEATURE_VOICE };
+        write(&mut s, Msg::new().msg(1, Msg::new().int(1, features).msg(2, Msg::new().str(1, "Fake"))));
+        let _ = read(&mut s, &mut buf);
+        write(&mut s, Msg::new().msg(2, Msg::new().int(1, features)));
+        let _ = read(&mut s, &mut buf);
+        write(&mut s, Msg::new().msg(40, Msg::new().int(1, 1)));
+        s
+    }
+
+    #[test]
+    #[ignore = "slow in debug builds (RSA key generation); run with --release -- --ignored"]
+    fn voice_goes_out_in_20_kib_messages_and_ends_after_the_tv_heard_it() {
+        let tv = Identity::generate().unwrap();
+        let phone = Identity::generate().unwrap();
+        let config = server_config(&tv);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = thread::spawn(move || {
+            let mut s = remote_session(listener, config, true);
+            let mut buf = Vec::new();
+            let mut payloads = Vec::new();
+            let mut echoed_at = None;
+            let ended = loop {
+                let m = read(&mut s, &mut buf);
+                if let Some(k) = proto::sub(&m, 10) {
+                    // The Search key: open session 7.
+                    assert_eq!(proto::int(k, 1), Some(KEYCODE_SEARCH));
+                    write(&mut s, Msg::new().msg(30, Msg::new().int(1, 7).str(2, "com.google.android.katniss")));
+                } else if let Some(b) = proto::sub(&m, 30) {
+                    assert_eq!(proto::int(b, 1), Some(7));
+                } else if let Some(p) = proto::sub(&m, 31) {
+                    assert_eq!(proto::int(p, 1), Some(7));
+                    payloads.push(proto::sub(p, 2).unwrap().len());
+                    if payloads.len() == 3 && echoed_at.is_none() {
+                        // End of speech heard: echo a payload, as real TVs do.
+                        write(&mut s, Msg::new().msg(31, Msg::new().int(1, 7)));
+                        echoed_at = Some(Instant::now());
+                    }
+                } else if let Some(e) = proto::sub(&m, 32) {
+                    break proto::int(e, 1);
+                }
+            };
+            (payloads, ended, echoed_at.unwrap().elapsed())
+        });
+
+        let mut remote = AndroidTv::connect_on("127.0.0.1", port, &phone).unwrap();
+        assert!(remote.voice_streams());
+        remote.voice_start().unwrap();
+        // The phone reads 8 KiB at a time: five reads are two full messages and a rest.
+        for _ in 0..5 {
+            remote.voice_audio(&[1u8; 8192]).unwrap();
+        }
+        remote.voice_stop().unwrap();
+        let (payloads, ended, since_echo) = server.join().unwrap();
+        assert!(payloads.iter().all(|&n| n == VOICE_CHUNK), "{payloads:?}");
+        assert!(payloads.len() >= 3);
+        assert_eq!(ended, Some(7));
+        assert!(since_echo >= VOICE_END_DELAY - Duration::from_millis(200), "{since_echo:?}");
+    }
+
+    #[test]
+    #[ignore = "slow in debug builds (RSA key generation); run with --release -- --ignored"]
+    fn a_tv_without_voice_sends_the_phone_to_its_own_recognizer() {
+        let tv = Identity::generate().unwrap();
+        let phone = Identity::generate().unwrap();
+        let config = server_config(&tv);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = thread::spawn(move || {
+            let mut s = remote_session(listener, config, false);
+            let mut buf = Vec::new();
+            let mut seen = Vec::new();
+            loop {
+                let m = read(&mut s, &mut buf);
+                if let Some(k) = proto::sub(&m, 10) {
+                    let code = proto::int(k, 1).unwrap();
+                    seen.push(format!("key {code}"));
+                    if code == KEYCODE_SEARCH {
+                        // The search box takes focus.
+                        write(&mut s, Msg::new().msg(22, Msg::new().msg(2, Msg::new().int(1, 3))));
+                    }
+                    if code == KEYCODE_ENTER {
+                        return seen;
+                    }
+                } else if let Some(edit) = proto::sub(&m, 21) {
+                    let object = proto::sub(proto::sub(edit, 3).unwrap(), 2).unwrap();
+                    seen.push(String::from_utf8(proto::sub(object, 3).unwrap().to_vec()).unwrap());
+                }
+            }
+        });
+        let mut remote = AndroidTv::connect_on("127.0.0.1", port, &phone).unwrap();
+        assert!(!remote.voice_streams());
+        match remote.voice_start() {
+            Err(Error::Unsupported(what)) => assert_eq!(what, super::super::VOICE_ON_PHONE),
+            other => panic!("{other:?}"),
+        }
+        remote.search_text("météo Marseille").unwrap();
+        assert_eq!(server.join().unwrap(), vec!["key 84".to_string(), "météo Marseille".into(), "key 66".into()]);
     }
 
     #[test]

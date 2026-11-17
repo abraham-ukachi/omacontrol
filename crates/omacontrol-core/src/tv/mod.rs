@@ -10,9 +10,9 @@
 
 pub mod androidtv;
 
-/// The voice error an Android TV gives when it opened its own Google Assistant instead of
-/// taking audio from the phone's mic.
-pub const ASSISTANT_ON_TV: &str = "assistant-on-tv";
+/// The voice error an Android TV gives when it won't take audio from the phone's mic: the app
+/// then turns speech into text on the phone and sends that ([`Remote::search_text`]).
+pub const VOICE_ON_PHONE: &str = "voice-on-phone";
 mod infrared;
 mod lg;
 mod proto;
@@ -222,6 +222,15 @@ pub trait Remote: Send {
     /// Whether this TV negotiated support for microphone voice search.
     fn supports_voice(&self) -> bool {
         false
+    }
+    /// Whether the TV takes the phone's microphone audio itself (otherwise the app recognizes
+    /// speech on the phone and sends the text with [`Remote::search_text`]).
+    fn voice_streams(&self) -> bool {
+        false
+    }
+    /// Opens the TV's search and sends `text` into it (what the phone heard).
+    fn search_text(&mut self, text: &str) -> Result<()> {
+        self.type_text(text)
     }
     /// Begins a microphone voice-search session.
     fn voice_start(&mut self) -> Result<()> {
