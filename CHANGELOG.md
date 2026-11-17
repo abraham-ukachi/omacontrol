@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.6.0-beta.2] - 2026-11-17
+
+### Added
+- :construction_worker: `scripts/check_translations.py` compares every `@tr()` screen string with the ten catalogs and fails on a translation that drops a `{}` placeholder, a duplicate msgid or an empty entry. CI runs it on every push and pull request.
+
+### Changed
+- :memo: README: the mic's hold and tap modes with the phone's speech fallback, the AC timer key, the four pasted code formats, Rust 1.99 and the build date.
+
+### Fixed
+- :pencil2: Two code comments: `show_ac`'s doc line sat above `apply_ac_key`, and the Daikin test's note trailed off mid-sentence.
+
 ## [0.6.0-beta.1] - 2026-11-17
 
 ### Added
