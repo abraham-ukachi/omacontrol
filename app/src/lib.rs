@@ -270,7 +270,6 @@ enum Job {
     Feedback(FeedbackForm),
 }
 
-/// Shows an air conditioner on the AC page.
 /// Applies one AC key to the state we show. Per-key (NEC) remotes never report back, so this
 /// is our own count of what the AC should be doing.
 fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str, per_key: bool) -> Option<AcChange> {
@@ -391,6 +390,7 @@ fn code_frames(code: &str) -> Vec<omacontrol_core::ir::Pattern> {
     omacontrol_core::ac::custom_frames(code).unwrap_or_default()
 }
 
+/// Shows an air conditioner on the AC page.
 fn show_ac(ui: &AppWindow, d: &Device) {
     let s = d.ac_state;
     ui.set_current_is_ac(true);

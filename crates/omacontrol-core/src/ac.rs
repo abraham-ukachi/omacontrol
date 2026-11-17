@@ -1267,7 +1267,7 @@ mod tests {
     fn daikin_state_carries_three_checksums() {
         let b = daikin_state(&on(AcMode::Cool, AcFan::Low, 22));
         assert_eq!(b[22], 44); // 22 C
-        assert_eq!(b[21] & 0x0F, 0x09); // on + the always-set bit, heat... wait, check mode separately
+        assert_eq!(b[21] & 0x0F, 0x09); // on, plus the always-set 0x08 bit
         assert_eq!((b[21] >> 4) & 0b111, 3); // cool
         assert_eq!(b[24] >> 4, 3); // low fan
         assert_eq!(b[7], b[..7].iter().fold(0u8, |a, &x| a.wrapping_add(x)));
