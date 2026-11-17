@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.6.0-beta.1] - 2026-11-17
+
+### Added
+- :walking: The mic has two modes: hold it to talk and let go to send (walkie-talkie, the default), or tap it to listen hands-free and tap again to send.
+- :speaking_head: When the TV won't take the phone's audio, the phone listens instead: its own speech recognizer turns your words into text, then the TV's search opens and the text goes in. Each step shows in the status line.
+- :joystick: A trackpad in place of the keyboard key: drag to move (one D-pad step every 40 px, so a long drag repeats), tap for OK, long-press for Back. It works on every TV, IR ones included.
+- :1234: 123 opens a number pad in place of the volume and playback keys, with saved channels, a close key and the "Type to TV" row (it rides above the keyboard). No more separate page.
+- :o: Swipe the D-pad left for a round one (a ring of four arrows around OK), right for the boxy keys. The choice is remembered.
+- :alarm_clock: AC timers for Midea, Gree, TCL and Haier: 30-minute steps up to 24 h (TCL: 20 minutes up to 12 h). A running AC gets an off timer, a stopped one an on timer; it's saved with the time it was set, so restarts keep it right (#9).
+- :inbox_tray: Import IR codes: long-press any AC key to paste a Pronto code, raw timings, a Flipper Zero `.ir` file (Flipper-IRDB) or LIRC codes. Named codes in a file land on their keys; bad or unsupported codes say why. AC setup takes the same formats (#9).
+
+### Changed
+- :card_file_box: The Archived list shows just the count, small, instead of a big "N archived" title.
+
+### Fixed
+- :bug: Android TV voice: the TV heard nothing because the phone's audio went out in 8 KiB pieces, which TVs take but recognize as silence. Audio now goes out in full 20 KiB messages (1.28 s), the last one padded.
+- :bug: Android TV voice: tapping to send ended the session at once, which cancels the search. The phone now keeps the session open with silence until the TV says it heard the end of speech, then closes it a beat later, in the background.
+- :bug: Android TV voice: a reconnect while starting voice no longer loses the TV's session id.
+
 ## [0.5.0] - 2026-11-16
 
 ### Added

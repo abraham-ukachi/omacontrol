@@ -45,7 +45,7 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 | No. | Screen | What it does |
 |:----|:-------|:-------------|
 | 1 | *`Devices`* | Scans your network (SSDP + mDNS) behind an ASCII radar; **Add** by IP or over IR; swipe to remove after confirmation; long-press for rename, archive, move or remove; reorder in Move mode |
-| 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, keyboard & number pad shortcuts. Android TVs ask for their **pairing code** here, once; compatible TVs also offer press-and-hold voice search |
+| 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, an in-place number pad (**123**) and trackpad, and a D-pad you can swipe round. Android TVs ask for their **pairing code** here, once, and get a mic: hold to talk, or tap twice |
 | 3 | *`Channels & apps`* | A big monospace channel display, **saved channels** (`4002` → **BFMTV**: type the number, **+ save**, name it; tap to tune, **long-press** to rename, **swipe up** to delete), streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
 | 4 | *`Menu`* | Devices, Remote, Channels & apps, Settings |
 | 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, sleep & swing |
@@ -67,7 +67,7 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 | 2 | *`LG`* (webOS) | Wi‑Fi · SSAP `:3001` / `:3000` + pointer socket | press **Yes** on the TV once | ✅ 0.1.0 |
 | 3 | *`Roku`* / Roku TV | Wi‑Fi · ECP HTTP `:8060` | none | ✅ 0.1.0 |
 | 4 | *`Samsung`*, *`LG`*, *`Sony`* | Infrared (phone's IR blaster) | none | ✅ 0.1.0 |
-| 5 | *`Air conditioners`* (fixed & portable): Midea, Coolix, Gree, TCL, LG, Electra, Samsung, Kelvinator, Haier and Daikin protocols (Cecotec, Comfee, Kaysun, Toshiba, Beko, TCL, AUX, AEG, De'Longhi, LG, Haier, Daikin...) | Infrared (state-based codes) | tap **Test** until the AC beeps, or paste a Pronto code | 🧪 0.2.2 |
+| 5 | *`Air conditioners`* (fixed & portable): Midea, Coolix, Gree, TCL, LG, Electra, Samsung, Kelvinator, Haier and Daikin protocols (Cecotec, Comfee, Kaysun, Toshiba, Beko, TCL, AUX, AEG, De'Longhi, LG, Haier, Daikin...) | Infrared (state-based codes) | tap **Test** until the AC beeps, or paste a Pronto, raw, Flipper `.ir` or LIRC code | 🧪 0.2.2 |
 | 6 | *`Android TV`* / Google TV (Freebox Player TV Free 4K, Chromecast with Google TV, Sony, TCL, Philips...) | Wi‑Fi · Android TV Remote v2 `:6467` pairing + `:6466` remote | type the 6-character code the TV shows, once | 🧪 0.3.0 |
 
 
@@ -93,7 +93,7 @@ Versions as built on 2026-11-15:
 |:----|:------|:-----|:-------------|
 | 1 | *`Discovery`* | [crates/omacontrol-core/src/discovery.rs](./crates/omacontrol-core/src/discovery.rs) | Sends SSDP `M-SEARCH` for each brand and an mDNS query for `_androidtvremote2._tcp`, tells them apart, reads the TV's friendly name |
 | 2 | *`Protocols`* | [crates/omacontrol-core/src/tv/](./crates/omacontrol-core/src/tv) | One module per brand behind the same `Remote` trait (`press`, `type_text`, `launch`). Android TV ([`androidtv.rs`](./crates/omacontrol-core/src/tv/androidtv.rs)) speaks protobuf over TLS with its own certificate, tested end to end against a fake TV |
-| 3 | *`Infrared`* | [crates/omacontrol-core/src/ir.rs](./crates/omacontrol-core/src/ir.rs) | NEC, Samsung32, Sony SIRC & Pronto → pulse patterns, plus the TV code sets |
+| 3 | *`Infrared`* | [crates/omacontrol-core/src/ir.rs](./crates/omacontrol-core/src/ir.rs) | NEC, Samsung32, Sony SIRC & Pronto → pulse patterns, plus the TV code sets; `ir_import.rs` reads pasted Pronto, raw, Flipper `.ir` and LIRC codes |
 | 4 | *`Air conditioners`* | [crates/omacontrol-core/src/ac.rs](./crates/omacontrol-core/src/ac.rs) | Midea, Coolix, Gree, TCL112, LG, Electra, Samsung, Kelvinator, Haier & Daikin state frames, a pasted Pronto code, and the state the remote keeps (IR is one way) |
 | 5 | *`Themes`* | [crates/omacontrol-core/src/theme.rs](./crates/omacontrol-core/src/theme.rs) | The 23 Omarchy themes and Omacalc's color mixing |
 | 6 | *`Store`* | [crates/omacontrol-core/src/store.rs](./crates/omacontrol-core/src/store.rs) | Paired TVs, their tokens, saved channels, the Android TV certificate and your theme, in one JSON file (saved atomically, with a backup) |
@@ -173,7 +173,8 @@ The [GitHub 1.0 milestone](https://github.com/abraham-ukachi/omacontrol/mileston
 - [ ] 🎧 **Phone as computer audio device**: listen to Omarchy audio on the phone; send the phone microphone to the Linux host and, where supported, Android TV and other compatible TVs.
 - [ ] 🔊 **More AV devices**: soundbars, projectors and set-top boxes, with a documented baseline command set and at least one tested representative device per supported family.
 - [ ] 🎮 **Xbox and PlayStation 5**: provide supported control integrations; validate each console's available interfaces and document model- and capability-specific limits.
-- [ ] ⏲️ **AC timers** and 📚 **broader IR code support**: timer controls plus practical Pronto import and IR database code lookup/import.
+- [x] ⏲️ **AC timers** and 📚 **broader IR code support**: timers on Midea, Gree, TCL and Haier, and Pronto / raw / Flipper / LIRC import per key
+- [ ] 🔎 In-app IR database lookup (Flipper-IRDB) instead of pasting
 - [ ] ✅ **1.0 release gates**: document supported devices and limitations; validate pairing, recovery, responsiveness and core flows on real hardware; publish repeatable desktop and Android builds signed with the permanent release key.
 - [x] 🌍 **Localization foundation**: select the system language automatically and translate all screens into the initial 10 languages.
 - [ ] 🌍 **Localization expansion**: review translations and expand toward 50 languages.
