@@ -95,11 +95,50 @@ pub struct AcState {
     pub temp: u8,
     pub swing: bool,
     pub sleep: bool,
+    /// A timer the AC counts down itself (saved with the time it was sent, so it survives
+    /// restarts of the app and the phone).
+    #[serde(default)]
+    pub timer: Option<AcTimer>,
+}
+
+/// An AC timer: one at a time, like on most remotes. While the AC runs it switches it off;
+/// while it's off, it switches it on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcTimer {
+    /// `true` when the AC switches on as the timer runs out, `false` when it switches off.
+    pub turns_on: bool,
+    /// How long the timer was set for.
+    pub minutes: u16,
+    /// When it was sent, in seconds since the Unix epoch.
+    pub set_at: u64,
+}
+
+impl AcTimer {
+    /// Whole minutes left at `now` (seconds since the Unix epoch).
+    pub fn minutes_left(&self, now: u64) -> u16 {
+        let elapsed = now.saturating_sub(self.set_at) / 60;
+        u64::from(self.minutes).saturating_sub(elapsed) as u16
+    }
+}
+
+/// What a protocol's timer can do: its step and longest setting, in minutes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimerSpec {
+    pub step: u16,
+    pub max: u16,
+}
+
+/// Seconds since the Unix epoch, for timers.
+pub fn now_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 impl Default for AcState {
     fn default() -> Self {
-        AcState { power: false, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false }
+        AcState { power: false, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false, timer: None }
     }
 }
 
@@ -112,7 +151,7 @@ pub const NEC_MIN_TEMP: u8 = 16;
 pub const NEC_MAX_TEMP: u8 = 31;
 
 /// The state setup sends to find the protocol: on, cool, 22 °C, low fan.
-pub const TEST_STATE: AcState = AcState { power: true, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false };
+pub const TEST_STATE: AcState = AcState { power: true, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false, timer: None };
 
 impl AcState {
     pub fn warmer(&mut self) {
@@ -121,6 +160,25 @@ impl AcState {
     pub fn cooler(&mut self) {
         self.temp = self.temp.saturating_sub(1).max(MIN_TEMP);
     }
+    /// Sets the timer for `minutes` from `now` (0 clears it). It switches the AC off while it
+    /// runs, on while it's off.
+    pub fn set_timer(&mut self, minutes: u16, now: u64) {
+        self.timer = (minutes > 0).then_some(AcTimer { turns_on: !self.power, minutes, set_at: now });
+    }
+
+    /// A timer that ran out did its job on the AC: mirror it (power) and forget it.
+    /// True when something changed.
+    pub fn settle_timer(&mut self, now: u64) -> bool {
+        match self.timer {
+            Some(t) if t.minutes_left(now) == 0 => {
+                self.power = t.turns_on;
+                self.timer = None;
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// One degree up or down within `min..=max` (per-key remotes have their own range).
     pub fn step_temp(&mut self, up: bool, min: u8, max: u8) {
         self.temp = if up { self.temp.saturating_add(1) } else { self.temp.saturating_sub(1) }.clamp(min, max);
@@ -137,6 +195,8 @@ pub enum AcChange {
     Swing,
     /// The sleep button.
     Sleep,
+    /// The timer was set or cleared: send the state with it.
+    Timer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -196,18 +256,43 @@ impl AcProtocol {
         frames
     }
 
+    /// The timer this protocol's frames carry, or `None` when OmaControl can't set one on it.
+    ///
+    /// From IRremoteESP8266's layouts: Midea and Gree count half hours up to 24 h, Haier hours
+    /// and minutes up to 23:59, TCL 20-minute steps up to 12 h. Coolix, LG, Samsung and
+    /// Kelvinator send timers as separate commands or not at all, Electra's isn't documented,
+    /// and Daikin's is a clock time (it needs the AC's clock), so those have none here.
+    pub fn timer_spec(self) -> Option<TimerSpec> {
+        match self {
+            AcProtocol::Midea | AcProtocol::Gree => Some(TimerSpec { step: 30, max: 24 * 60 }),
+            AcProtocol::Haier => Some(TimerSpec { step: 30, max: 23 * 60 + 30 }),
+            AcProtocol::Tcl112 => Some(TimerSpec { step: 20, max: 12 * 60 }),
+            _ => None,
+        }
+    }
+
     /// The IR frames for one tap, in the order to send them.
     pub fn frames(self, state: &AcState, change: AcChange) -> Vec<Pattern> {
+        self.frames_at(state, change, now_unix())
+    }
+
+    /// [`AcProtocol::frames`] at a given time (a pending timer goes out with what's left of it).
+    pub fn frames_at(self, state: &AcState, change: AcChange, now: u64) -> Vec<Pattern> {
+        let timer = self.timer_spec().and_then(|spec| {
+            let t = state.timer?;
+            let left = t.minutes_left(now);
+            (left > 0).then(|| (t.turns_on, timer_steps(left, spec) * spec.step))
+        });
         match self {
-            AcProtocol::Midea => midea_frames(state, change),
+            AcProtocol::Midea => midea_frames(state, change, timer),
             AcProtocol::Coolix => coolix_frames(state, change),
-            AcProtocol::Gree => vec![gree(&gree_state(state))],
-            AcProtocol::Tcl112 => vec![tcl112(&tcl112_state(state))],
+            AcProtocol::Gree => vec![gree(&gree_with_timer(gree_state(state), timer))],
+            AcProtocol::Tcl112 => vec![tcl112(&tcl112_with_timer(tcl112_state(state), timer))],
             AcProtocol::Lg => vec![lg(lg_state(state))],
             AcProtocol::Electra => vec![electra(&electra_state(state))],
             AcProtocol::Samsung => vec![samsung(&samsung_state(state))],
             AcProtocol::Kelvinator => vec![kelvinator(&kelvinator_state(state))],
-            AcProtocol::Haier => vec![haier(&haier_state(state))],
+            AcProtocol::Haier => vec![haier(&haier_with_timer(haier_state(state), timer, change == AcChange::Timer))],
             AcProtocol::Daikin => vec![daikin(&daikin_state(state))],
         }
     }
@@ -218,6 +303,9 @@ impl AcProtocol {
 /// Phones can't listen to the remote, so a pasted code is the only way to drive an AC we have
 /// no protocol for: the power key sends exactly this code.
 pub fn custom_frames(code: &str) -> crate::Result<Vec<Pattern>> {
+    if code.starts_with("RAW ") {
+        return crate::ir_import::raw_pattern(code).map(|pattern| vec![pattern]);
+    }
     if let Some(hex) = code.strip_prefix("NEC ") {
         let value = u32::from_str_radix(hex, 16)
             .map_err(|_| crate::Error::Protocol("not a NEC code".into()))?;
@@ -320,6 +408,11 @@ fn push_byte(p: &mut Vec<u32>, t: &Timing, byte: u8, msb_first: bool) {
     }
 }
 
+/// Minutes left as a number of the protocol's steps: the nearest one, at least one.
+fn timer_steps(minutes: u16, spec: TimerSpec) -> u16 {
+    ((minutes.min(spec.max) + spec.step / 2) / spec.step).max(1)
+}
+
 fn clamp_temp(t: u8) -> u8 {
     t.clamp(MIN_TEMP, MAX_TEMP)
 }
@@ -374,10 +467,25 @@ pub fn midea(raw: u64) -> Pattern {
     Pattern { carrier: 38_000, pulses: p }
 }
 
-fn midea_frames(s: &AcState, change: AcChange) -> Vec<Pattern> {
+/// A Midea state with a timer: the off timer in byte 2, the on timer in byte 1 (both half
+/// hours minus one, shifted left by one, with the low bit set).
+pub fn midea_with_timer(raw: u64, timer: Option<(bool, u16)>) -> u64 {
+    let Some((turns_on, minutes)) = timer else { return raw };
+    let half_hours = (minutes / 30).clamp(1, 48) as u64;
+    let field = (half_hours - 1) << 1 | 1;
+    let raw = if turns_on {
+        (raw & !(0xFF << 8)) | (0x80 | field) << 8
+    } else {
+        (raw & !(0x7F << 16)) | field << 16
+    };
+    let raw = raw & !0xFF;
+    raw | midea_checksum(raw) as u64
+}
+
+fn midea_frames(s: &AcState, change: AcChange, timer: Option<(bool, u16)>) -> Vec<Pattern> {
     match change {
         AcChange::Swing => vec![midea(MIDEA_SWING_TOGGLE)],
-        _ => vec![midea(midea_state(s))],
+        _ => vec![midea(midea_with_timer(midea_state(s), timer))],
     }
 }
 
@@ -435,7 +543,7 @@ fn coolix_frames(s: &AcState, change: AcChange) -> Vec<Pattern> {
     match change {
         AcChange::Swing => vec![coolix(COOLIX_SWING)],
         AcChange::Sleep => vec![coolix(COOLIX_SLEEP)],
-        AcChange::State => vec![coolix(coolix_state(s))],
+        AcChange::State | AcChange::Timer => vec![coolix(coolix_state(s))],
     }
 }
 
@@ -470,6 +578,19 @@ pub fn gree_state(s: &AcState) -> [u8; 8] {
     b[3] = 0x50;
     b[4] = if s.swing { 0x01 } else { 0x00 };
     b[5] = 0x20;
+    b[7] = gree_checksum(&b) << 4;
+    b
+}
+
+/// A Gree state with its one timer: the half hour in bit 4 of byte 1, the tens of hours in
+/// bits 5-6, "enabled" in bit 7, the hours' units in the low nibble of byte 2.
+pub fn gree_with_timer(mut b: [u8; 8], timer: Option<(bool, u16)>) -> [u8; 8] {
+    let Some((_, minutes)) = timer else { return b };
+    let minutes = minutes.clamp(30, 24 * 60);
+    let hours = (minutes / 60) as u8;
+    let half = u8::from(minutes % 60 >= 30);
+    b[1] = (b[1] & 0x0F) | half << 4 | (hours / 10) << 5 | 0x80;
+    b[2] = (b[2] & 0xF0) | (hours % 10);
     b[7] = gree_checksum(&b) << 4;
     b
 }
@@ -531,6 +652,23 @@ pub fn tcl112_state(s: &AcState) -> [u8; 14] {
         // TCL calls it "quiet" / night: the lowest fan.
         b[8] = swing << 3 | 0b001;
     }
+    b[13] = b[..13].iter().fold(0u8, |a, &x| a.wrapping_add(x));
+    b
+}
+
+/// A TCL112 state with a timer: enable bits in byte 5 (off 3, on 4), the indicator in byte 8
+/// (bit 6), the 20-minute counts in bits 1-6 of byte 9 (off) and byte 10 (on).
+pub fn tcl112_with_timer(mut b: [u8; 14], timer: Option<(bool, u16)>) -> [u8; 14] {
+    let Some((turns_on, minutes)) = timer else { return b };
+    let count = (minutes / 20).clamp(1, 36) as u8;
+    if turns_on {
+        b[5] |= 1 << 4;
+        b[10] = count << 1;
+    } else {
+        b[5] |= 1 << 3;
+        b[9] = count << 1;
+    }
+    b[8] |= 1 << 6;
     b[13] = b[..13].iter().fold(0u8, |a, &x| a.wrapping_add(x));
     b
 }
@@ -800,6 +938,29 @@ pub fn haier_state(s: &AcState) -> [u8; 14] {
     b
 }
 
+/// A Haier state with a timer: the timer mode in bits 5-7 of byte 3 (off 1, on 2), hours and
+/// minutes in bytes 5-6 (off) or 7-8 (on), and the Timer button when it was just set.
+pub fn haier_with_timer(mut b: [u8; 14], timer: Option<(bool, u16)>, pressed: bool) -> [u8; 14] {
+    if let Some((turns_on, minutes)) = timer {
+        let minutes = minutes.min(23 * 60 + 59);
+        let (hours, mins) = ((minutes / 60) as u8, (minutes % 60) as u8);
+        if turns_on {
+            b[3] = (b[3] & 0x1F) | 0b010 << 5;
+            b[7] = (b[7] & 0xE0) | hours;
+            b[8] = (b[8] & 0xC0) | mins;
+        } else {
+            b[3] = (b[3] & 0x1F) | 0b001 << 5;
+            b[5] = (b[5] & 0xE0) | hours;
+            b[6] = (b[6] & 0xC0) | mins;
+        }
+    }
+    if pressed {
+        b[12] = (b[12] & 0xE0) | 0b10000;
+    }
+    b[13] = b[..13].iter().fold(0u8, |a, &x| a.wrapping_add(x));
+    b
+}
+
 pub fn haier(state: &[u8; 14]) -> Pattern {
     let mut p = vec![HAIER.hdr_mark, HAIER.hdr_space];
     for &byte in state {
@@ -873,7 +1034,7 @@ mod tests {
     use super::*;
 
     fn on(mode: AcMode, fan: AcFan, temp: u8) -> AcState {
-        AcState { power: true, mode, fan, temp, swing: false, sleep: false }
+        AcState { power: true, mode, fan, temp, swing: false, sleep: false, timer: None }
     }
 
     #[test]
@@ -916,7 +1077,7 @@ mod tests {
         // IRremoteESP8266: power on, cool, 21 °C, fan 2, light off, turbo, sleep, x-fan
         // gives A9 05 D0 50 00 20 00 A0. We keep the light on and no turbo/x-fan,
         // so only bytes 2 and 7 differ.
-        let s = AcState { power: true, mode: AcMode::Cool, fan: AcFan::Medium, temp: 21, swing: false, sleep: true };
+        let s = AcState { power: true, mode: AcMode::Cool, fan: AcFan::Medium, temp: 21, swing: false, sleep: true, timer: None };
         let b = gree_state(&s);
         assert_eq!(b[0], 0xA9);
         assert_eq!(b[1], 0x05);
@@ -929,7 +1090,7 @@ mod tests {
 
     #[test]
     fn lg_off_matches_the_remotes_own_code() {
-        let off = AcState { power: false, mode: AcMode::Cool, fan: AcFan::Auto, temp: 22, swing: false, sleep: false };
+        let off = AcState { power: false, mode: AcMode::Cool, fan: AcFan::Auto, temp: 22, swing: false, sleep: false, timer: None };
         assert_eq!(lg_state(&off), 0x088C_0051);
     }
 
@@ -967,7 +1128,7 @@ mod tests {
 
     #[test]
     fn a_power_off_frame_turns_the_power_bit_off_everywhere() {
-        let off = AcState { power: false, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false };
+        let off = AcState { power: false, mode: AcMode::Cool, fan: AcFan::Low, temp: 22, swing: false, sleep: false, timer: None };
         assert_eq!(midea_state(&off) >> 39 & 1, 0);
         assert_eq!(coolix_state(&off), COOLIX_OFF);
         assert_eq!(gree_state(&off)[0] >> 3 & 1, 0);
@@ -1113,6 +1274,73 @@ mod tests {
         assert_eq!(b[15], b[8..15].iter().fold(0u8, |a, &x| a.wrapping_add(x)));
         assert_eq!(b[34], b[16..34].iter().fold(0u8, |a, &x| a.wrapping_add(x)));
         assert_eq!(daikin(&b).pulses.len(), 584);
+    }
+
+    #[test]
+    fn timers_follow_the_reference_layouts() {
+        let on = TEST_STATE;
+        // Midea: 2 h off timer = 4 half hours → (4 - 1) << 1 | 1 in byte 2, beep bit kept.
+        let raw = midea_with_timer(midea_state(&on), Some((false, 120)));
+        assert_eq!((raw >> 16) as u8, 0x80 | 0b0000_0111);
+        assert_eq!((raw >> 8) as u8, 0xFF, "no on timer");
+        assert_eq!(raw as u8, midea_checksum(raw));
+        let raw = midea_with_timer(midea_state(&on), Some((true, 30)));
+        assert_eq!((raw >> 8) as u8, 0x81);
+        assert_eq!(midea_with_timer(midea_state(&on), None), midea_state(&on));
+        // Gree: 12 h 30 → half bit, tens 1, enabled; units 2.
+        let b = gree_with_timer(gree_state(&on), Some((false, 12 * 60 + 30)));
+        assert_eq!(b[1] >> 4, 0b1011);
+        assert_eq!(b[2] & 0x0F, 2);
+        assert_eq!(b[7] >> 4, gree_checksum(&b));
+        // TCL: 1 h off = 3 counts of 20 minutes.
+        let b = tcl112_with_timer(tcl112_state(&on), Some((false, 60)));
+        assert_eq!((b[5] >> 3) & 1, 1);
+        assert_eq!(b[9] >> 1, 3);
+        assert_eq!(b[8] >> 6 & 1, 1);
+        // Haier: on timer 7:30, timer mode 2, Timer button.
+        let b = haier_with_timer(haier_state(&on), Some((true, 7 * 60 + 30)), true);
+        assert_eq!(b[3] >> 5, 0b010);
+        assert_eq!((b[7] & 0x1F, b[8] & 0x3F), (7, 30));
+        assert_eq!(b[12] & 0x1F, 0b10000);
+        assert_eq!(b[13], b[..13].iter().fold(0u8, |a, &x| a.wrapping_add(x)));
+    }
+
+    #[test]
+    fn a_saved_timer_counts_down_and_settles() {
+        let mut s = TEST_STATE;
+        s.set_timer(90, 1_000);
+        let t = s.timer.unwrap();
+        assert!(!t.turns_on, "a running AC gets an off timer");
+        assert_eq!(t.minutes_left(1_000 + 30 * 60), 60);
+        assert!(!s.settle_timer(1_000 + 89 * 60));
+        assert!(s.settle_timer(1_000 + 90 * 60));
+        assert!(!s.power);
+        assert_eq!(s.timer, None);
+        // What's left goes out after a restart, rounded to the protocol's step.
+        s.set_timer(120, 0);
+        let early = AcProtocol::Midea.frames_at(&s, AcChange::State, 0);
+        let later = AcProtocol::Midea.frames_at(&s, AcChange::State, 50 * 60);
+        assert_ne!(early, later);
+        assert_eq!(later, vec![midea(midea_with_timer(midea_state(&s), Some((true, 60))))]);
+        assert_eq!(AcProtocol::Coolix.timer_spec(), None);
+        s.set_timer(0, 0);
+        assert_eq!(s.timer, None);
+    }
+
+    #[test]
+    fn timer_steps_round_to_the_nearest_step() {
+        let spec = TimerSpec { step: 30, max: 1440 };
+        assert_eq!(timer_steps(10, spec), 1);
+        assert_eq!(timer_steps(44, spec), 1);
+        assert_eq!(timer_steps(46, spec), 2);
+        assert_eq!(timer_steps(5000, spec), 48);
+    }
+
+    #[test]
+    fn old_saved_states_load_without_a_timer() {
+        let json = r#"{"power":true,"mode":"Cool","fan":"Low","temp":22,"swing":false,"sleep":false}"#;
+        let s: AcState = serde_json::from_str(json).unwrap();
+        assert_eq!(s.timer, None);
     }
 
     #[test]

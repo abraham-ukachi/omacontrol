@@ -8,6 +8,7 @@
 //! - [`ac`]: air conditioners over IR (Midea, Coolix, Gree, TCL, LG, Electra, Samsung,
 //!   Kelvinator, Haier, Daikin, or a pasted Pronto code) and their state.
 //! - [`ir`]: infrared patterns (NEC, Samsung32, Sony SIRC, Pronto) for the phone's IR blaster.
+//! - [`ir_import`]: pasted codes (Pronto, raw timings, Flipper Zero `.ir` files, LIRC).
 //! - [`theme`]: the Omarchy themes and the Omacalc color mixing rules.
 //! - [`store`]: the paired TVs (and their pairing tokens), saved as JSON.
 
@@ -15,6 +16,7 @@ pub mod ac;
 pub mod discovery;
 pub mod feedback;
 pub mod ir;
+pub mod ir_import;
 pub mod key;
 pub mod store;
 pub mod theme;
