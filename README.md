@@ -45,11 +45,11 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 | No. | Screen | What it does |
 |:----|:-------|:-------------|
 | 1 | *`Devices`* | Scans your network (SSDP + mDNS) behind an ASCII radar; **Add** by IP or over IR; swipe to remove after confirmation; long-press for rename, archive, move or remove; reorder in Move mode |
-| 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, an in-place number pad (**123**) and trackpad, and a D-pad you can swipe round. Android TVs ask for their **pairing code** here, once, and get a mic: hold to talk, or tap twice |
+| 2 | *`Remote`* | Power, input, mute, the D-pad with an inverted-ink **OK**, back / home / menu, **VOL** & **CH** rockers, rewind / play / fast-forward, an in-place number pad (**123**) and trackpad, and a D-pad you can swipe round. Android TVs ask for their **pairing code** here, once, and get a mic: hold it to talk and let go to send, or tap it to listen hands-free and tap again to send (a TV that won't take the phone's audio gets the phone's own speech recognizer instead) |
 | 3 | *`Channels & apps`* | A big monospace channel display, **saved channels** (`4002` → **BFMTV**: type the number, **+ save**, name it; tap to tune, **long-press** to rename, **swipe up** to delete), streaming shortcuts, a number pad with CH / VOL keys, and **type to TV** |
 | 4 | *`Menu`* | Devices, Remote, Channels & apps, Settings |
-| 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, sleep & swing |
-| 6 | *`AC setup`* | Tries each protocol or a pasted IR code; long-press **Test** for a warned, cancellable 675-candidate NEC sweep; review a match with **Previous**/**Next** to replay candidates before saving |
+| 5 | *`AC`* | Air conditioners over IR: power, mode, fan, − 22° +, timer, sleep & swing |
+| 6 | *`AC setup`* | Tries each protocol or a pasted code (**Pronto**, raw, Flipper `.ir` or LIRC); long-press **Test** for a warned, cancellable 675-candidate NEC sweep; review a match with **Previous**/**Next** to replay candidates before saving |
 | 7 | *`Settings`* | **Language** (system default or a supported language), **Theme** (all 23 Omarchy themes), **About** and **Feedback** |
 
 > TIP: Tap the device's name at the top of the Remote, Channels or AC screen to jump back to your devices.
@@ -73,11 +73,11 @@ And it wears every **Omarchy theme** 🎨: Tokyo Night, Gruvbox, Rose Pine, Flex
 
 ## Tech stack & versions 🧰
 
-Versions as built on 2026-11-15:
+Versions as built on 2026-11-17:
 
 | Tool | Version | Notes |
 |:-----|:--------|:------|
-| [Rust](https://www.rust-lang.org) | **stable** (1.100) | Edition 2021. Release profile: `opt-level = "s"`, LTO, stripped. |
+| [Rust](https://www.rust-lang.org) | **stable** (1.99) | Edition 2021. Release profile: `opt-level = "s"`, LTO, stripped. |
 | [Slint](https://slint.dev) | **1.x** | The UI (`app/ui/*.slint`). On Android: `backend-android-activity-06` + FemtoVG. |
 | [tungstenite](https://github.com/snapview/tungstenite-rs) + [rustls](https://github.com/rustls/rustls) | **0.24** / **0.23** | WebSockets to Samsung & LG (self-signed TV certificates accepted on the LAN only). |
 | [ureq](https://github.com/algesten/ureq) | **2.12** | Roku ECP, UPnP descriptions, and the feedback form ([Web3Forms](https://web3forms.com)). |
@@ -94,7 +94,7 @@ Versions as built on 2026-11-15:
 | 1 | *`Discovery`* | [crates/omacontrol-core/src/discovery.rs](./crates/omacontrol-core/src/discovery.rs) | Sends SSDP `M-SEARCH` for each brand and an mDNS query for `_androidtvremote2._tcp`, tells them apart, reads the TV's friendly name |
 | 2 | *`Protocols`* | [crates/omacontrol-core/src/tv/](./crates/omacontrol-core/src/tv) | One module per brand behind the same `Remote` trait (`press`, `type_text`, `launch`). Android TV ([`androidtv.rs`](./crates/omacontrol-core/src/tv/androidtv.rs)) speaks protobuf over TLS with its own certificate, tested end to end against a fake TV |
 | 3 | *`Infrared`* | [crates/omacontrol-core/src/ir.rs](./crates/omacontrol-core/src/ir.rs) | NEC, Samsung32, Sony SIRC & Pronto → pulse patterns, plus the TV code sets; `ir_import.rs` reads pasted Pronto, raw, Flipper `.ir` and LIRC codes |
-| 4 | *`Air conditioners`* | [crates/omacontrol-core/src/ac.rs](./crates/omacontrol-core/src/ac.rs) | Midea, Coolix, Gree, TCL112, LG, Electra, Samsung, Kelvinator, Haier & Daikin state frames, a pasted Pronto code, and the state the remote keeps (IR is one way) |
+| 4 | *`Air conditioners`* | [crates/omacontrol-core/src/ac.rs](./crates/omacontrol-core/src/ac.rs) | Midea, Coolix, Gree, TCL112, LG, Electra, Samsung, Kelvinator, Haier & Daikin state frames (timers on Midea, Gree, TCL and Haier), pasted and imported codes, and the state the remote keeps (IR is one way) |
 | 5 | *`Themes`* | [crates/omacontrol-core/src/theme.rs](./crates/omacontrol-core/src/theme.rs) | The 23 Omarchy themes and Omacalc's color mixing |
 | 6 | *`Store`* | [crates/omacontrol-core/src/store.rs](./crates/omacontrol-core/src/store.rs) | Paired TVs, their tokens, saved channels, the Android TV certificate and your theme, in one JSON file (saved atomically, with a backup) |
 | 7 | *`Feedback`* | [crates/omacontrol-core/src/feedback.rs](./crates/omacontrol-core/src/feedback.rs) | Settings › Feedback: validates the form and posts it to Web3Forms, which emails it to the maintainer |
@@ -161,7 +161,7 @@ The [GitHub 1.0 milestone](https://github.com/abraham-ukachi/omacontrol/mileston
 - [x] 📺 Channels saved by name
 - [x] ⚙️ Settings: theme, About and Feedback
 - [x] 🗂️ Device management: swipe to confirm removal, long-press actions, archive and reorder
-- [x] 🎙️ Android TV voice search: press and hold the microphone on compatible paired TVs
+- [x] 🎙️ Android TV voice search: hold the mic to talk, or tap it to listen hands-free, with the phone's own speech recognizer when the TV won't take its audio
 - [x] 🌍 Selectable language: system default or one of the bundled translations
 
 ### Required for 1.0
