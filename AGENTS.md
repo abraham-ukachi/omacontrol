@@ -25,3 +25,5 @@ The long-term goal: **one app for anything with an IR receiver or a network remo
 | Refresh the Omarchy themes | `scripts/gen_themes.py` → `themes_gen.rs` |
 | Change a screen | `app/ui/*.slint` |
 | Android specifics (IR blaster, insets, manifest) | `app/src/android_ir.rs`, `app/src/lib.rs`, `app/Cargo.toml` (`[package.metadata.android]`) |
+| The mic (hold / tap, TV audio stream or the phone's speech recognizer) | `app/src/voice.rs`, `app/src/android_voice.rs`, `app/src/android_speech.rs`, `app/android/java/…/Speech.java` (compiled to a dex by `app/build.rs`) |
+| Pasted IR codes (Pronto, raw, Flipper `.ir`, LIRC) | `crates/omacontrol-core/src/ir_import.rs` |

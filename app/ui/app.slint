@@ -31,6 +31,11 @@ export component AppWindow inherits Window {
     in property <string> tv-status-detail;
     in property <bool> online;
     in property <bool> voice-supported;
+    // The TV takes the phone's audio itself (otherwise the phone recognizes speech).
+    in property <bool> voice-streams;
+    // The D-pad's look, saved in the store.
+    in-out property <bool> dpad-round;
+    callback set-dpad-round(bool);
     in-out property <bool> voice-active;
     in-out property <string> voice-status-code;
     in-out property <string> voice-status-detail;
@@ -74,6 +79,15 @@ export component AppWindow inherits Window {
     in property <string> ac-fan: "low";
     in property <bool> ac-swing;
     in property <bool> ac-sleep;
+    in property <bool> ac-timer-supported;
+    in property <int> ac-timer-step: 30;
+    in property <int> ac-timer-max: 1440;
+    in property <int> ac-timer-left;
+    in property <bool> ac-timer-on;
+    callback ac-set-timer(int);
+    in-out property <string> ac-import-key;
+    in-out property <string> ac-import-error;
+    callback ac-import(string, string);
     in property <string> ac-setup-protocol;
     in property <string> ac-setup-error;
     in property <int> ac-setup-index;
@@ -164,13 +178,18 @@ export component AppWindow inherits Window {
             menu => { root.open-menu(); }
             press(k) => { root.press(k); }
             keypad => { root.page = 2; }
-            keyboard => { root.page = 2; }
             voice-start => { root.voice-start(); }
             voice-stop => { root.voice-stop(); }
             devices => { root.page = 0; }
+            send-text(t) => { root.send-text(t); }
+            channels: root.channels;
+            tune(n) => { root.tune(n); }
+            dpad-round <=> root.dpad-round;
+            dpad-style(round) => { root.set-dpad-round(round); }
             pairing: root.pairing;
             pair(c) => { root.pair(c); }
             cancel-pair => { root.cancel-pair(); }
+            kb-top: root.virtual-keyboard-position.y;
             kb-height: root.virtual-keyboard-size.height;
             ir: root.tv-ir;
             magic-learned: root.tv-magic-learned;
@@ -235,6 +254,15 @@ export component AppWindow inherits Window {
             fan: root.ac-fan;
             swing: root.ac-swing;
             sleep: root.ac-sleep;
+            timer-supported: root.ac-timer-supported;
+            timer-step: root.ac-timer-step;
+            timer-max: root.ac-timer-max;
+            timer-left: root.ac-timer-left;
+            timer-on: root.ac-timer-on;
+            set-timer(m) => { root.ac-set-timer(m); }
+            import-key <=> root.ac-import-key;
+            import-error <=> root.ac-import-error;
+            import(k, t) => { root.ac-import(k, t); }
             menu => { root.open-menu(); }
             action(a) => { root.ac-action(a); }
             devices => { root.page = 0; }

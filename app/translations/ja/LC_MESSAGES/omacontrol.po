@@ -33,9 +33,6 @@ msgstr "次へ"
 msgid "It works"
 msgstr "動作しました"
 
-msgid "Paste a Pronto code for a unit no code above reaches"
-msgstr "上記のコードで操作できない機器のProntoコードを貼り付け"
-
 msgid "Test code"
 msgstr "コードをテスト"
 
@@ -414,9 +411,6 @@ msgstr "スリープ"
 msgid "swing"
 msgstr "スイング"
 
-msgid "{} archived"
-msgstr "アーカイブ {} 件"
-
 msgid "timer"
 msgstr "タイマー"
 
@@ -429,5 +423,77 @@ msgstr "マジックキーを探す"
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "テレビを見て、このキーにさせたい動作をしたら「見つかった」をタップ。"
 
-msgid "Google Assistant is open on the TV"
-msgstr "Google アシスタントがテレビで開いています"
+msgid "Clear"
+msgstr "解除"
+
+msgid "Didn't catch that · try again"
+msgstr "聞き取れませんでした · もう一度どうぞ"
+
+msgid "Import"
+msgstr "インポート"
+
+msgid "Import a code for {}"
+msgstr "{} のコードをインポート"
+
+msgid "Listening · release to send"
+msgstr "聞き取り中 · 指を離すと送信"
+
+msgid "Long-press a key to import its code."
+msgstr "キーを長押しするとコードをインポートできます。"
+
+msgid "Off in {}"
+msgstr "{} 後にオフ"
+
+msgid "Off timer"
+msgstr "オフタイマー"
+
+msgid "On in {}"
+msgstr "{} 後にオン"
+
+msgid "On timer"
+msgstr "オンタイマー"
+
+msgid "Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes"
+msgstr "Pronto hex、生のタイミング、Flipper Zero の .ir ファイル、または LIRC コードを貼り付け"
+
+msgid "Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches"
+msgstr "上のどのコードも届かない機器には Pronto、生、Flipper、LIRC のコードを貼り付け"
+
+msgid "Recognizing…"
+msgstr "認識中…"
+
+msgid "Sending your voice to the TV…"
+msgstr "音声をテレビに送信中…"
+
+msgid "Sending “{}” to the TV…"
+msgstr "「{}」をテレビに送信中…"
+
+msgid "Sent to the TV"
+msgstr "テレビに送信しました"
+
+msgid "Sent “{}” to the TV"
+msgstr "「{}」をテレビに送信しました"
+
+msgid "Set"
+msgstr "設定"
+
+msgid "Speech recognition isn't available on this phone"
+msgstr "この電話では音声認識を利用できません"
+
+msgid "Switch the AC off in"
+msgstr "エアコンをオフにするまで"
+
+msgid "Switch the AC on in"
+msgstr "エアコンをオンにするまで"
+
+msgid "This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote."
+msgstr "このエアコンのプロトコルには OmaControl で設定できるタイマーがありません。タイマーキーを長押しして、リモコンのタイマーコードをインポートしてください。"
+
+msgid "power"
+msgstr "電源"
+
+msgid "“{}” · release to send"
+msgstr "「{}」 · 指を離すと送信"
+
+msgid "“{}” · tap the mic to send"
+msgstr "「{}」 · マイクをタップして送信"

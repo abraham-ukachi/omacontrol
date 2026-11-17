@@ -33,9 +33,6 @@ msgstr "अगला"
 msgid "It works"
 msgstr "काम करता है"
 
-msgid "Paste a Pronto code for a unit no code above reaches"
-msgstr "उस यूनिट के लिए Pronto कोड पेस्ट करें जिस पर ऊपर का कोई कोड काम नहीं करता"
-
 msgid "Test code"
 msgstr "कोड टेस्ट करें"
 
@@ -414,9 +411,6 @@ msgstr "स्लीप"
 msgid "swing"
 msgstr "स्विंग"
 
-msgid "{} archived"
-msgstr "{} संग्रहीत"
-
 msgid "timer"
 msgstr "टाइमर"
 
@@ -429,5 +423,77 @@ msgstr "मैजिक कुंजी खोजें"
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "TV देखें और जैसे ही वह वही करे जो आप इस कुंजी से चाहते हैं, मिल गया दबाएँ।"
 
-msgid "Google Assistant is open on the TV"
-msgstr "Google Assistant टीवी पर खुला है"
+msgid "Clear"
+msgstr "हटाएँ"
+
+msgid "Didn't catch that · try again"
+msgstr "समझ नहीं आया · फिर से कोशिश करें"
+
+msgid "Import"
+msgstr "इम्पोर्ट"
+
+msgid "Import a code for {}"
+msgstr "{} के लिए कोड इम्पोर्ट करें"
+
+msgid "Listening · release to send"
+msgstr "सुन रहा है · भेजने के लिए छोड़ें"
+
+msgid "Long-press a key to import its code."
+msgstr "किसी कुंजी का कोड इम्पोर्ट करने के लिए उसे देर तक दबाएँ।"
+
+msgid "Off in {}"
+msgstr "{} में बंद"
+
+msgid "Off timer"
+msgstr "बंद होने का टाइमर"
+
+msgid "On in {}"
+msgstr "{} में चालू"
+
+msgid "On timer"
+msgstr "चालू होने का टाइमर"
+
+msgid "Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes"
+msgstr "Pronto hex, रॉ टाइमिंग, Flipper Zero .ir फ़ाइल या LIRC कोड पेस्ट करें"
+
+msgid "Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches"
+msgstr "ऐसी यूनिट के लिए Pronto, रॉ, Flipper या LIRC कोड पेस्ट करें जिस तक ऊपर का कोई कोड नहीं पहुँचता"
+
+msgid "Recognizing…"
+msgstr "पहचान रहा है…"
+
+msgid "Sending your voice to the TV…"
+msgstr "आपकी आवाज़ TV पर भेजी जा रही है…"
+
+msgid "Sending “{}” to the TV…"
+msgstr "“{}” TV पर भेजा जा रहा है…"
+
+msgid "Sent to the TV"
+msgstr "TV पर भेजा गया"
+
+msgid "Sent “{}” to the TV"
+msgstr "“{}” TV पर भेजा गया"
+
+msgid "Set"
+msgstr "सेट करें"
+
+msgid "Speech recognition isn't available on this phone"
+msgstr "इस फ़ोन पर वाक् पहचान उपलब्ध नहीं है"
+
+msgid "Switch the AC off in"
+msgstr "AC बंद करें इतने समय में"
+
+msgid "Switch the AC on in"
+msgstr "AC चालू करें इतने समय में"
+
+msgid "This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote."
+msgstr "इस AC के प्रोटोकॉल में ऐसा टाइमर नहीं है जिसे OmaControl सेट कर सके। उसके रिमोट का टाइमर कोड इम्पोर्ट करने के लिए टाइमर कुंजी देर तक दबाएँ।"
+
+msgid "power"
+msgstr "पावर"
+
+msgid "“{}” · release to send"
+msgstr "“{}” · भेजने के लिए छोड़ें"
+
+msgid "“{}” · tap the mic to send"
+msgstr "“{}” · भेजने के लिए माइक टैप करें"

@@ -33,9 +33,6 @@ msgstr "Weiter"
 msgid "It works"
 msgstr "Funktioniert"
 
-msgid "Paste a Pronto code for a unit no code above reaches"
-msgstr "Füge einen Pronto-Code für ein Gerät ein, das keiner der obigen Codes erreicht"
-
 msgid "Test code"
 msgstr "Code testen"
 
@@ -414,9 +411,6 @@ msgstr "Schlaf"
 msgid "swing"
 msgstr "Schwenken"
 
-msgid "{} archived"
-msgstr "{} archiviert"
-
 msgid "timer"
 msgstr "Timer"
 
@@ -429,5 +423,77 @@ msgstr "Magische Taste suchen"
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Beobachte den Fernseher und tippe auf Gefunden, sobald er tut, was diese Taste tun soll."
 
-msgid "Google Assistant is open on the TV"
-msgstr "Google Assistant ist auf dem Fernseher geöffnet"
+msgid "Clear"
+msgstr "Löschen"
+
+msgid "Didn't catch that · try again"
+msgstr "Nicht verstanden · noch einmal"
+
+msgid "Import"
+msgstr "Importieren"
+
+msgid "Import a code for {}"
+msgstr "Code für {} importieren"
+
+msgid "Listening · release to send"
+msgstr "Hört zu · loslassen zum Senden"
+
+msgid "Long-press a key to import its code."
+msgstr "Taste lange drücken, um ihren Code zu importieren."
+
+msgid "Off in {}"
+msgstr "Aus in {}"
+
+msgid "Off timer"
+msgstr "Aus-Timer"
+
+msgid "On in {}"
+msgstr "An in {}"
+
+msgid "On timer"
+msgstr "An-Timer"
+
+msgid "Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes"
+msgstr "Pronto-Hex, Rohzeiten, eine Flipper-Zero-.ir-Datei oder LIRC-Codes einfügen"
+
+msgid "Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches"
+msgstr "Pronto-, Roh-, Flipper- oder LIRC-Code für ein Gerät einfügen, das kein Code oben erreicht"
+
+msgid "Recognizing…"
+msgstr "Erkenne…"
+
+msgid "Sending your voice to the TV…"
+msgstr "Deine Stimme geht an den Fernseher…"
+
+msgid "Sending “{}” to the TV…"
+msgstr "„{}“ wird an den Fernseher gesendet…"
+
+msgid "Sent to the TV"
+msgstr "An den Fernseher gesendet"
+
+msgid "Sent “{}” to the TV"
+msgstr "„{}“ an den Fernseher gesendet"
+
+msgid "Set"
+msgstr "Stellen"
+
+msgid "Speech recognition isn't available on this phone"
+msgstr "Spracherkennung ist auf diesem Telefon nicht verfügbar"
+
+msgid "Switch the AC off in"
+msgstr "Klimaanlage ausschalten in"
+
+msgid "Switch the AC on in"
+msgstr "Klimaanlage einschalten in"
+
+msgid "This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote."
+msgstr "Das Protokoll dieser Klimaanlage hat keinen Timer, den OmaControl stellen kann. Halte die Timer-Taste gedrückt, um den Timer-Code ihrer Fernbedienung zu importieren."
+
+msgid "power"
+msgstr "Ein/Aus"
+
+msgid "“{}” · release to send"
+msgstr "„{}“ · loslassen zum Senden"
+
+msgid "“{}” · tap the mic to send"
+msgstr "„{}“ · Mikro tippen zum Senden"

@@ -33,9 +33,6 @@ msgstr "下一个"
 msgid "It works"
 msgstr "可以使用"
 
-msgid "Paste a Pronto code for a unit no code above reaches"
-msgstr "粘贴上述代码无法控制的设备所用的 Pronto 代码"
-
 msgid "Test code"
 msgstr "测试代码"
 
@@ -414,9 +411,6 @@ msgstr "睡眠"
 msgid "swing"
 msgstr "摆风"
 
-msgid "{} archived"
-msgstr "已归档 {} 个"
-
 msgid "timer"
 msgstr "定时"
 
@@ -429,5 +423,77 @@ msgstr "查找魔法键"
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "看着电视，一旦它做出你想要的动作就点“找到了”。"
 
-msgid "Google Assistant is open on the TV"
-msgstr "Google 助理已在电视上打开"
+msgid "Clear"
+msgstr "清除"
+
+msgid "Didn't catch that · try again"
+msgstr "没听清 · 再试一次"
+
+msgid "Import"
+msgstr "导入"
+
+msgid "Import a code for {}"
+msgstr "为 {} 导入代码"
+
+msgid "Listening · release to send"
+msgstr "正在聆听 · 松开发送"
+
+msgid "Long-press a key to import its code."
+msgstr "长按按键可导入其代码。"
+
+msgid "Off in {}"
+msgstr "{} 后关闭"
+
+msgid "Off timer"
+msgstr "定时关机"
+
+msgid "On in {}"
+msgstr "{} 后开启"
+
+msgid "On timer"
+msgstr "定时开机"
+
+msgid "Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes"
+msgstr "粘贴 Pronto 十六进制、原始时序、Flipper Zero .ir 文件或 LIRC 代码"
+
+msgid "Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches"
+msgstr "为上面代码都控制不了的设备粘贴 Pronto、原始、Flipper 或 LIRC 代码"
+
+msgid "Recognizing…"
+msgstr "正在识别…"
+
+msgid "Sending your voice to the TV…"
+msgstr "正在把你的语音发送到电视…"
+
+msgid "Sending “{}” to the TV…"
+msgstr "正在把“{}”发送到电视…"
+
+msgid "Sent to the TV"
+msgstr "已发送到电视"
+
+msgid "Sent “{}” to the TV"
+msgstr "已把“{}”发送到电视"
+
+msgid "Set"
+msgstr "设定"
+
+msgid "Speech recognition isn't available on this phone"
+msgstr "此手机不支持语音识别"
+
+msgid "Switch the AC off in"
+msgstr "多久后关闭空调"
+
+msgid "Switch the AC on in"
+msgstr "多久后开启空调"
+
+msgid "This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote."
+msgstr "此空调的协议没有 OmaControl 可设置的定时器。长按定时键即可导入其遥控器上的定时代码。"
+
+msgid "power"
+msgstr "电源"
+
+msgid "“{}” · release to send"
+msgstr "“{}” · 松开发送"
+
+msgid "“{}” · tap the mic to send"
+msgstr "“{}” · 点按麦克风发送"

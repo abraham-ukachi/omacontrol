@@ -1,4 +1,4 @@
-//! Android microphone capture for Android TV voice search.
+//! Android microphone capture for Android TV voice search (8 kHz, 16-bit mono PCM).
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -68,6 +68,16 @@ fn request_permission(env: &mut JNIEnv, context: &JObject) -> Result<bool, Strin
         return Err(jerr(error));
     }
     Ok(false)
+}
+
+/// Whether the app may use the microphone; asks for it (and answers false) when not yet.
+pub(crate) fn microphone_allowed() -> Result<bool, String> {
+    let vm = vm()?;
+    let mut env = vm.attach_current_thread().map_err(jerr)?;
+    let context = unsafe { JObject::from_raw(ndk_context::android_context().context().cast()) };
+    let allowed = request_permission(&mut env, &context);
+    clear_exception(&mut env);
+    allowed
 }
 
 fn record(stop: &AtomicBool, tx: &Sender<Job>) -> Result<(), String> {
@@ -173,8 +183,9 @@ pub(crate) fn start(
         if let Err(error) = record(&thread_stop, &tx) {
             if error != "permission" {
                 let _ = tx.send(Job::VoiceError(error));
-            } else if let Some(ui) = weak.upgrade() {
-                let _ = ui.set_voice_status_code("permission".into());
+            } else {
+                // This thread isn't the UI's: the status goes through its event loop.
+                crate::voice_report(&weak, crate::VoiceSource::Stream, "permission", String::new(), false);
             }
         }
         let _ = tx.send(Job::VoiceStop);

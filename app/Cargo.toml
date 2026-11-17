@@ -30,6 +30,8 @@ ndk-context = "0.1"
 
 [build-dependencies]
 slint-build = "1"
+# Compiles app/android/java (the speech recognizer bridge) for Android builds.
+android-build = "0.1"
 
 # `cargo apk build --release --lib -p omacontrol` (see .github/workflows/android.yml)
 [package.metadata.android]
@@ -62,6 +64,11 @@ name = "android.permission.VIBRATE"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.RECORD_AUDIO"
+
+# Android 11+ only lets SpeechRecognizer find the phone's recognizer when the app says it looks
+# for one (the voice fallback for TVs that won't take the phone's microphone).
+[[package.metadata.android.queries.intent]]
+actions = ["android.speech.RecognitionService"]
 
 [[package.metadata.android.uses_feature]]
 name = "android.hardware.consumerir"

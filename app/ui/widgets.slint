@@ -9,6 +9,8 @@ export component Pulse inherits Rectangle {
     in property <length> px;
     in property <length> py;
     in property <length> radius: Theme.radius;
+    // The fading ring around the whole element (off for shapes that aren't one rectangle).
+    in property <bool> ring: true;
     property <float> t: root.pulsing ? clamp((animation-tick() - root.start) / 380ms, 0, 1) : 1;
     property <float> e: 1 - (1 - root.t) * (1 - root.t);
     property <length> d: (root.width + root.height) * 1.25 * root.e;
@@ -22,7 +24,7 @@ export component Pulse inherits Rectangle {
         background: Theme.accent;
         opacity: (1 - root.t) * 0.38;
     }
-    if root.pulsing: Rectangle {
+    if root.pulsing && root.ring: Rectangle {
         border-radius: root.radius;
         border-width: 2px;
         border-color: Theme.accent;
@@ -254,5 +256,180 @@ export component Confirm inherits Rectangle {
                 Key { label: root.action; kind: KeyKind.primary; font-size: 17px; clicked => { root.confirmed(); } }
             }
         }
+    }
+}
+
+// One arrow of the round D-pad: a quarter of the ring around OK, centred on `angle`
+// (0° right, 90° down), drawn as an annular sector with a small gap on each side.
+component RingSegment inherits Rectangle {
+    in property <angle> angle;
+    in property <length> outer;
+    in property <length> inner;
+    in property <bool> down;
+    in property <image> icon;
+    property <angle> half: 45deg - 4deg;
+    property <float> cx: root.width / 2px;
+    property <float> cy: root.height / 2px;
+    property <float> ro: root.outer / 1px;
+    property <float> ri: root.inner / 1px;
+
+    Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: root.down ? Theme.key-pressed : Theme.key;
+        stroke: Theme.key-border;
+        stroke-width: 1px;
+        MoveTo { x: root.cx + root.ro * cos(root.angle - root.half); y: root.cy + root.ro * sin(root.angle - root.half); }
+        ArcTo { x: root.cx + root.ro * cos(root.angle + root.half); y: root.cy + root.ro * sin(root.angle + root.half); radius-x: root.ro; radius-y: root.ro; sweep: true; }
+        LineTo { x: root.cx + root.ri * cos(root.angle + root.half); y: root.cy + root.ri * sin(root.angle + root.half); }
+        ArcTo { x: root.cx + root.ri * cos(root.angle - root.half); y: root.cy + root.ri * sin(root.angle - root.half); radius-x: root.ri; radius-y: root.ri; sweep: false; }
+        Close { }
+    }
+    Image {
+        property <length> mid: (root.outer + root.inner) / 2;
+        x: root.width / 2 + self.mid * cos(root.angle) - self.width / 2;
+        y: root.height / 2 + self.mid * sin(root.angle) - self.height / 2;
+        width: 28px;
+        height: 28px;
+        source: root.icon;
+        colorize: Theme.fg;
+    }
+}
+
+// The D-pad: OK in the middle, an arrow on each side. Two looks, one touch area:
+// boxy keys (like the rest of the remote) or a round OK inside a ring of four arrows.
+// Swipe left for the round one, right for the boxy one; `style-changed` saves the choice.
+export component DPad inherits Rectangle {
+    in-out property <bool> round;
+    // A shorter swipe, or more vertical than sideways, is a press, not a style change.
+    in property <length> swipe: 56px;
+    callback press(string);
+    callback style-changed(bool);
+
+    property <length> gap: Theme.gap;
+    property <length> cell-w: (root.width - 2 * self.gap) / 3;
+    property <length> cell-h: (root.height - 2 * self.gap) / 3;
+    property <length> outer: min(root.width, root.height) / 2 - 2px;
+    property <length> inner: self.outer * 0.42;
+    // The part under the finger ("" outside every key), and whether the finger is swiping.
+    property <string> part;
+    property <bool> swiping;
+    property <bool> pulsing;
+    property <duration> pulse-start;
+
+    // Boxy: the five keys of a 3 × 3 grid.
+    if !root.round: Rectangle {
+        for k[i] in [
+            { id: "up", col: 1, row: 0 },
+            { id: "left", col: 0, row: 1 },
+            { id: "ok", col: 1, row: 1 },
+            { id: "right", col: 2, row: 1 },
+            { id: "down", col: 1, row: 2 },
+        ]: Rectangle {
+            x: k.col * (root.cell-w + root.gap);
+            y: k.row * (root.cell-h + root.gap);
+            width: root.cell-w;
+            height: root.cell-h;
+            border-radius: Theme.radius;
+            border-width: k.id == "ok" ? 0px : 1px;
+            border-color: Theme.key-border;
+            background: k.id == "ok"
+                ? (root.part == "ok" ? Theme.primary-pressed : Theme.fg)
+                : (root.part == k.id ? Theme.key-pressed : Theme.key);
+            animate background { duration: 90ms; }
+            if k.id == "ok": Text { text: @tr("OK"); color: Theme.bg; font-size: 22px; }
+            if k.id != "ok": Image {
+                width: 30px;
+                height: 30px;
+                colorize: Theme.fg;
+                source: k.id == "up" ? @image-url("icons/up.svg")
+                    : k.id == "down" ? @image-url("icons/down.svg")
+                    : k.id == "left" ? @image-url("icons/left.svg")
+                    : @image-url("icons/right.svg");
+            }
+        }
+    }
+
+    // Round: a ring of four arcs around a round OK.
+    if root.round: Rectangle {
+        RingSegment { angle: 270deg; outer: root.outer; inner: root.inner + root.gap / 2; down: root.part == "up"; icon: @image-url("icons/up.svg"); }
+        RingSegment { angle: 0deg; outer: root.outer; inner: root.inner + root.gap / 2; down: root.part == "right"; icon: @image-url("icons/right.svg"); }
+        RingSegment { angle: 90deg; outer: root.outer; inner: root.inner + root.gap / 2; down: root.part == "down"; icon: @image-url("icons/down.svg"); }
+        RingSegment { angle: 180deg; outer: root.outer; inner: root.inner + root.gap / 2; down: root.part == "left"; icon: @image-url("icons/left.svg"); }
+        Rectangle {
+            width: root.inner * 2 - root.gap / 2;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: root.part == "ok" ? Theme.primary-pressed : Theme.fg;
+            animate background { duration: 90ms; }
+            Text { text: @tr("OK"); color: Theme.bg; font-size: 22px; }
+        }
+    }
+
+    Pulse { ring: false; pulsing: root.pulsing; start: root.pulse-start; px: touch.pressed-x; py: touch.pressed-y; }
+    Timer { interval: 420ms; running: root.pulsing; triggered => { root.pulsing = false; } }
+
+    touch := TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.swiping = false;
+                root.part = root.part-at(self.mouse-x, self.mouse-y);
+                if root.part != "" {
+                    Feedback.tap();
+                    if Feedback.ir {
+                        root.pulse-start = animation-tick();
+                        root.pulsing = true;
+                    }
+                }
+            } else if e.kind == PointerEventKind.up {
+                let dx = self.mouse-x - self.pressed-x;
+                if root.swiping {
+                    if dx < -root.swipe && !root.round {
+                        root.round = true;
+                        root.style-changed(true);
+                    } else if dx > root.swipe && root.round {
+                        root.round = false;
+                        root.style-changed(false);
+                    }
+                } else if root.part != "" && root.part == root.part-at(self.mouse-x, self.mouse-y) {
+                    root.press(root.part);
+                }
+                root.part = "";
+                root.swiping = false;
+            } else if e.kind == PointerEventKind.cancel {
+                root.part = "";
+                root.swiping = false;
+            }
+        }
+        moved => {
+            if !root.swiping && abs(self.mouse-x - self.pressed-x) > 24px && abs(self.mouse-x - self.pressed-x) > 2 * abs(self.mouse-y - self.pressed-y) {
+                root.swiping = true;
+                root.part = "";
+            }
+        }
+    }
+
+    // Which key is at (x, y): OK's circle and the ring's four quarters, or the 3 × 3 grid.
+    function part-at(x: length, y: length) -> string {
+        if root.round {
+            let dx = (x - root.width / 2) / 1px;
+            let dy = (y - root.height / 2) / 1px;
+            let d = sqrt(dx * dx + dy * dy);
+            if d <= root.inner / 1px { return "ok"; }
+            if d > root.outer / 1px { return ""; }
+            if abs(dx) > abs(dy) { return dx > 0 ? "right" : "left"; }
+            return dy > 0 ? "down" : "up";
+        }
+        if x < 0px || y < 0px || x >= root.width || y >= root.height { return ""; }
+        let col = floor(x / (root.cell-w + root.gap));
+        let row = floor(y / (root.cell-h + root.gap));
+        if col == 1 && row == 0 { return "up"; }
+        if col == 1 && row == 2 { return "down"; }
+        if col == 0 && row == 1 { return "left"; }
+        if col == 2 && row == 1 { return "right"; }
+        if col == 1 && row == 1 { return "ok"; }
+        return "";
     }
 }

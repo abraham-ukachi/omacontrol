@@ -29,9 +29,14 @@ mod android_ir;
 #[cfg(target_os = "android")]
 mod android_url;
 #[cfg(target_os = "android")]
+mod android_speech;
+#[cfg(target_os = "android")]
 mod android_voice;
 #[cfg(target_os = "android")]
 mod haptics;
+mod voice;
+
+use voice::{voice_report, wire_voice, VoiceSource};
 
 /// Opens a link (About: GitHub, X, mail) in the app that handles it.
 fn open_url(url: &str) {
@@ -257,7 +262,10 @@ enum Job {
     VoiceAudio(Vec<u8>),
     #[cfg(target_os = "android")]
     VoiceStop,
+    #[cfg(target_os = "android")]
     VoiceError(String),
+    /// What the phone's own recognizer heard: open the TV's search and type it there.
+    VoiceText(String),
     /// Settings › Feedback, sent to the maintainer's inbox.
     Feedback(FeedbackForm),
 }
@@ -270,6 +278,8 @@ fn apply_ac_key(state: &mut omacontrol_core::ac::AcState, action: &str, per_key:
     Some(match action {
         "power" => {
             state.power = !state.power;
+            // Switching it by hand overrides a timer, as on the AC's own remote.
+            state.timer = None;
             AcChange::State
         }
         "mode" => {
@@ -386,7 +396,7 @@ fn show_ac(ui: &AppWindow, d: &Device) {
     ui.set_current_is_ac(true);
     ui.set_ac_name(d.name.clone().into());
     let nec = d.ac_code.as_deref().and_then(omacontrol_core::ac::nec_parts).is_some();
-    ui.set_ac_power_only(d.ac_code.is_some() && !nec);
+    ui.set_ac_power_only(d.ac_code.is_some() && !nec && d.ac_keys.is_empty());
     ui.set_ac_nec(nec);
     let has = |key: &str| d.ac_keys.contains_key(key);
     ui.set_ac_learned(AcLearned {
@@ -409,6 +419,16 @@ fn show_ac(ui: &AppWindow, d: &Device) {
         (None, false) => "not set up yet".into(),
     });
     ui.set_ac_status_error(false);
+    // A timer that ran out already did its job on the AC.
+    let mut s = s;
+    s.settle_timer(omacontrol_core::ac::now_unix());
+    let spec = d.ac_protocol.and_then(|p| p.timer_spec());
+    ui.set_ac_timer_supported(spec.is_some());
+    ui.set_ac_timer_step(spec.map_or(30, |t| i32::from(t.step)));
+    ui.set_ac_timer_max(spec.map_or(24 * 60, |t| i32::from(t.max)));
+    let now = omacontrol_core::ac::now_unix();
+    ui.set_ac_timer_left(s.timer.map_or(0, |t| i32::from(t.minutes_left(now))));
+    ui.set_ac_timer_on(s.timer.is_some_and(|t| t.turns_on));
     ui.set_ac_power(s.power);
     ui.set_ac_temp(s.temp as i32);
     ui.set_ac_mode(s.mode.label().into());
@@ -614,6 +634,7 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         #[cfg(not(target_os = "linux"))]
         let theme = OmaTheme::named(s.theme.as_deref().unwrap_or("Tokyo Night"));
         apply_theme(&ui, &theme);
+        ui.set_dpad_round(s.dpad_round);
         ui.set_voice_supported(false);
         ui.set_devices(rows(&s, ui.get_archived_view()));
         ui.set_channels(channel_rows(&s));
@@ -656,51 +677,13 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
     ui.set_has_ir(ir.is_some());
     let jobs = spawn_worker(ui.as_weak(), store.clone(), ir);
 
-    let voice_capture = Rc::new(RefCell::new(None::<Arc<AtomicBool>>));
-    let (tx, weak, capture) = (jobs.clone(), ui.as_weak(), voice_capture.clone());
-    ui.on_voice_start(move || {
-        let Some(ui) = weak.upgrade() else { return };
-        if !ui.get_voice_supported() {
-            return;
-        }
-        if let Some(stop) = capture.borrow_mut().take() {
-            // A capture still winding down: stop it before starting over.
-            stop.store(true, Ordering::Relaxed);
-        }
-        #[cfg(target_os = "android")]
-        match android_voice::start(tx.clone(), weak.clone()) {
-            Ok(stop) => {
-                *capture.borrow_mut() = Some(stop);
-                ui.set_voice_active(true);
-                ui.set_voice_status_code("starting".into());
-                ui.set_voice_status_detail("".into());
-            }
-            Err(android_voice::StartError::Permission) => {
-                ui.set_voice_active(false);
-                ui.set_voice_status_code("permission".into());
-                ui.set_voice_status_detail("".into());
-            }
-            Err(android_voice::StartError::Other(error)) => {
-                ui.set_voice_active(false);
-                ui.set_voice_status_code("error".into());
-                ui.set_voice_status_detail(error.into());
-            }
-        }
-        #[cfg(not(target_os = "android"))]
-        {
-            let _ = tx.send(Job::VoiceError(
-                "microphone voice search is available on Android only".into(),
-            ));
-        }
-    });
-    let (weak, capture) = (ui.as_weak(), voice_capture);
-    ui.on_voice_stop(move || {
-        if let Some(stop) = capture.borrow_mut().take() {
-            stop.store(true, Ordering::Relaxed);
-        }
-        if let Some(ui) = weak.upgrade() {
-            ui.set_voice_active(false);
-        }
+    wire_voice(&ui, &jobs);
+
+    let st = store.clone();
+    ui.on_set_dpad_round(move |round| {
+        let mut s = st.lock().unwrap();
+        s.dpad_round = round;
+        let _ = s.save();
     });
 
     // Reconnect to the last TV, and look for others.
@@ -954,7 +937,13 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
             }
             "code" => {
                 ui.set_ac_setup_error("".into());
-                match omacontrol_core::ac::custom_frames(&pasted.borrow().clone()) {
+                let power = omacontrol_core::ir_import::ac_import(&pasted.borrow(), "power").and_then(|keys| {
+                    let code = keys.get("power").cloned().ok_or_else(|| {
+                        omacontrol_core::Error::Protocol("no power code in what was pasted".into())
+                    })?;
+                    omacontrol_core::ac::custom_frames(&code)
+                });
+                match power {
                     Ok(frames) => {
                         let _ = tx.send(Job::Ac(frames));
                         show_ac_setup(&ui, idx.get(), true);
@@ -1033,16 +1022,21 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
                 let mut s = st.lock().unwrap();
                 commit(&mut s);
                 let Some(ip) = s.current.clone() else { return };
-                let code = pasted.borrow().clone();
-                let pasted_code = (!code.is_empty()
-                    && omacontrol_core::ac::custom_frames(&code).is_ok())
-                .then_some(code);
+                // A pasted code (or a whole file of them) wins over the protocol being tried.
+                let mut imported = omacontrol_core::ir_import::ac_import(&pasted.borrow(), "power")
+                    .ok()
+                    .filter(|keys| keys.get("power").is_some_and(|c| omacontrol_core::ac::custom_frames(c).is_ok()))
+                    .unwrap_or_default();
+                let pasted_code = imported.remove("power");
                 if let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip) {
                     d.ac_protocol = if pasted_code.is_some() {
                         None
                     } else {
                         Some(protocol)
                     };
+                    if pasted_code.is_some() {
+                        d.ac_keys = imported;
+                    }
                     d.ac_code = pasted_code;
                     d.ac_state = omacontrol_core::ac::TEST_STATE;
                     let d = d.clone();
@@ -1119,6 +1113,18 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else {
             return;
         };
+        d.ac_state.settle_timer(omacontrol_core::ac::now_unix());
+        // A code imported (or learned) for this key plays as it is.
+        if let Some(frames) = d.ac_keys.get(action.as_str()).and_then(|c| omacontrol_core::ac::custom_frames(c).ok()) {
+            let per_key = d.ac_protocol.is_none();
+            apply_ac_key(&mut d.ac_state, &action, per_key);
+            let d = d.clone();
+            let _ = s.save();
+            drop(s);
+            show_ac(&ui, &d);
+            let _ = tx.send(Job::Ac(frames));
+            return;
+        }
         if let Some(code) = d.ac_code.clone() {
             let frames = match omacontrol_core::ac::nec_parts(&code) {
                 // A NEC power code: every key sends its own learned code.
@@ -1173,6 +1179,53 @@ pub fn run(data_dir: PathBuf, inset_top: f32, inset_bottom: f32) {
         drop(s);
         show_ac(&ui, &d);
         let _ = tx.send(Job::Ac(frames));
+    });
+
+    // AC timers (protocols that carry one) and imported codes.
+    let (tx, st, weak) = (jobs.clone(), store.clone(), ui.as_weak());
+    ui.on_ac_set_timer(move |minutes| {
+        let Some(ui) = weak.upgrade() else { return };
+        let mut s = st.lock().unwrap();
+        let Some(ip) = s.current.clone() else { return };
+        let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else { return };
+        let Some(protocol) = d.ac_protocol.filter(|p| p.timer_spec().is_some()) else { return };
+        let now = omacontrol_core::ac::now_unix();
+        d.ac_state.settle_timer(now);
+        d.ac_state.set_timer(minutes.clamp(0, i32::from(u16::MAX)) as u16, now);
+        let frames = protocol.frames_at(&d.ac_state, AcChange::Timer, now);
+        let d = d.clone();
+        let _ = s.save();
+        drop(s);
+        show_ac(&ui, &d);
+        let _ = tx.send(Job::Ac(frames));
+    });
+    let (st, weak) = (store.clone(), ui.as_weak());
+    ui.on_ac_import(move |key, text| {
+        let Some(ui) = weak.upgrade() else { return };
+        let keys = match omacontrol_core::ir_import::ac_import(&text, &key) {
+            Ok(keys) => keys,
+            Err(e) => {
+                ui.set_ac_import_error(e.to_string().into());
+                return;
+            }
+        };
+        let mut s = st.lock().unwrap();
+        let Some(ip) = s.current.clone() else { return };
+        let Some(d) = s.devices.iter_mut().find(|d| d.ip == ip && d.is_ac()) else { return };
+        for (k, code) in keys {
+            if k == "power" && d.ac_code.is_some() {
+                // A per-key remote's power code is the device's own code.
+                d.ac_code = Some(code);
+            } else {
+                d.ac_keys.insert(k, code);
+            }
+        }
+        let d = d.clone();
+        let _ = s.save();
+        drop(s);
+        ui.set_ac_import_error("".into());
+        ui.set_ac_import_key("".into());
+        show_ac(&ui, &d);
     });
 
     ui.global::<Feedback>().on_tap(haptic_tick);
@@ -1416,39 +1469,25 @@ fn spawn_worker(
                 #[cfg(target_os = "android")]
                 Job::VoiceStart => {
                     voice_error = false;
-                    let assistant_error = omacontrol_core::Error::Unsupported(
-                        omacontrol_core::tv::ASSISTANT_ON_TV.into(),
-                    )
-                    .to_string();
                     let result = remote
                         .as_mut()
-                        .ok_or_else(|| "pick a TV first".to_string())
-                        .and_then(|remote| remote.voice_start().map_err(|error| error.to_string()));
+                        .ok_or_else(|| omacontrol_core::Error::Protocol("pick a TV first".into()))
+                        .and_then(|remote| remote.voice_start());
                     match result {
                         Ok(()) => {
                             voice_ready = true;
-                            let _ = weak.upgrade_in_event_loop(|ui| {
-                                ui.set_voice_active(true);
-                                ui.set_voice_status_code("active".into());
-                                ui.set_voice_status_detail("".into());
-                            });
+                            voice_report(&weak, VoiceSource::Stream, "active", String::new(), true);
                         }
-                        Err(error) if error == assistant_error => {
-                            // The TV opened its own Assistant: keep that as a note, not an error.
+                        Err(omacontrol_core::Error::Unsupported(what))
+                            if what == omacontrol_core::tv::VOICE_ON_PHONE =>
+                        {
+                            // The TV won't take the phone's audio: listen on the phone instead.
                             voice_error = true;
-                            let _ = weak.upgrade_in_event_loop(|ui| {
-                                ui.set_voice_active(false);
-                                ui.set_voice_status_code("assistant".into());
-                                ui.set_voice_status_detail("".into());
-                            });
+                            let _ = weak.upgrade_in_event_loop(|ui| voice::fallback(&ui));
                         }
                         Err(error) => {
                             voice_error = true;
-                            let _ = weak.upgrade_in_event_loop(move |ui| {
-                                ui.set_voice_active(false);
-                                ui.set_voice_status_code("error".into());
-                                ui.set_voice_status_detail(error.into());
-                            });
+                            voice_report(&weak, VoiceSource::Stream, "error", error.to_string(), false);
                         }
                     }
                 }
@@ -1459,50 +1498,46 @@ fn spawn_worker(
                             if let Err(error) = remote.voice_audio(&samples) {
                                 voice_ready = false;
                                 voice_error = true;
-                                let detail = error.to_string();
-                                let _ = weak.upgrade_in_event_loop(move |ui| {
-                                    ui.set_voice_active(false);
-                                    ui.set_voice_status_code("error".into());
-                                    ui.set_voice_status_detail(detail.into());
-                                });
+                                voice_report(&weak, VoiceSource::Stream, "error", error.to_string(), false);
                             }
                         }
                     }
                 }
                 #[cfg(target_os = "android")]
                 Job::VoiceStop => {
+                    let mut sent = false;
                     if voice_ready {
                         if let Some(remote) = remote.as_mut() {
-                            if let Err(error) = remote.voice_stop() {
-                                voice_error = true;
-                                let detail = error.to_string();
-                                let _ = weak.upgrade_in_event_loop(move |ui| {
-                                    ui.set_voice_status_code("error".into());
-                                    ui.set_voice_status_detail(detail.into());
-                                });
+                            match remote.voice_stop() {
+                                Ok(()) => sent = true,
+                                Err(error) => {
+                                    voice_error = true;
+                                    voice_report(&weak, VoiceSource::Stream, "error", error.to_string(), false);
+                                }
                             }
                         }
                     }
                     voice_ready = false;
-                    let keep_error = voice_error;
-                    let _ = weak.upgrade_in_event_loop(move |ui| {
-                        ui.set_voice_active(false);
-                        if !keep_error {
-                            ui.set_voice_status_code("".into());
-                            ui.set_voice_status_detail("".into());
-                        }
-                    });
-                }
-                Job::VoiceError(error) => {
-                    #[cfg(target_os = "android")]
-                    {
-                        voice_error = true;
+                    if sent {
+                        voice_report(&weak, VoiceSource::Stream, "sent", String::new(), false);
+                    } else if !voice_error {
+                        voice_report(&weak, VoiceSource::Stream, "", String::new(), false);
                     }
-                    let _ = weak.upgrade_in_event_loop(move |ui| {
-                        ui.set_voice_active(false);
-                        ui.set_voice_status_code("error".into());
-                        ui.set_voice_status_detail(error.into());
-                    });
+                }
+                #[cfg(target_os = "android")]
+                Job::VoiceError(error) => {
+                    voice_error = true;
+                    voice_report(&weak, VoiceSource::Stream, "error", error, false);
+                }
+                Job::VoiceText(text) => {
+                    let result = remote
+                        .as_mut()
+                        .ok_or_else(|| "pick a TV first".to_string())
+                        .and_then(|r| r.search_text(&text).map_err(|e| e.to_string()));
+                    match result {
+                        Ok(()) => voice_report(&weak, VoiceSource::Phone, "sent", text, false),
+                        Err(error) => voice_report(&weak, VoiceSource::Phone, "error", error, false),
+                    }
                 }
                 Job::Tune(number) => {
                     let Some(r) = remote.as_mut() else {
@@ -1706,6 +1741,7 @@ fn connect_device(
     match connected {
         Ok(r) => {
             let voice_supported = cfg!(target_os = "android") && r.supports_voice();
+            let voice_streams = r.voice_streams();
             let mut s = store.lock().unwrap();
             let mut d = device.clone();
             d.token = r.token().or(d.token);
@@ -1718,6 +1754,8 @@ fn connect_device(
                 ui.set_devices(rows(&snapshot, ui.get_archived_view()));
                 ui.set_channels(channel_rows(&snapshot));
                 ui.set_voice_supported(voice_supported);
+                ui.set_voice_streams(voice_streams);
+                voice::connected();
             });
             status(weak, TvStatus::Connected(label.clone()), true);
             let ir_mode = device.transport == Transport::Infrared;

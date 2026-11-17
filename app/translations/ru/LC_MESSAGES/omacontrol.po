@@ -33,9 +33,6 @@ msgstr "Далее"
 msgid "It works"
 msgstr "Работает"
 
-msgid "Paste a Pronto code for a unit no code above reaches"
-msgstr "Вставьте код Pronto для устройства, которое не поддерживается кодами выше"
-
 msgid "Test code"
 msgstr "Проверить код"
 
@@ -414,9 +411,6 @@ msgstr "сон"
 msgid "swing"
 msgstr "качание"
 
-msgid "{} archived"
-msgstr "В архиве: {}"
-
 msgid "timer"
 msgstr "таймер"
 
@@ -429,5 +423,77 @@ msgstr "Поиск волшебной кнопки"
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Следите за телевизором и нажмите «Найдено», когда он сделает нужное действие."
 
-msgid "Google Assistant is open on the TV"
-msgstr "Google Ассистент открыт на телевизоре"
+msgid "Clear"
+msgstr "Сбросить"
+
+msgid "Didn't catch that · try again"
+msgstr "Не расслышал · попробуйте ещё раз"
+
+msgid "Import"
+msgstr "Импорт"
+
+msgid "Import a code for {}"
+msgstr "Импорт кода для {}"
+
+msgid "Listening · release to send"
+msgstr "Слушаю · отпустите, чтобы отправить"
+
+msgid "Long-press a key to import its code."
+msgstr "Удерживайте кнопку, чтобы импортировать её код."
+
+msgid "Off in {}"
+msgstr "Выключение через {}"
+
+msgid "Off timer"
+msgstr "Таймер выключения"
+
+msgid "On in {}"
+msgstr "Включение через {}"
+
+msgid "On timer"
+msgstr "Таймер включения"
+
+msgid "Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes"
+msgstr "Вставьте код Pronto, сырые тайминги, файл .ir Flipper Zero или коды LIRC"
+
+msgid "Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches"
+msgstr "Вставьте код Pronto, сырой, Flipper или LIRC для устройства, до которого не дотянулся ни один код выше"
+
+msgid "Recognizing…"
+msgstr "Распознаю…"
+
+msgid "Sending your voice to the TV…"
+msgstr "Отправляю ваш голос на ТВ…"
+
+msgid "Sending “{}” to the TV…"
+msgstr "Отправляю «{}» на ТВ…"
+
+msgid "Sent to the TV"
+msgstr "Отправлено на ТВ"
+
+msgid "Sent “{}” to the TV"
+msgstr "«{}» отправлено на ТВ"
+
+msgid "Set"
+msgstr "Задать"
+
+msgid "Speech recognition isn't available on this phone"
+msgstr "Распознавание речи недоступно на этом телефоне"
+
+msgid "Switch the AC off in"
+msgstr "Выключить кондиционер через"
+
+msgid "Switch the AC on in"
+msgstr "Включить кондиционер через"
+
+msgid "This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote."
+msgstr "В протоколе этого кондиционера нет таймера, который может задать OmaControl. Удерживайте кнопку таймера, чтобы импортировать код с его пульта."
+
+msgid "power"
+msgstr "питание"
+
+msgid "“{}” · release to send"
+msgstr "«{}» · отпустите, чтобы отправить"
+
+msgid "“{}” · tap the mic to send"
+msgstr "«{}» · нажмите микрофон, чтобы отправить"

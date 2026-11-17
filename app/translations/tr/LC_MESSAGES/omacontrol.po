@@ -33,9 +33,6 @@ msgstr "Sonraki"
 msgid "It works"
 msgstr "Çalışıyor"
 
-msgid "Paste a Pronto code for a unit no code above reaches"
-msgstr "Yukarıdaki kodların çalışmadığı cihaz için bir Pronto kodu yapıştırın"
-
 msgid "Test code"
 msgstr "Kodu test et"
 
@@ -414,9 +411,6 @@ msgstr "uyku"
 msgid "swing"
 msgstr "salınım"
 
-msgid "{} archived"
-msgstr "{} arşivlendi"
-
 msgid "timer"
 msgstr "zamanlayıcı"
 
@@ -429,5 +423,77 @@ msgstr "Sihirli tuşu bul"
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "TV'yi izleyin ve bu tuştan istediğinizi yaptığı anda Bulundu'ya dokunun."
 
-msgid "Google Assistant is open on the TV"
-msgstr "Google Asistan TV’de açık"
+msgid "Clear"
+msgstr "Temizle"
+
+msgid "Didn't catch that · try again"
+msgstr "Anlaşılmadı · tekrar deneyin"
+
+msgid "Import"
+msgstr "İçe aktar"
+
+msgid "Import a code for {}"
+msgstr "{} için kod içe aktar"
+
+msgid "Listening · release to send"
+msgstr "Dinleniyor · göndermek için bırakın"
+
+msgid "Long-press a key to import its code."
+msgstr "Kodunu içe aktarmak için bir tuşa uzun basın."
+
+msgid "Off in {}"
+msgstr "{} sonra kapanır"
+
+msgid "Off timer"
+msgstr "Kapanma zamanlayıcısı"
+
+msgid "On in {}"
+msgstr "{} sonra açılır"
+
+msgid "On timer"
+msgstr "Açılma zamanlayıcısı"
+
+msgid "Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes"
+msgstr "Pronto hex, ham süreler, bir Flipper Zero .ir dosyası veya LIRC kodları yapıştırın"
+
+msgid "Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches"
+msgstr "Yukarıdaki kodların ulaşamadığı bir cihaz için Pronto, ham, Flipper veya LIRC kodu yapıştırın"
+
+msgid "Recognizing…"
+msgstr "Tanınıyor…"
+
+msgid "Sending your voice to the TV…"
+msgstr "Sesiniz TV'ye gönderiliyor…"
+
+msgid "Sending “{}” to the TV…"
+msgstr "“{}” TV'ye gönderiliyor…"
+
+msgid "Sent to the TV"
+msgstr "TV'ye gönderildi"
+
+msgid "Sent “{}” to the TV"
+msgstr "“{}” TV'ye gönderildi"
+
+msgid "Set"
+msgstr "Ayarla"
+
+msgid "Speech recognition isn't available on this phone"
+msgstr "Bu telefonda konuşma tanıma kullanılamıyor"
+
+msgid "Switch the AC off in"
+msgstr "Klimayı şu sürede kapat"
+
+msgid "Switch the AC on in"
+msgstr "Klimayı şu sürede aç"
+
+msgid "This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote."
+msgstr "Bu klimanın protokolünde OmaControl'ün ayarlayabileceği bir zamanlayıcı yok. Kumandasındaki zamanlayıcı kodunu içe aktarmak için zamanlayıcı tuşuna uzun basın."
+
+msgid "power"
+msgstr "güç"
+
+msgid "“{}” · release to send"
+msgstr "“{}” · göndermek için bırakın"
+
+msgid "“{}” · tap the mic to send"
+msgstr "“{}” · göndermek için mikrofona dokunun"

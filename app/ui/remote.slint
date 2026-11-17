@@ -1,8 +1,176 @@
-import { Theme } from "theme.slint";
-import { Key, KeyKind, Rocker, Header, Divider } from "widgets.slint";
+import { Theme, Feedback } from "theme.slint";
+import { Key, KeyKind, Rocker, Header, Divider, DPad, Pulse } from "widgets.slint";
+import { ChannelRow } from "keypad.slint";
+
+// The mic key. Hold to talk and let go to send (walkie-talkie, the default); a short tap
+// listens hands-free until the mic is tapped again.
+component MicKey inherits Rectangle {
+    in property <bool> active;
+    // Set once a short tap left the mic listening hands-free.
+    in-out property <bool> tap-mode;
+    callback start();
+    callback stop();
+    // This press is the second tap of a hands-free session: it sends on release.
+    property <bool> second;
+    property <bool> held;
+
+    clip: true;
+    border-radius: Theme.radius;
+    background: root.active ? (touch.pressed ? Theme.primary-pressed : Theme.fg) : (touch.pressed ? Theme.operator-pressed : Theme.operator);
+    animate background { duration: 90ms; }
+    Image {
+        source: @image-url("icons/mic.svg");
+        colorize: root.active ? Theme.bg : Theme.fg;
+        width: 22px;
+        height: 22px;
+    }
+    touch := TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                Feedback.tap();
+                root.held = false;
+                if root.active && root.tap-mode {
+                    root.second = true;
+                } else {
+                    root.second = false;
+                    root.tap-mode = false;
+                    root.start();
+                }
+            } else if e.kind == PointerEventKind.up {
+                if root.second || root.held {
+                    root.second = false;
+                    root.held = false;
+                    root.tap-mode = false;
+                    root.stop();
+                } else if root.active {
+                    // A short tap: keep listening until the next one.
+                    root.tap-mode = true;
+                }
+            } else if e.kind == PointerEventKind.cancel && root.held {
+                root.held = false;
+                root.stop();
+            }
+        }
+    }
+    // Held past the threshold: a walkie-talkie press, sent when the finger lets go.
+    Timer {
+        interval: 300ms;
+        running: touch.pressed && !root.second && !root.held;
+        triggered => { root.held = true; }
+    }
+}
+
+// A small icon key for the corner of the swapped-in panels.
+component CloseKey inherits Rectangle {
+    callback clicked;
+    width: 40px;
+    height: 40px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.operator-pressed : Theme.operator;
+    Image { source: @image-url("icons/close.svg"); colorize: Theme.fg; width: 18px; height: 18px; }
+    touch := TouchArea {
+        pointer-event(e) => { if e.kind == PointerEventKind.down { Feedback.tap(); } }
+        clicked => { root.clicked(); }
+    }
+}
+
+// The trackpad. Android TV's remote protocol has no pointer, so a drag becomes D-pad presses:
+// one per `step` of travel along the main axis (a long drag repeats), a tap is OK, a long
+// press is Back.
+component Trackpad inherits Rectangle {
+    in property <length> step: 40px;
+    callback press(string);
+    property <length> anchor-x;
+    property <length> anchor-y;
+    property <bool> moved;
+    property <bool> long-fired;
+    property <bool> pulsing;
+    property <duration> pulse-start;
+    property <length> px;
+    property <length> py;
+
+    clip: true;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.key-border;
+    background: Theme.key;
+
+    Image {
+        source: @image-url("icons/move.svg");
+        colorize: Theme.muted;
+        width: 28px;
+        height: 28px;
+        opacity: touch.pressed ? 0 : 0.6;
+        animate opacity { duration: 120ms; }
+    }
+    if touch.pressed: Rectangle {
+        x: touch.mouse-x - 22px;
+        y: touch.mouse-y - 22px;
+        width: 44px;
+        height: 44px;
+        border-radius: 22px;
+        background: Theme.accent.with-alpha(0.25);
+        border-width: 1px;
+        border-color: Theme.accent;
+    }
+    Pulse { pulsing: root.pulsing; start: root.pulse-start; px: root.px; py: root.py; }
+    Timer { interval: 420ms; running: root.pulsing; triggered => { root.pulsing = false; } }
+
+    function send(key: string) {
+        Feedback.tap();
+        if Feedback.ir {
+            root.px = touch.mouse-x;
+            root.py = touch.mouse-y;
+            root.pulse-start = animation-tick();
+            root.pulsing = true;
+        }
+        root.press(key);
+    }
+
+    touch := TouchArea {
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.anchor-x = self.mouse-x;
+                root.anchor-y = self.mouse-y;
+                root.moved = false;
+                root.long-fired = false;
+            } else if e.kind == PointerEventKind.up {
+                if !root.moved && !root.long-fired {
+                    root.send("ok");
+                }
+            }
+        }
+        moved => {
+            if root.long-fired { return; }
+            let dx = self.mouse-x - root.anchor-x;
+            let dy = self.mouse-y - root.anchor-y;
+            if abs(dx) >= root.step && abs(dx) >= abs(dy) {
+                root.moved = true;
+                root.anchor-x += dx > 0 ? root.step : -root.step;
+                root.anchor-y = self.mouse-y;
+                root.send(dx > 0 ? "right" : "left");
+            } else if abs(dy) >= root.step && abs(dy) > abs(dx) {
+                root.moved = true;
+                root.anchor-y += dy > 0 ? root.step : -root.step;
+                root.anchor-x = self.mouse-x;
+                root.send(dy > 0 ? "down" : "up");
+            } else if abs(self.mouse-x - self.pressed-x) > 10px || abs(self.mouse-y - self.pressed-y) > 10px {
+                root.moved = true;
+            }
+        }
+    }
+    Timer {
+        interval: 550ms;
+        running: touch.pressed && !root.moved && !root.long-fired;
+        triggered => {
+            root.long-fired = true;
+            root.send("back");
+        }
+    }
+}
 
 // 02 · Remote.
-export component RemotePage inherits VerticalLayout {
+export component RemotePage inherits Rectangle {
     in property <string> tv-name;
     in property <string> tv-status-code;
     in property <string> tv-status-detail;
@@ -14,19 +182,36 @@ export component RemotePage inherits VerticalLayout {
     callback menu;
     callback press(string);
     callback keypad;
-    callback keyboard;
     callback voice-start;
     callback voice-stop;
     callback devices;
+    callback send-text(string);
+    // Saved channels, one tap away in the number pad.
+    in property <[ChannelRow]> channels;
+    callback tune(string);
+    // The D-pad's look (round or boxy), remembered across launches.
+    in-out property <bool> dpad-round;
+    callback dpad-style(bool);
     // Android TV pairing: the TV shows a 6-character code, typed here.
     in property <bool> pairing;
     callback pair(string);
     callback cancel-pair;
+    // The on-screen keyboard, in window coordinates.
+    in property <length> kb-top;
     in property <length> kb-height;
     // IR TVs get a magic key: tap plays it, long-press learns it again with Auto scan.
     in property <bool> ir;
     in property <bool> magic-learned;
     callback magic(bool);
+
+    // What fills the lower controls: 0 volume & co, 1 the number pad, 2 the trackpad.
+    in-out property <int> lower: 0;
+    property <string> channel;
+    property <bool> voice-tap;
+    // While typing, the "type to TV" row rides just above the keyboard.
+    property <bool> lifted: text.has-focus && root.kb-height > 0;
+    property <length> slot-y: slot.absolute-position.y - root.absolute-position.y;
+    property <length> bar-y: root.lifted ? min(root.slot-y, root.kb-top - root.absolute-position.y - 56px - 10px) : root.slot-y;
 
     function localized-status() -> string {
         if root.tv-status-code == "pairing" { return @tr("Pairing…"); }
@@ -46,151 +231,294 @@ export component RemotePage inherits VerticalLayout {
     function localized-voice-status() -> string {
         if root.voice-status-code == "permission" { return @tr("Allow microphone access, then tap the mic again"); }
         if root.voice-status-code == "starting" { return @tr("Connecting to voice assistant…"); }
-        if root.voice-status-code == "active" { return @tr("Listening · tap the mic to send"); }
-        if root.voice-status-code == "assistant" { return @tr("Google Assistant is open on the TV"); }
+        if root.voice-status-code == "active" {
+            return root.voice-tap ? @tr("Listening · tap the mic to send") : @tr("Listening · release to send");
+        }
+        if root.voice-status-code == "heard" {
+            return root.voice-tap ? @tr("“{}” · tap the mic to send", root.voice-status-detail) : @tr("“{}” · release to send", root.voice-status-detail);
+        }
+        if root.voice-status-code == "recognizing" { return @tr("Recognizing…"); }
+        if root.voice-status-code == "sending" { return @tr("Sending “{}” to the TV…", root.voice-status-detail); }
+        if root.voice-status-code == "finishing" { return @tr("Sending your voice to the TV…"); }
+        if root.voice-status-code == "sent" {
+            return root.voice-status-detail == "" ? @tr("Sent to the TV") : @tr("Sent “{}” to the TV", root.voice-status-detail);
+        }
+        if root.voice-status-code == "no-speech" { return @tr("Didn't catch that · try again"); }
+        if root.voice-status-code == "no-recognizer" { return @tr("Speech recognition isn't available on this phone"); }
         if root.voice-status-code == "error" { return @tr("Voice unavailable: {}", root.voice-status-detail); }
         return "";
     }
 
-    spacing: Theme.gap;
-    Header { title: root.tv-name; subtitle: root.localized-status(); online: root.online; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
-    Divider { }
+    // Digits go to the TV straight away; the display just echoes them.
+    function digit(d: string) {
+        root.channel = d == "dash" ? root.channel + "-" : root.channel + d;
+        root.press(d);
+    }
+    function go() {
+        if text.text != "" {
+            root.send-text(text.text);
+            text.text = "";
+        } else {
+            root.press("ok");
+            root.channel = "";
+        }
+    }
+    function close-lower() {
+        root.lower = 0;
+        root.channel = "";
+        text.clear-focus();
+    }
+
     if root.pairing: VerticalLayout {
         spacing: Theme.gap;
-        padding-top: 18px;
-        padding-bottom: root.kb-height;
-        vertical-stretch: 1;
-        alignment: start;
-        Text { x: 8px; text: @tr("Pair"); color: Theme.muted; font-size: 19px; }
-        Text { text: @tr("Type the code your TV shows"); color: Theme.fg; font-size: 22px; wrap: word-wrap; horizontal-alignment: right; }
-        Rectangle { height: 8px; }
+        Header { title: root.tv-name; subtitle: root.localized-status(); online: root.online; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
+        Divider { }
+        VerticalLayout {
+            spacing: Theme.gap;
+            padding-top: 18px;
+            padding-bottom: root.kb-height;
+            vertical-stretch: 1;
+            alignment: start;
+            Text { x: 8px; text: @tr("Pair"); color: Theme.muted; font-size: 19px; }
+            Text { text: @tr("Type the code your TV shows"); color: Theme.fg; font-size: 22px; wrap: word-wrap; horizontal-alignment: right; }
+            Rectangle { height: 8px; }
+            Rectangle {
+                height: 84px;
+                border-radius: Theme.radius;
+                background: Theme.key;
+                border-width: 1px;
+                border-color: code.has-focus ? Theme.accent : Theme.key-border;
+                code := TextInput {
+                    x: 18px;
+                    width: parent.width - 36px;
+                    color: Theme.fg;
+                    font-size: 40px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    accepted => { root.pair(self.text); }
+                }
+                if code.text == "": Text { text: "_ _ _ _ _ _"; color: Theme.muted; font-size: 32px; }
+            }
+            Text { x: 8px; text: @tr("6 characters, 0-9 and A-F. It stays on the TV for a minute."); color: Theme.muted; font-size: 13px; wrap: word-wrap; }
+            HorizontalLayout {
+                height: 64px;
+                spacing: Theme.gap;
+                Key { label: @tr("Cancel"); font-size: 17px; clicked => { root.cancel-pair(); } }
+                Key { label: @tr("Pair"); kind: KeyKind.primary; font-size: 17px; clicked => { root.pair(code.text); } }
+            }
+            init => { code.focus(); }
+        }
+    }
+
+    // The remote stays laid out while pairing (hidden), so the typing row can find its slot.
+    VerticalLayout {
+        visible: !root.pairing;
+        spacing: Theme.gap;
+        Header { title: root.tv-name; subtitle: root.localized-status(); online: root.online; tappable: true; title-clicked => { root.devices(); } menu => { root.menu(); } }
+        Divider { }
+        HorizontalLayout {
+            height: 58px;
+            spacing: Theme.gap;
+            Key { has-icon: true; icon: @image-url("icons/power.svg"); clicked => { root.press("power"); } }
+            Key { has-icon: true; icon: @image-url("icons/input.svg"); clicked => { root.press("input"); } }
+            Key { has-icon: true; icon: @image-url("icons/mute.svg"); clicked => { root.press("mute"); } }
+            Key { has-icon: true; icon: @image-url("icons/grid.svg"); kind: KeyKind.operator; clicked => { root.keypad(); } }
+        }
+        if root.voice-status-code != "": Text {
+            x: 8px;
+            text: root.localized-voice-status();
+            color: root.voice-active ? Theme.accent : Theme.muted;
+            font-size: 13px;
+            wrap: word-wrap;
+        }
+        VerticalLayout {
+            padding-top: 10px;
+            min-height: root.lower == 0 ? 260px : 180px;
+            vertical-stretch: 1;
+            DPad {
+                round <=> root.dpad-round;
+                press(k) => { root.press(k); }
+                style-changed(round) => { root.dpad-style(round); }
+            }
+        }
+        HorizontalLayout {
+            height: 58px;
+            spacing: Theme.gap;
+            Key { has-icon: true; icon: @image-url("icons/back.svg"); clicked => { root.press("back"); } }
+            Key { has-icon: true; icon: @image-url("icons/home.svg"); clicked => { root.press("home"); } }
+            Key { has-icon: true; icon: @image-url("icons/menu.svg"); clicked => { root.press("menu"); } }
+        }
+
+        // The lower controls: volume, playback and channels.
+        if root.lower == 0: HorizontalLayout {
+            spacing: Theme.gap;
+            min-height: 220px;
+            vertical-stretch: 1;
+            Rocker { horizontal-stretch: 1.4; label: "VOL"; up => { root.press("vol+"); } down => { root.press("vol-"); } }
+            // Two plain rows (a GridLayout misplaces conditional keys).
+            VerticalLayout {
+                horizontal-stretch: 3;
+                spacing: Theme.gap;
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/rew.svg"); clicked => { root.press("rew"); } }
+                    Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/play.svg"); clicked => { root.press("play"); } }
+                    Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/ff.svg"); clicked => { root.press("ff"); } }
+                }
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    if root.voice-supported: MicKey {
+                        active: root.voice-active;
+                        tap-mode <=> root.voice-tap;
+                        start => { root.voice-start(); }
+                        stop => { root.voice-stop(); }
+                    }
+                    Key {
+                        has-icon: true;
+                        icon-size: 22px;
+                        icon: @image-url("icons/trackpad.svg");
+                        clicked => { root.lower = 2; }
+                    }
+                    if root.ir: Key {
+                        has-icon: true;
+                        icon-size: 22px;
+                        icon: @image-url("icons/magic.svg");
+                        kind: KeyKind.operator;
+                        long-press-enabled: true;
+                        clicked => { root.magic(false); }
+                        long-pressed => { root.magic(true); }
+                        Text {
+                            x: parent.width - 20px;
+                            y: 6px;
+                            text: "?";
+                            color: Theme.muted;
+                            font-size: 13px;
+                            visible: !root.magic-learned;
+                        }
+                    }
+                    Key { label: "123"; clicked => { root.lower = 1; } }
+                }
+            }
+            Rocker { horizontal-stretch: 1.4; label: "CH"; up => { root.press("ch+"); } down => { root.press("ch-"); } }
+        }
+
+        // The number pad, in place of the lower controls.
+        if root.lower == 1: VerticalLayout {
+            spacing: 8px;
+            min-height: 220px;
+            vertical-stretch: 1;
+            HorizontalLayout {
+                height: 40px;
+                spacing: 8px;
+                Text {
+                    min-width: 48px;
+                    text: root.channel == "" ? "_" : root.channel;
+                    color: Theme.fg;
+                    font-size: 24px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                // Saved channels: a tap tunes (saving and renaming live in Channels & apps).
+                Flickable {
+                    horizontal-stretch: 1;
+                    content-width: chips.preferred-width;
+                    chips := HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        for c in root.channels: Rectangle {
+                            width: max(64px, chip-label.preferred-width + 24px);
+                            border-radius: Theme.radius;
+                            border-width: 1px;
+                            border-color: Theme.key-border;
+                            background: chip-touch.pressed ? Theme.key-pressed : Theme.key;
+                            chip-label := Text { text: c.name; color: Theme.fg; font-size: 13px; }
+                            chip-touch := TouchArea {
+                                pointer-event(e) => { if e.kind == PointerEventKind.down { Feedback.tap(); } }
+                                clicked => {
+                                    root.channel = c.number;
+                                    root.tune(c.number);
+                                }
+                            }
+                        }
+                    }
+                }
+                CloseKey { clicked => { root.close-lower(); } }
+            }
+            GridLayout {
+                spacing: 8px;
+                vertical-stretch: 1;
+                Row {
+                    Key { label: "1"; font-size: 22px; clicked => { root.digit("1"); } }
+                    Key { label: "2"; font-size: 22px; clicked => { root.digit("2"); } }
+                    Key { label: "3"; font-size: 22px; clicked => { root.digit("3"); } }
+                }
+                Row {
+                    Key { label: "4"; font-size: 22px; clicked => { root.digit("4"); } }
+                    Key { label: "5"; font-size: 22px; clicked => { root.digit("5"); } }
+                    Key { label: "6"; font-size: 22px; clicked => { root.digit("6"); } }
+                }
+                Row {
+                    Key { label: "7"; font-size: 22px; clicked => { root.digit("7"); } }
+                    Key { label: "8"; font-size: 22px; clicked => { root.digit("8"); } }
+                    Key { label: "9"; font-size: 22px; clicked => { root.digit("9"); } }
+                }
+                Row {
+                    Key { label: "—"; font-size: 22px; clicked => { root.digit("dash"); } }
+                    Key { label: "0"; font-size: 22px; clicked => { root.digit("0"); } }
+                    Key { has-icon: true; icon: @image-url("icons/bksp.svg"); icon-size: 24px; clicked => { root.channel = ""; } }
+                }
+            }
+        }
+
+        // The trackpad, in place of the lower controls.
+        if root.lower == 2: Rectangle {
+            min-height: 220px;
+            vertical-stretch: 1;
+            Trackpad {
+                press(k) => { root.press(k); }
+            }
+            CloseKey {
+                x: parent.width - self.width - 8px;
+                y: 8px;
+                clicked => { root.close-lower(); }
+            }
+        }
+
+        // Where the "type to TV" row sits (number pad only) until the keyboard lifts it.
+        slot := Rectangle { height: root.lower == 1 ? 56px : 0px; }
+    }
+
+    // A clean strip of page color behind the lifted row, so the keys don't show through.
+    if root.lifted && root.lower == 1 && !root.pairing: Rectangle {
+        y: root.bar-y - 14px;
+        height: root.height - self.y + 40px;
+        background: Theme.bg;
+        Rectangle { y: 0; height: 1px; background: Theme.divider; }
+    }
+    HorizontalLayout {
+        y: root.bar-y;
+        height: 56px;
+        visible: root.lower == 1 && !root.pairing;
+        animate y { duration: 160ms; easing: ease-out; }
+        spacing: Theme.gap;
         Rectangle {
-            height: 84px;
+            horizontal-stretch: 3;
             border-radius: Theme.radius;
             background: Theme.key;
             border-width: 1px;
-            border-color: code.has-focus ? Theme.accent : Theme.key-border;
-            code := TextInput {
-                x: 18px;
-                width: parent.width - 36px;
+            border-color: Theme.key-border;
+            clip: true;
+            text := TextInput {
+                x: 16px;
+                width: parent.width - 32px;
                 color: Theme.fg;
-                font-size: 40px;
-                horizontal-alignment: center;
+                font-size: 16px;
                 vertical-alignment: center;
-                accepted => { root.pair(self.text); }
+                single-line: true;
+                accepted => { root.go(); }
             }
-            if code.text == "": Text { text: "_ _ _ _ _ _"; color: Theme.muted; font-size: 32px; }
+            if text.text == "": Text { x: 16px; width: parent.width - 32px; overflow: elide; text: @tr("Type to TV…"); color: Theme.muted; font-size: 16px; vertical-alignment: center; }
         }
-        Text { x: 8px; text: @tr("6 characters, 0-9 and A-F. It stays on the TV for a minute."); color: Theme.muted; font-size: 13px; wrap: word-wrap; }
-        HorizontalLayout {
-            height: 64px;
-            spacing: Theme.gap;
-            Key { label: @tr("Cancel"); font-size: 17px; clicked => { root.cancel-pair(); } }
-            Key { label: @tr("Pair"); kind: KeyKind.primary; font-size: 17px; clicked => { root.pair(code.text); } }
-        }
-        init => { code.focus(); }
-    }
-    if !root.pairing: VerticalLayout {
-    spacing: Theme.gap;
-    vertical-stretch: 1;
-    HorizontalLayout {
-        height: 58px;
-        spacing: Theme.gap;
-        Key { has-icon: true; icon: @image-url("icons/power.svg"); clicked => { root.press("power"); } }
-        Key { has-icon: true; icon: @image-url("icons/input.svg"); clicked => { root.press("input"); } }
-        Key { has-icon: true; icon: @image-url("icons/mute.svg"); clicked => { root.press("mute"); } }
-        Key { has-icon: true; icon: @image-url("icons/grid.svg"); kind: KeyKind.operator; clicked => { root.keypad(); } }
-    }
-    if root.voice-status-code != "": Text {
-        x: 8px;
-        text: root.localized-voice-status();
-        color: root.voice-active ? Theme.accent : Theme.muted;
-        font-size: 13px;
-        wrap: word-wrap;
-    }
-    GridLayout {
-        spacing: Theme.gap;
-        padding-top: 10px;
-        min-height: 260px;
-        vertical-stretch: 1;
-        Row {
-            Rectangle { }
-            Key { has-icon: true; icon: @image-url("icons/up.svg"); icon-size: 30px; clicked => { root.press("up"); } }
-            Rectangle { }
-        }
-        Row {
-            Key { has-icon: true; icon: @image-url("icons/left.svg"); icon-size: 30px; clicked => { root.press("left"); } }
-            Key { label: @tr("OK"); kind: KeyKind.primary; font-size: 22px; clicked => { root.press("ok"); } }
-            Key { has-icon: true; icon: @image-url("icons/right.svg"); icon-size: 30px; clicked => { root.press("right"); } }
-        }
-        Row {
-            Rectangle { }
-            Key { has-icon: true; icon: @image-url("icons/down.svg"); icon-size: 30px; clicked => { root.press("down"); } }
-            Rectangle { }
-        }
-    }
-    HorizontalLayout {
-        height: 58px;
-        spacing: Theme.gap;
-        padding-top: 0px;
-        Key { has-icon: true; icon: @image-url("icons/back.svg"); clicked => { root.press("back"); } }
-        Key { has-icon: true; icon: @image-url("icons/home.svg"); clicked => { root.press("home"); } }
-        Key { has-icon: true; icon: @image-url("icons/menu.svg"); clicked => { root.press("menu"); } }
-    }
-    HorizontalLayout {
-        spacing: Theme.gap;
-        min-height: 220px;
-        vertical-stretch: 1;
-        Rocker { horizontal-stretch: 1.4; label: "VOL"; up => { root.press("vol+"); } down => { root.press("vol-"); } }
-        // Two plain rows (a GridLayout misplaces the conditional mic/keyboard key).
-        VerticalLayout {
-            horizontal-stretch: 3;
-            spacing: Theme.gap;
-            HorizontalLayout {
-                spacing: Theme.gap;
-                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/rew.svg"); clicked => { root.press("rew"); } }
-                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/play.svg"); clicked => { root.press("play"); } }
-                Key { has-icon: true; icon-size: 22px; icon: @image-url("icons/ff.svg"); clicked => { root.press("ff"); } }
-            }
-            HorizontalLayout {
-                spacing: Theme.gap;
-                if root.voice-supported: Key {
-                    has-icon: true;
-                    icon-size: 22px;
-                    icon: @image-url("icons/mic.svg");
-                    kind: root.voice-active ? KeyKind.primary : KeyKind.operator;
-                    // Tap to talk, tap again to send (the TV also stops on its own after a pause).
-                    clicked => {
-                        if root.voice-active { root.voice-stop(); } else { root.voice-start(); }
-                    }
-                }
-                if !root.ir: Key {
-                    has-icon: true;
-                    icon-size: 22px;
-                    icon: @image-url("icons/kbd.svg");
-                    clicked => { root.keyboard(); }
-                }
-                if root.ir: Key {
-                    has-icon: true;
-                    icon-size: 22px;
-                    icon: @image-url("icons/magic.svg");
-                    kind: KeyKind.operator;
-                    long-press-enabled: true;
-                    clicked => { root.magic(false); }
-                    long-pressed => { root.magic(true); }
-                    Text {
-                        x: parent.width - 20px;
-                        y: 6px;
-                        text: "?";
-                        color: Theme.muted;
-                        font-size: 13px;
-                        visible: !root.magic-learned;
-                    }
-                }
-                Key { label: "123"; clicked => { root.keypad(); } }
-            }
-        }
-        Rocker { horizontal-stretch: 1.4; label: "CH"; up => { root.press("ch+"); } down => { root.press("ch-"); } }
-    }
+        Key { horizontal-stretch: 1; label: @tr("GO"); kind: KeyKind.primary; font-size: 20px; clicked => { root.go(); } }
     }
 }

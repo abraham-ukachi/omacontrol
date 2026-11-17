@@ -33,9 +33,6 @@ msgstr "Seguinte"
 msgid "It works"
 msgstr "Funciona"
 
-msgid "Paste a Pronto code for a unit no code above reaches"
-msgstr "Cole um código Pronto para um aparelho não abrangido pelos códigos acima"
-
 msgid "Test code"
 msgstr "Testar código"
 
@@ -414,9 +411,6 @@ msgstr "dormir"
 msgid "swing"
 msgstr "oscilação"
 
-msgid "{} archived"
-msgstr "{} arquivados"
-
 msgid "timer"
 msgstr "temporizador"
 
@@ -429,5 +423,77 @@ msgstr "Encontrar a tecla mágica"
 msgid "Watch the TV and tap Found it as soon as it does what you want this key to do."
 msgstr "Observe a TV e toque em Encontrado assim que ela fizer o que você quer desta tecla."
 
-msgid "Google Assistant is open on the TV"
-msgstr "O Google Assistente está aberto na TV"
+msgid "Clear"
+msgstr "Limpar"
+
+msgid "Didn't catch that · try again"
+msgstr "Não percebi · tente de novo"
+
+msgid "Import"
+msgstr "Importar"
+
+msgid "Import a code for {}"
+msgstr "Importar um código para {}"
+
+msgid "Listening · release to send"
+msgstr "A ouvir · solte para enviar"
+
+msgid "Long-press a key to import its code."
+msgstr "Toque longo numa tecla para importar o código."
+
+msgid "Off in {}"
+msgstr "Desliga em {}"
+
+msgid "Off timer"
+msgstr "Temporizador para desligar"
+
+msgid "On in {}"
+msgstr "Liga em {}"
+
+msgid "On timer"
+msgstr "Temporizador para ligar"
+
+msgid "Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes"
+msgstr "Cole um código Pronto, tempos brutos, um ficheiro .ir do Flipper Zero ou códigos LIRC"
+
+msgid "Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches"
+msgstr "Cole um código Pronto, bruto, Flipper ou LIRC para um aparelho que nenhum código acima alcança"
+
+msgid "Recognizing…"
+msgstr "A reconhecer…"
+
+msgid "Sending your voice to the TV…"
+msgstr "A enviar a sua voz para a TV…"
+
+msgid "Sending “{}” to the TV…"
+msgstr "A enviar «{}» para a TV…"
+
+msgid "Sent to the TV"
+msgstr "Enviado para a TV"
+
+msgid "Sent “{}” to the TV"
+msgstr "«{}» enviado para a TV"
+
+msgid "Set"
+msgstr "Definir"
+
+msgid "Speech recognition isn't available on this phone"
+msgstr "O reconhecimento de voz não está disponível neste telefone"
+
+msgid "Switch the AC off in"
+msgstr "Desligar o ar condicionado em"
+
+msgid "Switch the AC on in"
+msgstr "Ligar o ar condicionado em"
+
+msgid "This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote."
+msgstr "O protocolo deste ar condicionado não tem um temporizador que o OmaControl possa definir. Toque longo na tecla do temporizador para importar o código do comando."
+
+msgid "power"
+msgstr "ligar"
+
+msgid "“{}” · release to send"
+msgstr "«{}» · solte para enviar"
+
+msgid "“{}” · tap the mic to send"
+msgstr "«{}» · toque no microfone para enviar"

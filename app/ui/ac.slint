@@ -152,6 +152,152 @@ export component NecScanOverlay inherits Rectangle {
         }
     }
 
+global AcFormat {
+    // "2:30": minutes as hours and minutes.
+    public pure function clock(m: int) -> string {
+        return floor(m / 60) + ":" + (m - floor(m / 60) * 60 < 10 ? "0" : "") + (m - floor(m / 60) * 60);
+    }
+}
+
+// The AC's timer: one at a time, like on its own remote. While the AC runs it switches it off,
+// while it's off it switches it on; the AC counts it down itself.
+component TimerSheet inherits Rectangle {
+    in property <bool> supported;
+    in property <int> step: 30;
+    in property <int> longest: 1440;
+    in property <int> left;
+    in property <bool> timer-on;
+    in property <bool> power;
+    callback set(int);
+    callback close();
+    property <int> minutes: 60;
+
+    init => {
+        root.minutes = root.left > 0 ? clamp(round(root.left / root.step) * root.step, root.step, root.longest) : clamp(60, root.step, root.longest);
+    }
+
+    background: Theme.bg.with-alpha(0.82);
+    TouchArea { clicked => { root.close(); } }
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(parent.width - 32px, 420px);
+        height: body.preferred-height;
+        border-radius: Theme.radius;
+        background: Theme.bg;
+        border-width: 1px;
+        border-color: Theme.divider;
+        TouchArea { }
+        body := VerticalLayout {
+            padding: 20px;
+            spacing: 14px;
+            Text {
+                text: (root.left > 0 ? root.timer-on : !root.power) ? @tr("On timer") : @tr("Off timer");
+                color: Theme.fg;
+                font-size: 22px;
+            }
+            if !root.supported: Text {
+                text: @tr("This AC's protocol has no timer OmaControl can set. Long-press the timer key to import the timer code from its remote.");
+                color: Theme.muted;
+                font-size: 15px;
+                wrap: word-wrap;
+            }
+            if root.supported: Text {
+                text: root.left > 0
+                    ? (root.timer-on ? @tr("On in {}", AcFormat.clock(root.left)) : @tr("Off in {}", AcFormat.clock(root.left)))
+                    : (root.power ? @tr("Switch the AC off in") : @tr("Switch the AC on in"));
+                color: root.left > 0 ? Theme.accent : Theme.muted;
+                font-size: 15px;
+            }
+            if root.supported: HorizontalLayout {
+                height: 72px;
+                spacing: Theme.gap;
+                Key { label: "−"; kind: KeyKind.operator; font-size: 32px; clicked => { root.minutes = max(root.step, root.minutes - root.step); } }
+                Text {
+                    horizontal-stretch: 2;
+                    text: AcFormat.clock(root.minutes);
+                    color: Theme.fg;
+                    font-size: 40px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                Key { label: "+"; kind: KeyKind.operator; font-size: 32px; clicked => { root.minutes = min(root.longest, root.minutes + root.step); } }
+            }
+            HorizontalLayout {
+                height: 56px;
+                spacing: Theme.gap;
+                if !root.supported: Key { label: @tr("Done"); kind: KeyKind.primary; font-size: 16px; clicked => { root.close(); } }
+                if root.supported && root.left > 0: Key { label: @tr("Clear"); kind: KeyKind.operator; font-size: 16px; clicked => { root.set(0); root.close(); } }
+                if root.supported && root.left == 0: Key { label: @tr("Cancel"); kind: KeyKind.operator; font-size: 16px; clicked => { root.close(); } }
+                if root.supported: Key { label: @tr("Set"); kind: KeyKind.primary; font-size: 16px; clicked => { root.set(root.minutes); root.close(); } }
+            }
+        }
+    }
+}
+
+// Import a code for one AC key: Pronto, raw timings, a Flipper Zero .ir file or LIRC codes.
+// Named codes in a file land on the keys their names stand for.
+component ImportSheet inherits Rectangle {
+    in property <string> key-label;
+    in property <string> error;
+    callback import(string);
+    callback close();
+
+    background: Theme.bg.with-alpha(0.82);
+    TouchArea { clicked => { root.close(); } }
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 24px;
+        width: min(parent.width - 32px, 420px);
+        height: body.preferred-height;
+        border-radius: Theme.radius;
+        background: Theme.bg;
+        border-width: 1px;
+        border-color: Theme.divider;
+        TouchArea { }
+        body := VerticalLayout {
+            padding: 20px;
+            spacing: 14px;
+            Text { text: @tr("Import a code for {}", root.key-label); color: Theme.fg; font-size: 22px; wrap: word-wrap; }
+            Rectangle {
+                height: 140px;
+                border-radius: Theme.radius;
+                background: Theme.key;
+                border-width: 1px;
+                border-color: field.has-focus ? Theme.accent : Theme.key-border;
+                clip: true;
+                field := TextInput {
+                    x: 12px;
+                    y: 10px;
+                    width: parent.width - 24px;
+                    height: parent.height - 20px;
+                    color: Theme.fg;
+                    font-size: 13px;
+                    single-line: false;
+                    wrap: word-wrap;
+                }
+                if field.text == "": Text {
+                    x: 12px;
+                    y: 10px;
+                    width: parent.width - 24px;
+                    text: @tr("Paste Pronto hex, raw timings, a Flipper Zero .ir file or LIRC codes");
+                    color: Theme.muted;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                    vertical-alignment: top;
+                }
+            }
+            if root.error != "": Text { text: @tr("Invalid infrared code: {}", root.error); color: Theme.accent; font-size: 14px; wrap: word-wrap; }
+            HorizontalLayout {
+                height: 56px;
+                spacing: Theme.gap;
+                Key { label: @tr("Cancel"); kind: KeyKind.operator; font-size: 16px; clicked => { root.close(); } }
+                Key { label: @tr("Import"); kind: KeyKind.primary; font-size: 16px; clicked => { root.import(field.text); } }
+            }
+        }
+    }
+}
+
 // 04 · Air conditioner, laid out like its own panel: power, mode, fan, − 22° +, sleep, swing.
 export component AcPage inherits Rectangle {
     in property <string> name;
@@ -181,9 +327,32 @@ export component AcPage inherits Rectangle {
     in property <string> fan;
     in property <bool> swing;
     in property <bool> sleep;
+    // The timer (protocols that carry one), and importing a code for a key (long-press).
+    in property <bool> timer-supported;
+    in property <int> timer-step: 30;
+    in property <int> timer-max: 1440;
+    in property <int> timer-left;
+    in property <bool> timer-on;
+    callback set-timer(int);
+    in-out property <string> import-key;
+    in-out property <string> import-error;
+    callback import(string, string);
+    property <bool> timer-open;
     callback menu;
     callback action(string);
     callback devices;
+
+    function key-label(k: string) -> string {
+        return k == "power" ? @tr("power")
+            : k == "mode" ? @tr("mode")
+            : k == "fan" ? @tr("fan")
+            : k == "cooler" ? "−"
+            : k == "warmer" ? "+"
+            : k == "timer" ? @tr("timer")
+            : k == "sleep" ? @tr("sleep")
+            : k == "swing" ? @tr("swing")
+            : k;
+    }
 
     VerticalLayout {
         spacing: Theme.gap;
@@ -211,7 +380,16 @@ export component AcPage inherits Rectangle {
                 has-icon: true;
                 icon: @image-url("icons/power.svg");
                 kind: root.power ? KeyKind.primary : KeyKind.number;
+                long-press-enabled: true;
                 clicked => { root.action("power"); }
+                long-pressed => { root.import-key = "power"; }
+            }
+            Text {
+                text: @tr("Long-press a key to import its code.");
+                color: Theme.muted;
+                font-size: 14px;
+                horizontal-alignment: center;
+                wrap: word-wrap;
             }
         }
         if !root.power-only: VerticalLayout {
@@ -228,6 +406,11 @@ export component AcPage inherits Rectangle {
                 color: Theme.muted;
                 font-size: 19px;
             }
+            if root.timer-left > 0: Text {
+                text: root.timer-on ? @tr("On in {}", AcFormat.clock(root.timer-left)) : @tr("Off in {}", AcFormat.clock(root.timer-left));
+                color: Theme.accent;
+                font-size: 15px;
+            }
             Text {
                 text: root.mode == "fan" ? @tr("Fan") : root.temp + "°";
                 color: root.power ? Theme.fg : Theme.muted;
@@ -239,23 +422,34 @@ export component AcPage inherits Rectangle {
         if !root.power-only: HorizontalLayout {
             height: 72px;
             spacing: Theme.gap;
-            Key { has-icon: true; icon: @image-url("icons/power.svg"); kind: root.power ? KeyKind.primary : KeyKind.number; clicked => { root.action("power"); } }
-            LearnKey { unlearned: root.nec && !root.learned.mode; label: root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"); font-size: 18px; clicked => { root.action("mode"); } }
-            LearnKey { unlearned: root.nec && !root.learned.fan; has-icon: true; icon: @image-url("icons/fan.svg"); clicked => { root.action("fan"); } }
+            Key { has-icon: true; icon: @image-url("icons/power.svg"); kind: root.power ? KeyKind.primary : KeyKind.number; long-press-enabled: true; clicked => { root.action("power"); } long-pressed => { root.import-key = "power"; } }
+            LearnKey { unlearned: root.nec && !root.learned.mode; label: root.mode == "cool" ? @tr("Cool") : root.mode == "fan" ? @tr("Fan") : root.mode == "dry" ? @tr("Dry") : root.mode == "heat" ? @tr("Heat") : @tr("Auto"); font-size: 18px; long-press-enabled: true; clicked => { root.action("mode"); } long-pressed => { root.import-key = "mode"; } }
+            LearnKey { unlearned: root.nec && !root.learned.fan; has-icon: true; icon: @image-url("icons/fan.svg"); long-press-enabled: true; clicked => { root.action("fan"); } long-pressed => { root.import-key = "fan"; } }
         }
         if !root.power-only: HorizontalLayout {
             spacing: Theme.gap;
             vertical-stretch: 1;
             min-height: 150px;
-            LearnKey { unlearned: root.nec && !root.learned.cooler; label: "−"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("cooler"); } }
-            LearnKey { unlearned: root.nec && !root.learned.warmer; label: "+"; kind: KeyKind.operator; font-size: 44px; clicked => { root.action("warmer"); } }
+            LearnKey { unlearned: root.nec && !root.learned.cooler; label: "−"; kind: KeyKind.operator; font-size: 44px; long-press-enabled: true; clicked => { root.action("cooler"); } long-pressed => { root.import-key = "cooler"; } }
+            LearnKey { unlearned: root.nec && !root.learned.warmer; label: "+"; kind: KeyKind.operator; font-size: 44px; long-press-enabled: true; clicked => { root.action("warmer"); } long-pressed => { root.import-key = "warmer"; } }
         }
         if !root.power-only: HorizontalLayout {
             height: 72px;
             spacing: Theme.gap;
-            if root.nec: LearnKey { unlearned: !root.learned.timer; kind: KeyKind.operator; has-icon: true; icon: @image-url("icons/timer.svg"); clicked => { root.action("timer"); } }
-            Toggle { unlearned: root.nec && !root.learned.sleep; has-icon: true; icon: @image-url("icons/sleep.svg"); on: root.sleep; clicked => { root.action("sleep"); } }
-            Toggle { unlearned: root.nec && !root.learned.swing; has-icon: true; icon: @image-url("icons/swing.svg"); on: root.swing; clicked => { root.action("swing"); } }
+            // Per-key remotes send their learned Timer key; protocol ACs open the timer.
+            Toggle {
+                unlearned: root.nec && !root.learned.timer;
+                has-icon: true;
+                icon: @image-url("icons/timer.svg");
+                on: root.timer-left > 0;
+                long-press-enabled: true;
+                clicked => {
+                    if root.nec || root.learned.timer { root.action("timer"); } else { root.timer-open = true; }
+                }
+                long-pressed => { root.import-key = "timer"; }
+            }
+            Toggle { unlearned: root.nec && !root.learned.sleep; has-icon: true; icon: @image-url("icons/sleep.svg"); on: root.sleep; long-press-enabled: true; clicked => { root.action("sleep"); } long-pressed => { root.import-key = "sleep"; } }
+            Toggle { unlearned: root.nec && !root.learned.swing; has-icon: true; icon: @image-url("icons/swing.svg"); on: root.swing; long-press-enabled: true; clicked => { root.action("swing"); } long-pressed => { root.import-key = "swing"; } }
         }
     }
     if root.scan-active || root.scan-finished || root.scan-review: NecScanOverlay {
@@ -279,6 +473,22 @@ export component AcPage inherits Rectangle {
         setup(step) => { root.setup(step); }
         scan-cancel => { root.scan-cancel(); }
         scan-navigate(d) => { root.scan-navigate(d); }
+    }
+    if root.timer-open: TimerSheet {
+        supported: root.timer-supported;
+        step: root.timer-step;
+        longest: root.timer-max;
+        left: root.timer-left;
+        timer-on: root.timer-on;
+        power: root.power;
+        set(m) => { root.set-timer(m); }
+        close => { root.timer-open = false; }
+    }
+    if root.import-key != "": ImportSheet {
+        key-label: root.key-label(root.import-key);
+        error: root.import-error;
+        import(text) => { root.import(root.import-key, text); }
+        close => { root.import-key = ""; root.import-error = ""; }
     }
 }
 
@@ -384,7 +594,7 @@ export component AcSetupPage inherits Rectangle {
             if field.text == "": Text {
                 x: 14px;
                 width: parent.width - 28px;
-                text: @tr("Paste a Pronto code for a unit no code above reaches");
+                text: @tr("Paste a Pronto, raw, Flipper or LIRC code for a unit no code above reaches");
                 color: Theme.muted;
                 font-size: 14px;
                 vertical-alignment: center;

@@ -32,6 +32,9 @@ pub struct Store {
     /// Our certificate for Android TV / Google TV (made on first pairing, shared by every such TV).
     #[serde(default)]
     pub android_tv_identity: Option<crate::tv::androidtv::Identity>,
+    /// The remote's D-pad: round (a ring around OK) instead of boxy keys.
+    #[serde(default)]
+    pub dpad_round: bool,
     #[serde(skip)]
     path: PathBuf,
 }
