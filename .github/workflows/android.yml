@@ -157,6 +157,24 @@ jobs:
         run: |
           xcodebuild -project OmaControl.xcodeproj -target OmaControl -configuration Debug \
             -sdk iphonesimulator ARCHS=arm64 SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build
+      - name: Launch in the simulator (smoke test + screenshot)
+        continue-on-error: true
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" ios/build/Debug-iphonesimulator/OmaControl.app
+          xcrun simctl launch "$udid" io.github.abrahamukachi.omacontrol
+          sleep 20
+          mkdir -p shots
+          xcrun simctl io "$udid" screenshot shots/ios-simulator.png
+          xcrun simctl spawn "$udid" launchctl list | grep -i omacontrol || { echo "::error::OmaControl is not running 20 s after launch"; exit 1; }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: omacontrol-ios-screenshot
+          path: shots/*.png
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         with:
           name: omacontrol-ios
