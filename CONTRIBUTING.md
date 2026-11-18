@@ -51,3 +51,9 @@ We use [gitmoji](https://gitmoji.dev) + a short sentence in the imperative mood:
 | 🔖 | `:bookmark:` | a release (`Release 0.2.0`) |
 
 Example: `:sparkles: Add the Android TV pairing PIN screen`
+
+## Releases 🔖
+
+Bump `[workspace.package] version` in `Cargo.toml` and `Cargo.lock`, add the CHANGELOG entry, commit (`:bookmark: Release X.Y.Z-beta`), then push the `vX.Y.Z-beta` tag right away. The "Android, Linux and iOS" workflow checks the tag against the version and **every release ships all three builds**: the Android APK, the Linux tarball (`omacontrol-linux-x86_64.tar.gz`) and the iOS app (`omacontrol-vX.Y.Z-unsigned.ipa`, plus a signed `.ipa` when the `IOS_CERT_P12_BASE64`, `IOS_CERT_PASSWORD` and `IOS_PROVISION_PROFILE_BASE64` secrets are set). A release missing one of them isn't done.
+
+iOS builds need macOS with Xcode and `xcodegen` (`brew install xcodegen`): `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`, then `ios/generate.sh` and open `ios/OmaControl.xcodeproj`. Code that only exists on a phone goes behind `#[cfg(target_os = "android")]` or `#[cfg(target_os = "ios")]`.

@@ -11,7 +11,7 @@
 </p>
 
 <p align="center" style="margin-top:12px;">
-    <a href="https://github.com/abraham-ukachi/omacontrol/releases" target="_blank"><b>Download the APK &rarr;</b></a>
+    <a href="https://github.com/abraham-ukachi/omacontrol/releases" target="_blank"><b>Download the APK, iOS .ipa or Linux build &rarr;</b></a>
 </p>
 
 
@@ -101,6 +101,7 @@ Versions as built on 2026-11-17:
 | 8 | *`UI`* | [app/ui/](./app/ui) | The seven screens (Devices, Remote, Channels & apps, Menu, AC, AC setup, Settings) and the ASCII scanner, in Slint |
 | 9 | *`App`* | [app/src/lib.rs](./app/src/lib.rs) | Wires the UI to the core; a worker thread does all the talking to TVs, the IR blaster and the network |
 | 10 | *`Android bits`* | [app/src/android_ir.rs](./app/src/android_ir.rs), [`haptics.rs`](./app/src/haptics.rs), [`android_url.rs`](./app/src/android_url.rs) | The IR blaster (`ConsumerIrManager`), the haptic tick, and opening links, through JNI |
+| 11 | *`iOS bits`* | [app/src/ios.rs](./app/src/ios.rs), [ios/](./ios) | The haptic tap (`UIImpactFeedbackGenerator`), opening links and the phone's language through objc2; the Xcodegen project that packages the cargo-built app |
 
 
 ## Build & run 🛠️
@@ -110,9 +111,10 @@ cargo test -p omacontrol-core          # Core tests, no TV needed
 cargo test -p omacontrol-core --release -- --ignored   # + Android TV pairing against a fake TV
 cargo run -p omacontrol                # the UI on your desktop
 cargo apk run --lib -p omacontrol      # on your Android phone (NDK + cargo-apk)
+ios/generate.sh && open ios/OmaControl.xcodeproj   # on your iPhone (macOS, Xcode, xcodegen)
 ```
 
-Every push to `main` builds an APK (`omacontrol-apk`) and an x86_64 Linux bundle (`omacontrol-linux-x86_64`) in GitHub Actions. Tagged releases publish both assets; Android release builds require the permanent signing key to be configured as GitHub Actions secrets.
+Every push to `main` builds an APK (`omacontrol-apk`), an x86_64 Linux bundle (`omacontrol-linux-x86_64`) and an iOS app (`omacontrol-ios`) in GitHub Actions. **Every tagged release ships all three**: the Android APK, the Linux tarball and the unsigned iOS `.ipa`. Android release builds require the permanent signing key to be configured as GitHub Actions secrets.
 
 ### Omarchy/Linux desktop
 
@@ -127,6 +129,17 @@ install -Dm644 omacontrol.png ~/.local/share/icons/hicolor/512x512/apps/omacontr
 
 The desktop entry makes OmaControl available in the app launcher. You can also launch it from a terminal with `omacontrol`. The bundle targets x86_64 Omarchy/Arch Linux and uses the system Wayland, Fontconfig and xkbcommon libraries.
 
+### iPhone and iPad (iOS 15+)
+
+Each release has an unsigned `omacontrol-vX.Y.Z-unsigned.ipa`. iOS only runs signed apps, so sideload it with a tool that signs it with your Apple ID:
+
+- **[AltStore](https://altstore.io) or [SideStore](https://sidestore.io)** with a free Apple ID: open the `.ipa` in AltStore/SideStore (or "Open in…" from Files). Apps signed with a free Apple ID expire after **7 days**; AltStore/SideStore refreshes them for you (keep it refreshing, or reinstall).
+- **A paid Apple Developer account**: re-sign the `.ipa` with your own certificate and profile, or build it from source in Xcode, and ship it through TestFlight. If the repository has the `IOS_CERT_P12_BASE64`, `IOS_CERT_PASSWORD` and `IOS_PROVISION_PROFILE_BASE64` secrets, CI also attaches a signed `omacontrol-vX.Y.Z.ipa`.
+
+On iOS OmaControl controls **network TVs** (Samsung, LG, Roku, Android TV / Google TV). iPhones have **no IR blaster**, so IR TVs and air conditioners are hidden there, and the **mic is not available on iOS yet**. Allow **Local Network** access when iOS asks: without it the app can't reach your TVs. If the scan finds nothing, add the TV by its IP address.
+
+### Build the Linux app from source
+
 To build and install from source, use a stable Rust toolchain and these Arch packages:
 
 ```sh
@@ -136,7 +149,7 @@ cargo install --locked --path app
 
 Without an active Omarchy `colors.toml`, the desktop app keeps its built-in theme picker and uses Tokyo Night by default. When the file is available, **Omarchy (live)** follows its colors without a restart.
 
-OmaControl follows the Android system language on phones and the desktop locale on Linux by default; choose a different language in **Settings** to override it. All app screens and built-in prompts are translated into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese; English is used for English and unsupported locales. Operating-system and protocol diagnostic details may retain the language supplied by the underlying service.
+OmaControl follows the phone's system language on Android and iOS and the desktop locale on Linux by default; choose a different language in **Settings** to override it. All app screens and built-in prompts are translated into German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Turkish and Simplified Chinese; English is used for English and unsupported locales. Operating-system and protocol diagnostic details may retain the language supplied by the underlying service.
 
 The NEC sweep is an OmaControl-defined candidate set, not IrCode Finder's verified sequence. It begins with `00FF40BF`; because a phone cannot receive IR, watch the AC and tap **Found it** when it reacts, then replay adjacent candidates with **Previous**/**Next** before choosing **Use this**.
 
