@@ -1,0 +1,57 @@
+# The iOS app: Xcode only packages it, cargo builds it (build_for_ios_with_cargo.bash).
+# Generate the project with `ios/generate.sh` (needs xcodegen), then build in Xcode or with xcodebuild.
+name: OmaControl
+options:
+  bundleIdPrefix: io.github.abrahamukachi
+  deploymentTarget:
+    iOS: "15.0"
+configFiles:
+  Debug: Version.xcconfig
+  Release: Version.xcconfig
+settings:
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
+targets:
+  OmaControl:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    settings:
+      PRODUCT_NAME: OmaControl
+      PRODUCT_BUNDLE_IDENTIFIER: io.github.abrahamukachi.omacontrol
+      TARGETED_DEVICE_FAMILY: "1,2"
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      GENERATE_INFOPLIST_FILE: NO
+      ENABLE_USER_SCRIPT_SANDBOXING: NO
+    sources:
+      - path: Assets.xcassets
+        buildPhase: resources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: OmaControl
+        CFBundleName: OmaControl
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        CADisableMinimumFrameDurationOnPhone: true
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+        NSLocalNetworkUsageDescription: OmaControl finds and controls the TVs on your Wi-Fi.
+        # Every mDNS service the discovery browses (crates/omacontrol-core/src/discovery.rs).
+        NSBonjourServices:
+          - _androidtvremote2._tcp
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    postCompileScripts:
+      - name: Build the Rust app with cargo
+        script: |
+          ./build_for_ios_with_cargo.bash omacontrol -p omacontrol --locked
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)

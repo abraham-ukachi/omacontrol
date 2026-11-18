@@ -34,6 +34,8 @@ mod android_speech;
 mod android_voice;
 #[cfg(target_os = "android")]
 mod haptics;
+#[cfg(target_os = "ios")]
+mod ios;
 mod voice;
 
 use voice::{voice_report, wire_voice, VoiceSource};
@@ -44,7 +46,11 @@ fn open_url(url: &str) {
     {
         android_url::open(url);
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(target_os = "ios")]
+    {
+        ios::open_url(url);
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let opener = if cfg!(target_os = "macos") {
             "open"
@@ -61,6 +67,8 @@ fn open_url(url: &str) {
 fn version_line() -> String {
     let os = if cfg!(target_os = "android") {
         "Android"
+    } else if cfg!(target_os = "ios") {
+        "iOS"
     } else {
         std::env::consts::OS
     };
@@ -150,7 +158,9 @@ fn select_translation(language: &str) {
                 "en".to_string()
             }
         };
-        #[cfg(not(target_os = "android"))]
+        #[cfg(target_os = "ios")]
+        let locale = ios::language_tag().unwrap_or_else(|| "en".to_string());
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let locale = ["LC_ALL", "LC_MESSAGES", "LANG"]
             .iter()
             .filter_map(|name| std::env::var(name).ok())
@@ -211,10 +221,12 @@ fn android_language_tag() -> Result<String, jni::errors::Error> {
     Ok(language_tag)
 }
 
-/// A faint tick under the finger (Android only; desktops have nothing to vibrate).
+/// A faint tick under the finger (Android and iOS; desktops have nothing to vibrate).
 fn haptic_tick() {
     #[cfg(target_os = "android")]
     haptics::tick();
+    #[cfg(target_os = "ios")]
+    ios::tick();
 }
 
 /// The phone's IR blaster (Android only).
@@ -1792,6 +1804,13 @@ fn report(
         Ok(()) => status(weak, TvStatus::Connected(label.to_string()), true),
         Err(e) => status(weak, TvStatus::Error(e.to_string()), false),
     }
+}
+
+/// iOS entry point (called from `main.rs`): Slint's winit backend owns the UIKit app.
+#[cfg(target_os = "ios")]
+pub fn run_ios() {
+    // The UI keeps clear of the notch and the home indicator through Slint's safe-area insets.
+    run(ios::data_dir(), 0.0, 0.0);
 }
 
 /// Android entry point.

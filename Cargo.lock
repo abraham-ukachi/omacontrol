@@ -1955,6 +1955,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-renderer-femtovg",
+ "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "input",
  "libseat",
@@ -1980,6 +1981,7 @@ dependencies = [
  "i-slint-core",
  "i-slint-core-macros",
  "i-slint-renderer-femtovg",
+ "i-slint-renderer-skia",
 ]
 
 [[package]]
@@ -1991,6 +1993,7 @@ dependencies = [
  "cfg_aliases",
  "i-slint-common",
  "i-slint-core",
+ "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "vtable",
 ]
@@ -3491,9 +3494,12 @@ version = "0.6.2-beta"
 dependencies = [
  "android-build",
  "android_logger",
+ "block2 0.6.2",
  "jni 0.21.1",
  "log",
  "ndk-context",
+ "objc2 0.6.5",
+ "objc2-foundation 0.3.2",
  "omacontrol-core",
  "slint",
  "slint-build",
@@ -4575,6 +4581,7 @@ dependencies = [
  "i-slint-core",
  "i-slint-core-macros",
  "i-slint-renderer-femtovg",
+ "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "num-traits",
  "once_cell",
@@ -4697,6 +4704,7 @@ checksum = "aac18da81ebbf05109ab275b157c22a653bb3c12cf884450179942f81bcbf6c3"
 dependencies = [
  "as-raw-xcb-connection",
  "bytemuck",
+ "drm",
  "fastrand",
  "js-sys",
  "memmap2",

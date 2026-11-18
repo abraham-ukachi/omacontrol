@@ -1,5 +1,13 @@
-// Desktop entry point for Omarchy/Linux and development.
+// Desktop entry point for Omarchy/Linux and development, and the iOS app's executable.
 fn main() {
+    #[cfg(target_os = "ios")]
+    omacontrol::run_ios();
+    #[cfg(not(target_os = "ios"))]
+    desktop();
+}
+
+#[cfg(not(target_os = "ios"))]
+fn desktop() {
     // `--version` has to answer without a window: it is how you check which build is installed.
     if std::env::args().skip(1).any(|a| a == "--version" || a == "-V") {
         println!("omacontrol {}", env!("CARGO_PKG_VERSION"));
