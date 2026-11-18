@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. Versions follow [SemVer](https://semver.org), see [CONTRIBUTING.md](./CONTRIBUTING.md#git-commit-messages) for the commit guidelines.
 
+## [0.7.0-beta] - 2026-11-18
+
+### Added
+- :iphone: An iOS app for iPhone and iPad (iOS 15+). It runs the same Slint UI on winit + Skia and controls network TVs (Samsung, LG, Roku, Android TV / Google TV with pairing), keeps clear of the notch and the home indicator, follows the phone's language, opens links in Safari/Mail and taps lightly on every key (`UIImpactFeedbackGenerator`). Data lives in the app's Library/Application Support.
+- :construction_worker: Every release ships an unsigned `omacontrol-vX.Y.Z-unsigned.ipa` next to the APK and the Linux tarball, built on a macOS runner with Xcodegen (plus a simulator build as a check). When the `IOS_CERT_P12_BASE64`, `IOS_CERT_PASSWORD` and `IOS_PROVISION_PROFILE_BASE64` secrets exist, a signed `.ipa` is attached too. CI also launches the app in the iOS simulator and keeps a screenshot.
+- :memo: README: installing the `.ipa` with AltStore/SideStore (free Apple ID, re-signed every 7 days) or a paid developer account and TestFlight.
+
+### Changed
+- :construction_worker: The release workflow is now "Android, Linux and iOS".
+
+### Known limits on iOS
+- No IR blaster on iPhones: IR TVs and air conditioners are hidden, as on Linux.
+- The mic (TV voice search and the speech fallback) is hidden on iOS for now.
+
 ## [0.6.2-beta] - 2026-11-17
 
 ### Added
